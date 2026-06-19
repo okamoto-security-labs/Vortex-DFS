@@ -1,0 +1,29 @@
+[package]
+name = "vortex-dfs"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic physics-oriented AI defense SDK — post-quantum security layer"
+license = "Apache-2.0"
+repository = "https://github.com/okamoto-security-labs/Vortex-DFS"
+homepage = "https://okamoto-security-labs.github.io/Vortex-DFS"
+keywords = ["security", "post-quantum", "cryptography", "lwe", "pqc"]
+categories = ["cryptography", "network-programming", "authentication"]
+readme = "README.md"
+
+[lib]
+name = "vortex_dfs"
+path = "src/lib.rs"
+
+[dependencies]
+crc32fast = "1.4"
+hmac      = "0.12"
+sha2      = "0.10"
+hex       = "0.4"
+subtle    = "2.5"
+
+# Para produção — descomente quando integrar pqcrypto-dilithium
+# pqcrypto-dilithium = "0.5"
+# pqcrypto-traits    = "0.3"
+
+[dev-dependencies]
+# Testes de integração e benchmarks
