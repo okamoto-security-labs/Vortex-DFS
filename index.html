@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vortex DFS — Deterministic Physics-Oriented AI Defense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #050A0F;
+    --bg-card:   #0B1420;
+    --bg-subtle: #0F1E2E;
+    --cyan:      #0EA5E9;
+    --cyan-dim:  #0369A1;
+    --cyan-glow: rgba(14,165,233,0.15);
+    --white:     #F8FAFC;
+    --muted:     #64748B;
+    --slate:     #94A3B8;
+    --border:    rgba(14,165,233,0.12);
+    --border-strong: rgba(14,165,233,0.28);
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 2.5rem;
+    background: rgba(5,10,15,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--white); text-decoration: none;
+  }
+  .nav-logo span { color: var(--cyan); }
+
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a {
+    color: var(--slate); text-decoration: none; font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--white); }
+
+  .nav-cta {
+    background: var(--cyan); color: #050A0F;
+    padding: 0.5rem 1.25rem; border-radius: 6px;
+    font-weight: 600; font-size: 0.875rem; text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .nav-cta:hover { opacity: 0.85; }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8rem 2rem 4rem;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(14,165,233,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.8rem; font-weight: 500;
+    color: var(--cyan); letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .hero-eyebrow::before,
+  .hero-eyebrow::after {
+    content: ''; display: block;
+    width: 2rem; height: 1px; background: var(--cyan-dim);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 700; line-height: 1.08;
+    letter-spacing: -0.02em;
+    max-width: 820px;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--cyan);
+  }
+
+  .hero-sub {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    color: var(--slate); max-width: 560px;
+    margin-bottom: 3rem; line-height: 1.7;
+  }
+
+  .hero-actions {
+    display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 4rem;
+  }
+
+  .btn-primary {
+    background: var(--cyan); color: #050A0F;
+    padding: 0.875rem 2rem; border-radius: 8px;
+    font-weight: 700; font-size: 0.95rem; text-decoration: none;
+    transition: opacity 0.2s, transform 0.15s;
+    display: inline-block;
+  }
+  .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: transparent; color: var(--white);
+    padding: 0.875rem 2rem; border-radius: 8px;
+    font-weight: 500; font-size: 0.95rem; text-decoration: none;
+    border: 1px solid var(--border-strong);
+    transition: border-color 0.2s, transform 0.15s;
+    display: inline-block;
+  }
+  .btn-secondary:hover { border-color: var(--cyan); transform: translateY(-1px); }
+
+  /* ── TRUST VISUALIZER ── */
+  .visualizer {
+    width: 100%; max-width: 680px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    padding: 1.75rem;
+    text-align: left;
+  }
+
+  .viz-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .viz-title {
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--cyan); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .viz-badge {
+    font-family: var(--font-mono); font-size: 0.75rem;
+    padding: 0.25rem 0.75rem; border-radius: 20px;
+    font-weight: 500; transition: all 0.4s;
+  }
+
+  .badge-high    { background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); }
+  .badge-op      { background: rgba(14,165,233,0.15); color: #0EA5E9; border: 1px solid rgba(14,165,233,0.3); }
+  .badge-fragile { background: rgba(245,158,11,0.15); color: #F59E0B; border: 1px solid rgba(245,158,11,0.3); }
+  .badge-crit    { background: rgba(239,68,68,0.15);  color: #EF4444; border: 1px solid rgba(239,68,68,0.3); }
+
+  .viz-sliders { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+
+  .slider-row { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .slider-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.82rem; color: var(--slate);
+  }
+  .slider-label span:last-child {
+    font-family: var(--font-mono); color: var(--white); font-size: 0.8rem;
+  }
+
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 4px; border-radius: 2px;
+    background: var(--bg-subtle); outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--cyan); cursor: pointer;
+    box-shadow: 0 0 8px rgba(14,165,233,0.5);
+  }
+
+  .viz-score-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .viz-score-label {
+    font-family: var(--font-mono); font-size: 0.75rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .viz-bar-track {
+    flex: 1; height: 8px; background: var(--bg-subtle); border-radius: 4px; overflow: hidden;
+  }
+  .viz-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.35s ease, background 0.35s ease;
+  }
+
+  .viz-score-num {
+    font-family: var(--font-mono); font-size: 1.1rem; font-weight: 500;
+    color: var(--white); min-width: 3.5rem; text-align: right;
+  }
+
+  /* ── SECTION BASE ── */
+  section { padding: 6rem 2rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+
+  .section-label {
+    font-family: var(--font-mono); font-size: 0.75rem;
+    color: var(--cyan); letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    font-weight: 700; line-height: 1.15;
+    letter-spacing: -0.02em; margin-bottom: 1rem;
+  }
+
+  .section-sub {
+    color: var(--slate); font-size: 1.05rem;
+    max-width: 560px; line-height: 1.7; margin-bottom: 3rem;
+  }
+
+  /* ── GUARANTEES ── */
+  .guarantees { background: var(--bg); border-top: 1px solid var(--border); }
+
+  .guarantees-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .guarantee-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    transition: border-color 0.2s;
+  }
+  .guarantee-card:hover { border-color: var(--border-strong); }
+
+  .guarantee-icon {
+    width: 44px; height: 44px;
+    background: var(--cyan-glow);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1.25rem;
+    font-size: 1.25rem;
+  }
+
+  .guarantee-card h3 {
+    font-size: 1.05rem; font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+
+  .guarantee-card p { color: var(--slate); font-size: 0.92rem; line-height: 1.65; }
+
+  /* ── PIPELINE ── */
+  .pipeline-section { background: var(--bg-subtle); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+  .pipeline {
+    display: flex; flex-direction: column; gap: 0;
+    max-width: 640px;
+  }
+
+  .pipe-step {
+    display: flex; gap: 1.25rem; align-items: flex-start;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pipe-step:last-child { border-bottom: none; }
+
+  .pipe-num {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: var(--cyan); font-weight: 500;
+    min-width: 2rem; padding-top: 0.15rem;
+  }
+
+  .pipe-content h4 {
+    font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem;
+  }
+
+  .pipe-content p { color: var(--slate); font-size: 0.875rem; line-height: 1.6; }
+
+  .pipe-tag {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    color: var(--cyan); background: var(--cyan-glow);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    margin-left: 0.5rem; vertical-align: middle;
+  }
+
+  /* ── FOR WHO ── */
+  .forwho-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+
+  .forwho-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 2rem;
+  }
+
+  .forwho-card h3 {
+    font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .forwho-card ul {
+    list-style: none; display: flex; flex-direction: column; gap: 0.6rem;
+  }
+
+  .forwho-card li {
+    color: var(--slate); font-size: 0.9rem;
+    display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+
+  .forwho-card li::before {
+    content: '→'; color: var(--cyan);
+    font-family: var(--font-mono); flex-shrink: 0;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-section { background: var(--bg); border-top: 1px solid var(--border); }
+
+  .code-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px; overflow: hidden;
+  }
+
+  .code-bar {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-subtle);
+  }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #EF4444; }
+  .dot-y { background: #F59E0B; }
+  .dot-g { background: #10B981; }
+
+  .code-filename {
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--muted); margin-left: 0.5rem;
+  }
+
+  pre {
+    padding: 1.5rem; overflow-x: auto;
+    font-family: var(--font-mono); font-size: 0.82rem;
+    line-height: 1.75; color: var(--slate);
+  }
+
+  .kw  { color: #C084FC; }
+  .fn  { color: #60A5FA; }
+  .str { color: #34D399; }
+  .cm  { color: #475569; }
+  .cy  { color: var(--cyan); }
+
+  /* ── CTA FINAL ── */
+  .cta-section {
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .cta-box {
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 4rem 3rem;
+    max-width: 680px; margin: 0 auto;
+    position: relative; overflow: hidden;
+  }
+
+  .cta-box::before {
+    content: '';
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 60%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  }
+
+  .cta-box h2 {
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 700; margin-bottom: 1rem; letter-spacing: -0.02em;
+  }
+
+  .cta-box p { color: var(--slate); margin-bottom: 2rem; font-size: 1rem; }
+
+  .cta-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+
+  .footer-logo { font-weight: 700; font-size: 0.9rem; }
+  .footer-logo span { color: var(--cyan); }
+
+  footer p { color: var(--muted); font-size: 0.8rem; }
+
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--muted); text-decoration: none; font-size: 0.8rem; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--slate); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+    margin: 0;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    nav { padding: 1rem 1.25rem; }
+    .nav-links { display: none; }
+    .forwho-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2.2rem; }
+    .cta-box { padding: 2.5rem 1.5rem; }
+    footer { flex-direction: column; text-align: center; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">VORTEX<span>DFS</span></a>
+  <ul class="nav-links">
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#forwho">Who it's for</a></li>
+    <li><a href="#code">Quick start</a></li>
+  </ul>
+  <a href="https://github.com" class="nav-cta">View on GitHub</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">Post-Quantum · Deterministic · Physics-bound</div>
+
+  <h1>Security that obeys<br><em>the laws of physics.</em><br>Not guesswork.</h1>
+
+  <p class="hero-sub">
+    Vortex doesn't predict attacks. It reacts to the laws of exact sciences.
+    If a packet violates mathematics — it's blocked. No model. No exceptions.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#code" class="btn-primary">Get started</a>
+    <a href="#how" class="btn-secondary">See how it works</a>
+  </div>
+
+  <!-- LIVE TRUST VISUALIZER -->
+  <div class="visualizer">
+    <div class="viz-header">
+      <span class="viz-title">// live trust evaluator</span>
+      <span class="viz-badge badge-high" id="badge">HIGH_TRUST</span>
+    </div>
+
+    <div class="viz-sliders">
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>distance <span style="color:var(--muted); font-size:0.72rem;">(physical error)</span></span>
+          <span id="dist-val">0.05</span>
+        </div>
+        <input type="range" min="0" max="100" value="5" id="dist-slider">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>entropy <span style="color:var(--muted); font-size:0.72rem;">(lattice noise)</span></span>
+          <span id="ent-val">0.05</span>
+        </div>
+        <input type="range" min="0" max="100" value="5" id="ent-slider">
+      </div>
+    </div>
+
+    <div class="viz-score-row">
+      <span class="viz-score-label">trust score</span>
+      <div class="viz-bar-track">
+        <div class="viz-bar-fill" id="score-bar" style="width:99.75%; background:#10B981;"></div>
+      </div>
+      <span class="viz-score-num" id="score-num">0.9975</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- GUARANTEES -->
+<section class="guarantees" id="how">
+  <div class="container">
+    <div class="section-label">Core guarantees</div>
+    <h2 class="section-title">Three laws.<br>No exceptions.</h2>
+    <p class="section-sub">Every packet that enters Vortex is evaluated against deterministic mathematical invariants — not patterns, not models, not predictions.</p>
+
+    <div class="guarantees-grid">
+      <div class="guarantee-card">
+        <div class="guarantee-icon">⚛</div>
+        <h3>Post-quantum by design</h3>
+        <p>Signatures based on Learning With Errors — the mathematical foundation of NIST's 2024 post-quantum standards. A quantum computer does not break this.</p>
+      </div>
+      <div class="guarantee-card">
+        <div class="guarantee-icon">∫</div>
+        <h3>Physics-bound trust</h3>
+        <p>Trust scores derived from distance and entropy metrics, evaluated against deterministic thresholds. Not a model. Not a heuristic. Pure mathematics.</p>
+      </div>
+      <div class="guarantee-card">
+        <div class="guarantee-icon">⊢</div>
+        <h3>Zero ambiguity</h3>
+        <p>Every packet is Accept or Reject with a typed, auditable reason. No silent failures. No undefined behavior. No gray area an attacker can exploit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PIPELINE -->
+<section class="pipeline-section">
+  <div class="container">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">Four layers.<br>One decision.</h2>
+    <p class="section-sub">A packet only reaches the next layer if it fully satisfies the current one. Each layer has one job and one failure mode.</p>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <span class="pipe-num">01</span>
+        <div class="pipe-content">
+          <h4>Protocol <span class="pipe-tag">protocol.rs</span></h4>
+          <p>Binary parsing via explicit byte reads — no pointer casting, no unsafe. CRC-32 validation over header and payload before any processing.</p>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-num">02</span>
+        <div class="pipe-content">
+          <h4>Authentication <span class="pipe-tag">vortex_guard.rs</span></h4>
+          <p>HMAC-SHA256 with constant-time comparison. Body size enforced at 1MB. Session IDs sanitized before logging. Key loaded from environment — never hardcoded.</p>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-num">03</span>
+        <div class="pipe-content">
+          <h4>Signature <span class="pipe-tag">signer_lwe.rs</span></h4>
+          <p>Fiat-Shamir over LWE lattice. Commitment binding via hash — forging a signature without the secret key requires solving a problem quantum computers cannot.</p>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <span class="pipe-num">04</span>
+        <div class="pipe-content">
+          <h4>Trust evaluation <span class="pipe-tag">engine.rs + pqc_core.rs</span></h4>
+          <p>Distance and entropy metrics evaluated against physics-derived thresholds. Returns a typed TrustBand: HighTrust, Operational, Fragile, or Critical.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FOR WHO -->
+<section id="forwho">
+  <div class="container">
+    <div class="section-label">Who it's for</div>
+    <h2 class="section-title">Built for those<br>who cannot afford to be wrong.</h2>
+
+    <div class="forwho-grid">
+      <div class="forwho-card">
+        <h3>🏢 Enterprise</h3>
+        <ul>
+          <li>Financial infrastructure migrating from RSA/ECDSA</li>
+          <li>Systems requiring provable quantum resistance today</li>
+          <li>Regulated environments needing auditable decisions</li>
+          <li>AI pipelines requiring tamper-evident input authentication</li>
+        </ul>
+      </div>
+      <div class="forwho-card">
+        <h3>⚙️ Developers</h3>
+        <ul>
+          <li>Rust and Go native — no FFI overhead in the critical path</li>
+          <li>Typed errors at every layer — no silent failures</li>
+          <li>Zero unsafe in critical paths — memory safety guaranteed</li>
+          <li>Drop-in Axum middleware with full test coverage</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CODE -->
+<section class="code-section" id="code">
+  <div class="container">
+    <div class="section-label">Quick start</div>
+    <h2 class="section-title">Five lines<br>to post-quantum security.</h2>
+    <p class="section-sub">Add Vortex to your Rust project and start evaluating packets with full post-quantum authentication.</p>
+
+    <div class="code-wrap">
+      <div class="code-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="code-filename">main.rs</span>
+      </div>
+      <pre><span class="cm">// 1. Generate a keypair</span>
+<span class="kw">let</span> (sk, pk) = <span class="fn">keygen</span>(seed);
+<span class="kw">let</span> gate = <span class="fn">VortexGate::new</span>(pk.<span class="fn">clone</span>());
+
+<span class="cm">// 2. Sign and send a packet</span>
+<span class="kw">let</span> payload = <span class="fn">build_telemetry</span>(distance, entropy);
+<span class="kw">let</span> sig = sk.<span class="fn">sign</span>(&amp;payload, &amp;pk, nonce);
+
+<span class="cm">// 3. Evaluate on receipt</span>
+<span class="kw">match</span> gate.<span class="fn">process_packet</span>(&amp;raw, &amp;sig) {
+    TrustState::<span class="cy">HighTrust</span>               =&gt; { <span class="cm">/* proceed */</span> }
+    TrustState::<span class="cy">Operational</span>             =&gt; { <span class="cm">/* proceed with monitoring */</span> }
+    TrustState::<span class="cy">Fragile</span>                 =&gt; { <span class="cm">/* degrade gracefully */</span> }
+    TrustState::<span class="cy">RejectedSignature</span>       =&gt; { <span class="cm">/* block — forged packet */</span> }
+    TrustState::<span class="cy">RejectedProtocol</span>(why)   =&gt; { <span class="cm">/* block — malformed */</span> }
+    TrustState::<span class="cy">RejectedBounds</span>          =&gt; { <span class="cm">/* block — invalid metrics */</span> }
+}</pre>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CTA FINAL -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-box">
+      <h2>Ready to build on physics,<br>not probability?</h2>
+      <p>Open source under Apache 2.0. Built at Okamoto Security Labs.</p>
+      <div class="cta-actions">
+        <a href="https://github.com" class="btn-primary">View on GitHub</a>
+        <a href="mailto:contact@vortexdfs.dev" class="btn-secondary">Get in touch</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">VORTEX<span>DFS</span></div>
+  <p>© 2025 Okamoto Security Labs · Apache 2.0</p>
+  <div class="footer-links">
+    <a href="#">GitHub</a>
+    <a href="#">Docs</a>
+    <a href="#">License</a>
+  </div>
+</footer>
+
+<script>
+  const distSlider = document.getElementById('dist-slider');
+  const entSlider  = document.getElementById('ent-slider');
+  const distVal    = document.getElementById('dist-val');
+  const entVal     = document.getElementById('ent-val');
+  const scoreBar   = document.getElementById('score-bar');
+  const scoreNum   = document.getElementById('score-num');
+  const badge      = document.getElementById('badge');
+
+  function update() {
+    const d = distSlider.value / 100;
+    const e = entSlider.value  / 100;
+
+    distVal.textContent = d.toFixed(2);
+    entVal.textContent  = e.toFixed(2);
+
+    const score = Math.max(0, Math.min(1, 1 - d * e));
+    const pct   = (score * 100).toFixed(2);
+
+    scoreNum.textContent = score.toFixed(4);
+    scoreBar.style.width = pct + '%';
+
+    let band, color, cls;
+    if (score >= 0.95) {
+      band = 'HIGH_TRUST';   color = '#10B981'; cls = 'badge-high';
+    } else if (score >= 0.70) {
+      band = 'OPERATIONAL';  color = '#0EA5E9'; cls = 'badge-op';
+    } else if (score >= 0.20) {
+      band = 'FRAGILE';      color = '#F59E0B'; cls = 'badge-fragile';
+    } else {
+      band = 'CRITICAL';     color = '#EF4444'; cls = 'badge-crit';
+    }
+
+    scoreBar.style.background = color;
+    badge.textContent = band;
+    badge.className = 'viz-badge ' + cls;
+  }
+
+  distSlider.addEventListener('input', update);
+  entSlider.addEventListener('input', update);
+  update();
+</script>
+</body>
+</html>
