@@ -201,7 +201,7 @@ Apache 2.0 — see [LICENSE](LICENSE)
 
 **Built at Okamoto Security Labs**
 
-[🌐 Website](https://okamoto-security-labs.github.io/Vortex-DFS) · [📄 Article](./article_lwe_bug.md) · [⚖️ License](./LICENSE)
+[🌐 Website](https://okamoto-security-labs.github.io/Vortex-DFS) · [📄 Article](./article_lwe_bug.md) · [⚖️ License](./LICENSE)  [👋CONTRIBUTING](./CONTRIBUTING.md)
 
 <br/>
 
