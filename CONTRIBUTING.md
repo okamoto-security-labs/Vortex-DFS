@@ -69,8 +69,9 @@ cd gateway && go test ./...
 
 ## Contact
 
+[📧 E-mail](./gugaokamoto1@gmail.com)
 
-linkedin.com/in/gustavo-okamoto-de-carvalho-ti
+[🔗Linkedin](./linkedin.com/in/gustavo-okamoto-de-carvalho-ti)
 
 Open an issue or reach out directly via the repository.
 
