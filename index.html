@@ -593,42 +593,31 @@ const STRIPE_PRICE_IDS = {
   enterprise_annual:  'price_1TkWJaHkQnONoSg0jtXBgax4',
 };
 
-async function checkout(plan) {
-  if (plan === 'enterprise') {
-    showPage('contact');
+
+// WHY PAYMENT LINKS:
+// Stripe deprecated redirectToCheckout (client-only mode) in 2023.
+// Payment Links are the current zero-backend solution — create one per
+// price in dashboard.stripe.com/payment-links, paste the URLs below.
+const STRIPE_PAYMENT_LINKS = {
+  starter_weekly:     "https://buy.stripe.com/cNifZh6ar5YB91o7W893y00",
+  starter_monthly:    "https://buy.stripe.com/cNidR90Q70EhelI1xK93y01",
+  starter_annual:     "https://buy.stripe.com/14A8wP0Q73QtcdAb8k93y02",
+  pro_weekly:         "https://buy.stripe.com/6oUcN5eGXfzb4L8cco93y03",
+  pro_monthly:        "https://buy.stripe.com/00w14n0Q75YBelIgsE93y04",
+  pro_annual:         "https://buy.stripe.com/5kQcN59mD9aN7Xk5O093y05",
+  enterprise_weekly:  "https://buy.stripe.com/aFa28r0Q75YBelIcco93y06",
+  enterprise_monthly: "https://buy.stripe.com/aFa3cvfL15YB0uS7W893y07",
+  enterprise_annual:  "https://buy.stripe.com/bJefZhfL172FgtQdgs93y08",
+};
+
+function checkout(plan) {
+  if (plan === "enterprise") { showPage("contact"); return; }
+  const link = STRIPE_PAYMENT_LINKS[plan + "_" + currentBilling];
+  if (!link || link.includes("REPLACE")) {
+    alert("Crie os Payment Links em:\ndashboard.stripe.com/payment-links\ne cole as URLs no index.html");
     return;
   }
-
-  const priceId = STRIPE_PRICE_IDS[plan + '_' + currentBilling];
-  if (!priceId || priceId.includes('REPLACE')) {
-    alert('Stripe not configured yet.\n\nReplace STRIPE_PUBLISHABLE_KEY and STRIPE_PRICE_IDS in index.html with your live keys from dashboard.stripe.com.');
-    return;
-  }
-
-  // Load Stripe.js lazily — only when user clicks checkout
-  if (!window.Stripe) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://js.stripe.com/v3/';
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-
-  const stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
-
-  const { error } = await stripe.redirectToCheckout({
-    lineItems: [{ price: priceId, quantity: 1 }],
-    mode: 'subscription',
-    successUrl: window.location.origin + '/?checkout=success',
-    cancelUrl:  window.location.origin + '/?checkout=cancelled',
-  });
-
-  if (error) {
-    console.error('Stripe error:', error);
-    alert('Checkout error: ' + error.message);
-  }
+  window.location.href = link;
 }
 
 // Show success/cancel toast if returning from Stripe
