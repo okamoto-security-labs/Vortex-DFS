@@ -7,6 +7,7 @@
 // schedulers. Benchmark internally before switching runtimes.
 
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use base64::Engine as _;
 use aes_gcm::{Aes256Gcm, KeyInit, aead::{Aead, OsRng, rand_core::RngCore}};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -140,7 +141,7 @@ fn encrypt_token_map(map: &std::collections::HashMap<String, String>) -> String 
     // Format: base64(nonce || ciphertext)
     let mut payload = nonce_bytes.to_vec();
     payload.extend(ciphertext);
-    base64::encode(payload)
+    base64::engine::general_purpose::STANDARD.encode(payload)
 }
 
 // ---------------------------------------------------------------------------

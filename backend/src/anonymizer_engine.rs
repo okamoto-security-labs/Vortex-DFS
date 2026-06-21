@@ -82,8 +82,10 @@ pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
         // US SSN — dashes or spaces as separator; rejects all-zero segments
         // WHY NOT JUST \d{3}-\d{2}-\d{4}: too many false positives on phone
         // numbers and dates. The negative lookahead on 000/666/900+ is SSA spec.
+        // WHY NO LOOKAHEAD: Rust regex crate DFA engine does not support look-around.
+        // We match broad SSN format and reject 000/666/9xx in post-match validation.
         DetectionPattern::new("SSN_US",            Category::Identity,
-            r"\b(?!000|666|9\d{2})\d{3}[- ](?!00)\d{2}[- ](?!0000)\d{4}\b"),
+            r"\b[0-8]\d{2}[- ]\d{2}[- ]\d{4}\b"),
 
         // UK National Insurance Number
         DetectionPattern::new("NINO_UK",           Category::Identity,
