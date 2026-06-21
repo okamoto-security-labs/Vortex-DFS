@@ -124,6 +124,56 @@ footer p{color:var(--slate);font-size:.78rem}
 .footer-links a:hover{color:var(--white)}
 @media(max-width:768px){nav{padding:1rem 1.25rem}.nav-links{display:none}.docs-layout{grid-template-columns:1fr}.docs-nav{display:none}.contact-grid{grid-template-columns:1fr}footer{flex-direction:column;text-align:center}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ── Neon glow enhancements ─────────────────────────────────────────────── */
+.card{box-shadow:0 0 0 1px var(--border),0 4px 24px rgba(14,165,233,0.04)}
+.card:hover{border-color:var(--cyan);box-shadow:0 0 0 1px rgba(14,165,233,0.3),0 0 24px rgba(14,165,233,0.12),0 8px 32px rgba(14,165,233,0.08)}
+.plan.featured{box-shadow:0 0 0 1px var(--cyan),0 0 32px rgba(14,165,233,0.18),0 8px 40px rgba(14,165,233,0.10)}
+.btn-primary{box-shadow:0 0 16px rgba(14,165,233,0.35)}
+.btn-primary:hover{box-shadow:0 0 28px rgba(14,165,233,0.55)}
+nav{box-shadow:0 1px 0 var(--border),0 4px 24px rgba(4,8,15,0.8)}
+
+/* ── Live Demo ───────────────────────────────────────────────────────────── */
+#page-demo .demo-wrap{max-width:760px;margin:0 auto;padding:3rem 2rem 5rem}
+.demo-input-wrap{position:relative;margin-bottom:1.5rem}
+.demo-input{width:100%;min-height:140px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem;color:var(--white);font-family:var(--mono);font-size:.82rem;line-height:1.6;resize:vertical;outline:none;transition:border-color .2s}
+.demo-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(14,165,233,0.08)}
+.demo-btn{background:var(--cyan);color:#04080F;border:none;padding:.75rem 2rem;border-radius:7px;font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;box-shadow:0 0 16px rgba(14,165,233,0.35)}
+.demo-btn:hover{opacity:.88;box-shadow:0 0 28px rgba(14,165,233,0.55)}
+.demo-btn:disabled{opacity:.4;cursor:not-allowed}
+.demo-output{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-top:1.5rem;display:none}
+.demo-output.visible{display:block}
+.demo-sanitized{font-family:var(--mono);font-size:.82rem;line-height:1.7;color:var(--white);white-space:pre-wrap;word-break:break-word}
+.demo-sanitized .redacted{color:#0EA5E9;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);border-radius:3px;padding:0 4px;font-weight:600;box-shadow:0 0 8px rgba(14,165,233,0.2)}
+.demo-meta{display:flex;gap:1.5rem;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);flex-wrap:wrap}
+.demo-risk-bar{flex:1;min-width:180px}
+.demo-risk-label{font-family:var(--mono);font-size:.68rem;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+.demo-risk-track{height:6px;background:var(--bg-subtle);border-radius:3px;overflow:hidden}
+.demo-risk-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.demo-detections{font-family:var(--mono);font-size:.75rem;color:var(--slate);display:flex;flex-wrap:wrap;gap:.4rem}
+.demo-det-tag{background:var(--bg-subtle);border:1px solid var(--border);padding:.2rem .5rem;border-radius:4px;color:var(--cyan)}
+.demo-latency{font-family:var(--mono);font-size:.72rem;color:var(--slate);margin-top:.75rem}
+.demo-samples{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.demo-sample{background:var(--bg-subtle);border:1px solid var(--border);color:var(--slate);font-family:var(--mono);font-size:.7rem;padding:.3rem .7rem;border-radius:5px;cursor:pointer;transition:all .15s}
+.demo-sample:hover{border-color:var(--cyan);color:var(--white)}
+
+/* ── Articles ────────────────────────────────────────────────────────────── */
+.articles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;margin-top:2rem}
+.article-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;text-decoration:none;display:flex;flex-direction:column;gap:.75rem;transition:all .2s;box-shadow:0 0 0 1px var(--border)}
+.article-card:hover{border-color:var(--cyan);box-shadow:0 0 0 1px rgba(14,165,233,0.3),0 0 20px rgba(14,165,233,0.10);transform:translateY(-2px)}
+.article-tag{font-family:var(--mono);font-size:.65rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
+.article-title{font-family:var(--serif);font-size:1.05rem;font-weight:400;color:var(--white);line-height:1.4}
+.article-desc{font-size:.82rem;color:var(--slate);line-height:1.6;flex:1}
+.article-source{font-family:var(--mono);font-size:.7rem;color:var(--slate);margin-top:.25rem}
+
+/* ── Diagnosis CTA ───────────────────────────────────────────────────────── */
+.diag-section{background:linear-gradient(135deg,rgba(14,165,233,0.06) 0%,transparent 60%);border:1px solid rgba(14,165,233,0.15);border-radius:16px;padding:3rem;text-align:center;margin:4rem auto;max-width:680px;box-shadow:0 0 40px rgba(14,165,233,0.06)}
+.diag-section h3{font-family:var(--serif);font-size:1.8rem;font-weight:400;margin-bottom:.75rem}
+.diag-section p{color:var(--slate);margin-bottom:2rem;line-height:1.75}
+.diag-form{display:flex;gap:.75rem;max-width:420px;margin:0 auto;flex-wrap:wrap}
+.diag-input{flex:1;min-width:200px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:.7rem 1rem;color:var(--white);font-family:var(--sans);font-size:.88rem;outline:none;transition:border-color .2s}
+.diag-input:focus{border-color:var(--cyan)}
+.diag-btn{background:var(--cyan);color:#04080F;border:none;padding:.7rem 1.4rem;border-radius:7px;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap;box-shadow:0 0 16px rgba(14,165,233,0.3)}
+
 
 /* ── Pricing page ─────────────────────────────────────────────────────── */
 .pricing-hero{text-align:center;padding:5rem 2rem 3rem}
@@ -177,6 +227,7 @@ footer p{color:var(--slate);font-size:.78rem}
   <ul class="nav-links">
     <li><a onclick="showPage('home')" id="nav-home" class="active">Home</a></li>
     <li><a onclick="showPage('docs')" id="nav-docs">Docs</a></li>
+    <li><a onclick="showPage('demo')" id="nav-demo">Live Demo</a></li>
     <li><a onclick="showPage('research')" id="nav-research">Research</a></li>
     <li><a onclick="showPage('pricing')" id="nav-pricing">Pricing</a></li>
     <li><a onclick="showPage('contact')" id="nav-contact">Contact</a></li>
@@ -231,7 +282,7 @@ footer p{color:var(--slate);font-size:.78rem}
   <div class="divider"></div>
   <section class="section">
     <div class="container" style="text-align:center;max-width:640px">
-      <div class="section-eyebrow">Open source · Apache 2.0</div>
+      <div class="section-eyebrow">Okamoto Security Labs · SDK</div>
       <h2 class="section-title" style="max-width:100%">Ready to build on<br>physics, not probability?</h2>
       <p class="section-body" style="margin:0 auto 2.5rem">The code is open. Read it, break it, tell us what you find.</p>
       <div class="hero-actions">
@@ -328,27 +379,112 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
   <section class="section">
     <div class="container">
       <div class="section-eyebrow">Okamoto Security Labs · Publications</div>
-      <h2 class="section-title">Research</h2>
-      <p class="section-body">Technical papers and findings from our work on deterministic security, post-quantum cryptography, and physics-bound trust evaluation.</p>
-      <div class="research-list">
-        <div class="paper">
-          <div class="paper-meta"><span class="paper-date">June 2026</span><span class="paper-tag">Cryptography</span><span class="paper-tag">LWE</span><span class="paper-tag">Post-Quantum</span></div>
-          <a href="https://dev.to/gustavo89587/how-a-modular-arithmetic" target="_blank" class="paper-h2">How a tolerance overflow made our post-quantum signatures accept everything</a>
-          <p class="paper-abstract">A silent bug in our LWE signature verification caused <code>verify()</code> to return <code>true</code> for any input — including signatures made with completely different keypairs. Root cause: with modulus Q=257, the tolerance c×ETA exceeded Q/2, making the ring distance check vacuously true. We document the discovery, the mathematical analysis, and the fix — moving to hash-bound commitment (Fiat-Shamir). Caught only by explicitly writing the adversarial test case.</p>
-          <div class="paper-links"><a href="https://dev.to/gustavo89587/how-a-modular-arithmetic" target="_blank" class="paper-link">→ Read on dev.to</a><a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/main/article_lwe_bug.md" target="_blank" class="paper-link">→ GitHub</a></div>
+      <h2 class="section-title">Research & Writing</h2>
+      <p class="section-body">Technical papers, LinkedIn articles, and engineering findings from our work on deterministic AI security and post-quantum cryptography.</p>
+
+      <div class="articles-grid">
+        <a href="https://dev.to/gustavo89587/how-a-modular-arithmetic" target="_blank" class="article-card">
+          <div class="article-tag">Post-Quantum · LWE · Cryptography</div>
+          <div class="article-title">How a tolerance overflow made our post-quantum signatures accept everything</div>
+          <div class="article-desc">A silent bug in LWE verification caused verify() to return true for any input. Root cause, math analysis, and the Fiat-Shamir fix.</div>
+          <div class="article-source">→ dev.to</div>
+        </a>
+        <a href="https://www.linkedin.com/pulse/pdf-forgot-code-how-cosai-ai-committee-ignored/" target="_blank" class="article-card">
+          <div class="article-tag">AI Policy · CoSAI</div>
+          <div class="article-title">The PDF That Forgot the Code: How the CoSAI AI Committee Ignored the Engineer</div>
+          <div class="article-desc">An analysis of how AI safety committees produce governance frameworks disconnected from engineering reality.</div>
+          <div class="article-source">→ LinkedIn</div>
+        </a>
+        <a href="https://www.linkedin.com/pulse/200ms-death-zone-why-identity-frameworks/" target="_blank" class="article-card">
+          <div class="article-tag">Performance · Identity</div>
+          <div class="article-title">The 200ms Death Zone: Why Identity Frameworks Are Killing Real-Time AI</div>
+          <div class="article-desc">At 300km/ms, latency is physics. Why probabilistic identity checks are architecturally incompatible with real-time AI systems.</div>
+          <div class="article-source">→ LinkedIn</div>
+        </a>
+        <a href="https://www.linkedin.com/pulse/why-text-based-llm-security-dead-148ms-changes/" target="_blank" class="article-card">
+          <div class="article-tag">LLM Security · Performance</div>
+          <div class="article-title">Why text-based LLM security is dead (and why 1.48ms changes everything)</div>
+          <div class="article-desc">The cybersecurity market treats AI like an antivirus. Benchmark: Vortex DFS at 1.48ms overhead vs probabilistic alternatives.</div>
+          <div class="article-source">→ LinkedIn</div>
+        </a>
+        <a href="https://www.linkedin.com/pulse/death-reactive-security-why-traditional-socs/" target="_blank" class="article-card">
+          <div class="article-tag">SOC · Architecture</div>
+          <div class="article-title">The Death of Reactive Security: Why Traditional SOCs Have Already Lost</div>
+          <div class="article-desc">Organizations spend millions on alert systems that fire after the damage is done. The case for deterministic pre-execution validation.</div>
+          <div class="article-source">→ LinkedIn</div>
+        </a>
+        <a href="https://medium.com/@gugaokamoto1/http-request-smuggling-against-llm-proxy-architectures" target="_blank" class="article-card">
+          <div class="article-tag">HTTP Smuggling · LLM Proxy</div>
+          <div class="article-title">HTTP Request Smuggling Against LLM Proxy Architectures: A Deterministic Security Analysis</div>
+          <div class="article-desc">How CL.TE and TE.CL desync attacks bypass LLM security layers, and why deterministic middleware at the gateway level is the only fix.</div>
+          <div class="article-source">→ Medium</div>
+        </a>
+        <a href="https://github.com/meta-llama/llama-models/issues/488" target="_blank" class="article-card">
+          <div class="article-tag">Architecture · Alignment</div>
+          <div class="article-title">Architectural Mitigations Against Runtime Alignment Drifts in LLM Systems</div>
+          <div class="article-desc">System prompts alone fail. By treating LLM output as raw signal and computing a Detection Fidelity Score, we intercept drift before dispatch.</div>
+          <div class="article-source">→ meta-llama/llama-models #488</div>
+        </a>
+        <a href="https://www.linkedin.com/pulse/detection-systems-dont-fail-loudly-they-decay-silently/" target="_blank" class="article-card">
+          <div class="article-tag">Detection · Signal Quality</div>
+          <div class="article-title">Detection systems don't fail loudly — they decay silently</div>
+          <div class="article-desc">Most detection systems don't break. They slowly lose reliability until alerts mean nothing. How to measure and prevent signal decay.</div>
+          <div class="article-source">→ LinkedIn</div>
+        </a>
+      </div>
+
+      <div class="diag-section">
+        <h3>Get your AI infrastructure diagnosis.</h3>
+        <p>Enter your company domain and receive a free technical assessment of your AI pipeline's security posture — delivered to your inbox in 24 hours.</p>
+        <div class="diag-form">
+          <input type="email" class="diag-input" id="diag-email" placeholder="you@company.com">
+          <button class="diag-btn" onclick="submitDiag()">→ Get diagnosis</button>
         </div>
-        <div class="paper">
-          <div class="paper-meta"><span class="paper-date">May 2026</span><span class="paper-tag">Agentic AI</span><span class="paper-tag">Detection</span></div>
-          <a href="#" class="paper-h2">Detection Fidelity Score: A Framework for Evaluating Detections as Decision Systems</a>
-          <p class="paper-abstract">Introducing DFS = S × T × B as a quantitative framework for security detections. Signal Strength evaluates semantic fidelity. Telemetry Stability validates payload completeness under high-throughput runtime. Behavioral Robustness measures resistance to structural drift. Applied to LLM output pipelines as deterministic middleware.</p>
-          <div class="paper-links"><a href="https://github.com/okamoto-security-labs" target="_blank" class="paper-link">→ GitHub</a></div>
+        <div id="diag-msg" style="margin-top:1rem;font-family:var(--mono);font-size:.8rem;color:var(--cyan);display:none"></div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+
+<!-- LIVE DEMO -->
+<div id="page-demo" class="page">
+  <section class="section">
+    <div class="container">
+      <div class="section-eyebrow">Vortex DFS · /v1/shield/anonymize</div>
+      <h2 class="section-title">Try it live.</h2>
+      <p class="section-body">Paste any text containing sensitive data. The endpoint detects and redacts PII, API keys, and secrets in real time — running on the production backend.</p>
+    </div>
+    <div class="demo-wrap">
+      <div class="demo-samples">
+        <span class="demo-sample" onclick="loadSample('pii')">PII sample</span>
+        <span class="demo-sample" onclick="loadSample('apikey')">API key</span>
+        <span class="demo-sample" onclick="loadSample('code')">Code with secrets</span>
+        <span class="demo-sample" onclick="loadSample('email')">Email + phone</span>
+      </div>
+      <div class="demo-input-wrap">
+        <textarea class="demo-input" id="demo-input" placeholder="Paste text, code, or any content containing sensitive data..."></textarea>
+      </div>
+      <button class="demo-btn" id="demo-btn" onclick="runDemo()">
+        → Anonymize
+      </button>
+      <div class="demo-output" id="demo-output">
+        <div class="demo-risk-label">Sanitized output</div>
+        <div class="demo-sanitized" id="demo-sanitized"></div>
+        <div class="demo-meta">
+          <div class="demo-risk-bar">
+            <div class="demo-risk-label">Risk score</div>
+            <div class="demo-risk-track">
+              <div class="demo-risk-fill" id="demo-risk-fill"></div>
+            </div>
+          </div>
+          <div>
+            <div class="demo-risk-label">Detections</div>
+            <div class="demo-detections" id="demo-detections"></div>
+          </div>
         </div>
-        <div class="paper">
-          <div class="paper-meta"><span class="paper-date">April 2026</span><span class="paper-tag">Architecture</span><span class="paper-tag">AI Security</span></div>
-          <a href="https://github.com/meta-llama/llama-models/issues/488" target="_blank" class="paper-h2">Architectural Mitigations Against Runtime Alignment Drifts in LLM Systems</a>
-          <p class="paper-abstract">System prompts alone are insufficient to mitigate runtime alignment drifts — they introduce token overhead, increase latency, and remain susceptible to adversarial injection. A deterministic approach handles this downstream via isolated decision-boundary middleware. By treating LLM output as a raw signal, we compute a Detection Fidelity Score before dispatching the response.</p>
-          <div class="paper-links"><a href="https://github.com/meta-llama/llama-models/issues/488" target="_blank" class="paper-link">→ meta-llama/llama-models #488</a></div>
-        </div>
+        <div class="demo-latency" id="demo-latency"></div>
       </div>
     </div>
   </section>
@@ -457,7 +593,7 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="toggleFaq(this)">Is the SDK open source? <span>+</span></div>
-      <div class="faq-a">The core Vortex DFS SDK is Apache 2.0 — free to use and audit. The subscription gives you the production modules (/v1/shield/anonymize, webhook handler), K8s manifests, and support.</div>
+      <div class="faq-a">The core Vortex DFS engine is open for audit on GitHub. The subscription unlocks the production modules (/v1/shield/anonymize, webhook handler), K8s manifests, and priority support.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q" onclick="toggleFaq(this)">Can I cancel at any time? <span>+</span></div>
@@ -502,7 +638,7 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
 
 <footer>
   <div class="footer-brand">Okamoto Security Labs</div>
-  <p>© 2026 · Apache 2.0 · São Paulo, Brazil</p>
+  <p>© 2026 · Okamoto Security Labs · São Paulo, Brazil</p>
   <div class="footer-links">
     <a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">GitHub</a>
     <a onclick="showPage('docs')">Docs</a>
@@ -636,6 +772,78 @@ function checkout(plan) {
   setTimeout(() => toast.remove(), 5000);
   history.replaceState({}, '', window.location.pathname);
 })();
+
+
+// ── Live Demo ─────────────────────────────────────────────────────────────
+const SAMPLES = {
+  pii:    "Patient: John Smith\nSSN: 523-45-6789\nPhone: +1-555-234-5678\nEmail: john.smith@hospital.org\nCard: 4111 1111 1111 1111",
+  apikey: "AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE'\nAWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'\nGITHUB_TOKEN = 'ghp_16C7e42F292c6912E7710c838347Ae178B4a'",
+  code:   "const db = new Client({\n  host: '192.168.1.45',\n  password: 'Sup3rS3cr3t!',\n  token: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.SflKxwRJSMeKKF2QT4fw'\n})",
+  email:  "Hi team, contact Maria Santos at maria.santos@acme.com or +55 11 98765-4321.\nCC: carlos.lima@acme.com"
+};
+
+function loadSample(type) {
+  document.getElementById('demo-input').value = SAMPLES[type];
+  document.getElementById('demo-output').classList.remove('visible');
+}
+
+async function runDemo() {
+  const input = document.getElementById('demo-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('demo-btn');
+  btn.disabled = true;
+  btn.textContent = '→ Analyzing...';
+  try {
+    const t0 = performance.now();
+    const resp = await fetch('https://vortex-dfs.onrender.com/v1/shield/anonymize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: input, content_type: 'text' })
+    });
+    const latency = (performance.now() - t0).toFixed(1);
+    if (!resp.ok) throw new Error('API error ' + resp.status);
+    const data = await resp.json();
+    const sanitized = (data.sanitized || input).replace(/\[REDACTED_\d+\]/g, m => '<span class="redacted">'+m+'</span>');
+    document.getElementById('demo-sanitized').innerHTML = sanitized;
+    const score = data.risk_score || 0;
+    const fill = document.getElementById('demo-risk-fill');
+    const color = score > 0.7 ? '#EF4444' : score > 0.4 ? '#F59E0B' : '#10B981';
+    fill.style.width = (score * 100) + '%';
+    fill.style.background = color;
+    fill.style.boxShadow = '0 0 8px ' + color;
+    const dets = document.getElementById('demo-detections');
+    if (data.detections && data.detections.length) {
+      dets.innerHTML = data.detections.map(d => '<span class="demo-det-tag">'+d.pattern+' x'+d.count+'</span>').join('');
+    } else {
+      dets.innerHTML = '<span style="color:var(--slate)">No sensitive data detected</span>';
+    }
+    document.getElementById('demo-latency').textContent = '⚡ ' + latency + 'ms · trace_id: ' + (data.trace_id || 'n/a');
+    document.getElementById('demo-output').classList.add('visible');
+  } catch(e) {
+    document.getElementById('demo-sanitized').innerHTML = '<span style="color:var(--slate)">Backend warming up (free tier). Retry in 30 seconds.</span>';
+    document.getElementById('demo-output').classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '→ Anonymize';
+  }
+}
+
+// ── AI Diagnosis ──────────────────────────────────────────────────────────
+function submitDiag() {
+  const email = document.getElementById('diag-email').value.trim();
+  const msg = document.getElementById('diag-msg');
+  if (!email || !email.includes('@')) {
+    msg.style.display = 'block';
+    msg.style.color = '#EF4444';
+    msg.textContent = 'Enter a valid company email.';
+    return;
+  }
+  msg.style.display = 'block';
+  msg.style.color = 'var(--cyan)';
+  msg.textContent = '✓ Received. Diagnosis delivered within 24 hours.';
+  document.getElementById('diag-email').value = '';
+  window.location.href = 'mailto:gustavo@okamotosecurytlabs.com.br?subject=AI Diagnosis Request&body=Diagnosis requested by: ' + email;
+}
 
 function handleSubmit() {
   const name = document.getElementById('f-name').value.trim();
