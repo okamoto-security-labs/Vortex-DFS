@@ -539,6 +539,36 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
     </div>
   </div>
 
+  <!-- Sovereign Audit Showcase -->
+  <div style="max-width:960px;margin:0 auto 3rem;padding:0 2rem">
+    <div style="background:linear-gradient(135deg,rgba(14,165,233,0.06) 0%,rgba(0,255,65,0.04) 100%);border:1px solid rgba(14,165,233,0.2);border-radius:16px;padding:2.5rem;display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center">
+      <div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--cyan);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem">Pro &amp; Enterprise · Exclusive Feature</div>
+        <h3 style="font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:.75rem">Sovereign Audit</h3>
+        <p style="color:var(--slate);font-size:.9rem;line-height:1.75;margin-bottom:1.25rem">Detects PII and prompt injection attempts before they reach your LLM. Returns an evidence hash, HLC timestamp, and full detection breakdown — in under 10ms.</p>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          <div style="font-family:var(--mono);font-size:.75rem;color:var(--white)">✓ <span style="color:var(--cyan)">EMAIL ×1  PHONE ×1</span> — PII detections</div>
+          <div style="font-family:var(--mono);font-size:.75rem;color:var(--white)">✓ <span style="color:#EF4444">ignore previous  developer mode  act as</span> — injection blocked</div>
+          <div style="font-family:var(--mono);font-size:.75rem;color:var(--slate)">✓ Sun Tzu Gating — attacker sees decoy score 0.999</div>
+        </div>
+      </div>
+      <div style="background:#000;border:1px solid rgba(0,255,65,0.15);border-radius:12px;padding:1.5rem;font-family:var(--mono);font-size:.72rem">
+        <div style="color:#EF4444;font-weight:bold;margin-bottom:.75rem">>> STATUS: THREAT_NEUTRALIZED</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;color:var(--slate);margin-bottom:.75rem">
+          <div>SCORE: <span style="color:#EF4444">0.999</span></div>
+          <div>LATENCY: 8.2ms</div>
+          <div>MEM_AUDIT: 128MB_STABLE</div>
+          <div>HLC_GOV: 1782079500632</div>
+        </div>
+        <div style="color:var(--slate);border-top:1px solid #111;padding-top:.75rem;margin-bottom:.4rem">PII DETECTIONS:</div>
+        <div style="margin-bottom:.4rem"><span style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);border-radius:3px;padding:1px 8px;color:var(--cyan)">EMAIL ×1</span> <span style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);border-radius:3px;padding:1px 8px;color:var(--cyan)">PHONE ×1</span></div>
+        <div style="color:var(--slate);margin-bottom:.4rem">INJECTION PATTERNS:</div>
+        <div><span style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:3px;padding:1px 8px;color:#EF4444">ignore previous</span> <span style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:3px;padding:1px 8px;color:#EF4444">act as</span></div>
+        <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid #111;color:#333">EVIDENCE_HASH: <span style="color:#EF4444">53B059C8377B21A1</span></div>
+      </div>
+    </div>
+  </div>
+
   <div class="plans-grid">
 
     <!-- Starter -->
@@ -577,10 +607,11 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
         </div>
         <div class="plan-price-note" id="note-pro">billed weekly · cancel anytime</div>
       </div>
-      <p class="plan-desc">For teams running Vortex DFS in production with full anonymization and webhook pipelines.</p>
+      <p class="plan-desc">For teams running Vortex DFS in production with full anonymization, injection detection, and webhook pipelines.</p>
       <ul class="plan-features">
         <li>Everything in Starter</li>
         <li><strong style="color:var(--white)">/v1/shield/anonymize</strong> endpoint</li>
+        <li><strong style="color:var(--cyan)">⚡ Sovereign Audit</strong> — PII + Prompt Injection detection with evidence hash</li>
         <li>Stripe webhook handler (pre-built)</li>
         <li>Docker + K8s manifests</li>
         <li>Email support · 48h response</li>
@@ -604,6 +635,7 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
       <p class="plan-desc">For organizations with compliance requirements and custom detection rules at scale.</p>
       <ul class="plan-features">
         <li>Everything in Pro</li>
+        <li><strong style="color:var(--cyan)">⚡ Sovereign Audit</strong> — unlimited requests</li>
         <li>Custom PII pattern registry</li>
         <li>Dedicated Slack channel</li>
         <li>99.9% uptime SLA</li>
