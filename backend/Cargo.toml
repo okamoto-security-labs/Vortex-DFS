@@ -5,11 +5,11 @@ edition = "2021"
 
 [[bin]]
 name = "vortex-dfs"
-path = "main.go"
+path = "src/main.rs"
 
 [lib]
 name = "vortex_dfs"
-path = "lib.rs"
+path = "src/lib.rs"
 
 [dependencies]
 actix-web  = "4"
@@ -24,6 +24,7 @@ unicode-normalization = "0.1"
 hmac       = "0.12"
 sha2       = "0.10"
 hex        = "0.4"
+base64     = "0.21"
 reqwest    = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 tokio      = { version = "1", features = ["full"] }
 env_logger = "0.10"
@@ -36,4 +37,3 @@ lto           = true
 codegen-units = 1
 panic         = "abort"
 strip         = true
-base64     = "0.21"
