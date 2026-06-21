@@ -13,7 +13,10 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 mod anonymizer_engine;
+mod provisioner;
+mod stripe_webhook;
 use anonymizer_engine::{AnonymizerEngine, AnonymizeResult};
+use provisioner::find_by_api_key;
 
 // ---------------------------------------------------------------------------
 // Request / Response contracts
@@ -57,11 +60,60 @@ struct ErrorResponse {
 // Handler
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// API key authentication
+//
+// WHY BEARER TOKEN: standard Authorization header, compatible with all HTTP
+// clients. The key format vdfs_live_[hex] is recognizable and detectable
+// by our own anonymizer if accidentally leaked.
+// ---------------------------------------------------------------------------
+fn authenticate(req: &HttpRequest) -> Result<(), HttpResponse> {
+    // Allow unauthenticated access for the Live Demo on the website
+    // WHY: the demo sends requests from the browser without a key.
+    // We rate-limit by payload size (64KB) to prevent abuse.
+    let demo_bypass = std::env::var("ALLOW_DEMO").unwrap_or_default() == "true";
+
+    let auth = req.headers().get("Authorization");
+    match auth {
+        None if demo_bypass => Ok(()),
+        None => Err(HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Missing Authorization header",
+            "hint": "Use: Authorization: Bearer vdfs_live_..."
+        }))),
+        Some(h) => {
+            let val = h.to_str().unwrap_or("");
+            let key = val.strip_prefix("Bearer ").unwrap_or("").trim();
+            if key.is_empty() {
+                return Err(HttpResponse::Unauthorized().json(serde_json::json!({
+                    "error": "Invalid Authorization format"
+                })));
+            }
+            // Demo calls (from browser) — no key validation, allow through
+            if demo_bypass && !key.starts_with("vdfs_live_") {
+                return Ok(());
+            }
+            // Validate against customer store
+            match find_by_api_key(key) {
+                Some(c) if c.status == "active" => Ok(()),
+                Some(_) => Err(HttpResponse::Forbidden().json(serde_json::json!({
+                    "error": "Subscription inactive or expired"
+                }))),
+                None => Err(HttpResponse::Unauthorized().json(serde_json::json!({
+                    "error": "Invalid API key"
+                }))),
+            }
+        }
+    }
+}
+
 async fn handle_anonymize(
     req:  HttpRequest,
     body: web::Json<AnonymizeRequest>,
 ) -> HttpResponse {
     let t0 = Instant::now();
+
+    // Authenticate before any processing
+    if let Err(e) = authenticate(&req) { return e; }
 
     // Enforce content size limit before doing any work.
     // WHY HERE AND NOT ONLY AT NGINX: defense in depth — nginx can be
@@ -173,6 +225,7 @@ async fn main() -> std::io::Result<()> {
                 "%r %s %Dms"
             ))
             .route("/v1/shield/anonymize", web::post().to(handle_anonymize))
+            .route("/v1/webhook/stripe", web::post().to(stripe_webhook::handle_stripe_webhook))
             .route("/healthz", web::get().to(|| async { HttpResponse::Ok().body("ok") }))
     })
     .bind("0.0.0.0:8080")?

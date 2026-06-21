@@ -111,6 +111,12 @@ pub fn find_by_subscription(sub_id: &str) -> Option<Customer> {
         .find(|c| c.stripe_sub == sub_id)
 }
 
+
+pub fn find_by_api_key(api_key: &str) -> Option<Customer> {
+    load_store().customers.into_iter()
+        .find(|c| c.api_key == api_key)
+}
+
 pub fn update_status(sub_id: &str, status: &str) -> Result<(), String> {
     let mut store = load_store();
     if let Some(c) = store.customers.iter_mut().find(|c| c.stripe_sub == sub_id) {
