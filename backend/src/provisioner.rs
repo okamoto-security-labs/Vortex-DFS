@@ -75,16 +75,22 @@ fn load_store() -> CustomerStore {
     serde_json::from_str(&data).unwrap_or(CustomerStore { customers: vec![] })
 }
 
+// Global file lock — prevents concurrent write corruption
+// WHY MUTEX: two simultaneous checkouts would race on customers.json.
+// A process-level Mutex serializes writes at near-zero cost.
+static FILE_LOCK: once_cell::sync::Lazy<std::sync::Mutex<()>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
+
 fn save_store(store: &CustomerStore) -> Result<(), String> {
-    // WHY CREATE_DIR_ALL: Railway's /data volume may not exist on first boot
+    // Acquire lock before any file operation
+    let _guard = FILE_LOCK.lock().map_err(|e| e.to_string())?;
+
     if let Some(parent) = Path::new(STORE_PATH).parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(store).map_err(|e| e.to_string())?;
 
-    // WHY WRITE TO TEMP THEN RENAME:
-    // A crash mid-write corrupts the file. Writing to a temp file and
-    // atomically renaming guarantees the store is never in a partial state.
+    // Atomic write: temp file + rename
     let tmp = format!("{}.tmp", STORE_PATH);
     fs::write(&tmp, json).map_err(|e| e.to_string())?;
     fs::rename(&tmp, STORE_PATH).map_err(|e| e.to_string())?;
