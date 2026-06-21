@@ -5,11 +5,11 @@ edition = "2021"
 
 [[bin]]
 name = "vortex-dfs"
-path = "src/main.rs"
+path = "main.go"
 
 [lib]
 name = "vortex_dfs"
-path = "src/lib.rs"
+path = "lib.rs"
 
 [dependencies]
 actix-web  = "4"
@@ -36,3 +36,4 @@ lto           = true
 codegen-units = 1
 panic         = "abort"
 strip         = true
+base64     = "0.21"

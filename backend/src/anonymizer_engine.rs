@@ -34,7 +34,7 @@ use once_cell::sync::Lazy;
 // difference between O(n) and O(k·n).
 // ---------------------------------------------------------------------------
 
-static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
+pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
     Arc::new(vec![
         // ── TIER 1: Credentials / Secrets ──────────────────────────────────
 
@@ -140,7 +140,7 @@ static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
 });
 
 // Pre-compiled RegexSet for O(n) single-pass detection
-static REGEX_SET: Lazy<RegexSet> = Lazy::new(|| {
+pub static REGEX_SET: Lazy<RegexSet> = Lazy::new(|| {
     let patterns: Vec<&str> = PATTERNS.iter().map(|p| p.raw_pattern).collect();
     RegexSet::new(&patterns).expect("Pattern compilation failed — check regex syntax at startup")
 });
