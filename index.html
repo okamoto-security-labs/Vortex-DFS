@@ -122,6 +122,10 @@ footer p{color:var(--slate);font-size:.78rem}
 .footer-links{display:flex;gap:1.5rem}
 .footer-links a{color:var(--slate);text-decoration:none;font-size:.78rem;transition:color .2s;cursor:pointer}
 .footer-links a:hover{color:var(--white)}
+.zdr-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:.35rem .9rem;font-family:var(--mono);font-size:.68rem;color:#10B981;letter-spacing:.08em;margin-bottom:1.5rem}
+.zdr-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 6px #10B981;flex-shrink:0}
+.demo-privacy-note{font-family:var(--mono);font-size:.68rem;color:var(--slate);text-align:center;margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
+.demo-privacy-note::before{content:'🔒'}
 @media(max-width:768px){nav{padding:1rem 1.25rem}.nav-links{display:none}.docs-layout{grid-template-columns:1fr}.docs-nav{display:none}.contact-grid{grid-template-columns:1fr}footer{flex-direction:column;text-align:center}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 /* ── Neon glow enhancements ─────────────────────────────────────────────── */
@@ -238,6 +242,7 @@ nav{box-shadow:0 1px 0 var(--border),0 4px 24px rgba(4,8,15,0.8)}
 <!-- HOME -->
 <div id="page-home" class="page active">
   <section class="hero">
+    <div class="zdr-badge">Zero data retention — content is never stored</div>
     <div class="hero-label">Okamoto Security Labs · Vortex DFS v0.1</div>
     <h1>Security that obeys<br>the <em>laws of physics.</em><br>Not probability.</h1>
     <p class="hero-sub">Vortex doesn't predict attacks. It reacts to the laws of exact sciences. A packet either satisfies the mathematics — or it doesn't.</p>
@@ -469,6 +474,7 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
       <button class="demo-btn" id="demo-btn" onclick="runDemo()">
         → Anonymize
       </button>
+      <div class="demo-privacy-note">Content is processed in memory and never stored · <a href="#" onclick="showLegal('privacy')" style="color:var(--cyan);text-decoration:none">Privacy Policy</a></div>
       <div class="demo-output" id="demo-output">
         <div class="demo-risk-label">Sanitized output</div>
         <div class="demo-sanitized" id="demo-sanitized"></div>
@@ -645,8 +651,18 @@ raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, paylo
     <a onclick="showPage('research')">Research</a>
     <a onclick="showPage('pricing')">Pricing</a>
     <a onclick="showPage('contact')">Contact</a>
+    <a onclick="showLegal('privacy')" style="color:var(--slate)">Privacy Policy</a>
+    <a onclick="showLegal('terms')" style="color:var(--slate)">Terms of Use</a>
   </div>
 </footer>
+
+<!-- Legal Modal -->
+<div id="legal-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(4,8,15,0.92);backdrop-filter:blur(8px);overflow-y:auto;padding:2rem 1rem">
+  <div style="max-width:760px;margin:0 auto;background:var(--bg-card);border:1px solid var(--border-hi);border-radius:14px;padding:2.5rem 3rem;position:relative">
+    <button onclick="closeLegal()" style="position:absolute;top:1.25rem;right:1.25rem;background:transparent;border:none;color:var(--slate);font-size:1.5rem;cursor:pointer;line-height:1">×</button>
+    <div id="legal-content"></div>
+  </div>
+</div>
 
 <script>
 function showPage(name) {
@@ -828,7 +844,87 @@ async function runDemo() {
   }
 }
 
-// ── AI Diagnosis ──────────────────────────────────────────────────────────
+// ── Legal Modal ───────────────────────────────────────────────────────────
+const LEGAL = {
+  privacy: {
+    title: 'Privacy Policy',
+    effective: 'Effective Date: June 21, 2026',
+    body: `
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">1. Introduction</h3>
+<p>Okamoto Security Labs ("we", "us") operates the Vortex DFS API. This Privacy Policy explains how we collect, use, and protect information in connection with your use of the Service.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">2. Zero Data Retention Policy</h3>
+<p>Vortex DFS is built on a zero data retention architecture:</p>
+<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
+  <li>Content submitted to <code style="font-family:var(--mono);font-size:.82rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .35rem;border-radius:3px">/v1/shield/anonymize</code> is processed in memory and never written to disk or any database.</li>
+  <li>Anonymized output is returned exclusively to the caller and not stored by us.</li>
+  <li>We do not retain, log, sell, or share the content of your API requests.</li>
+</ul>
+<p>This is a core architectural guarantee, not merely a policy commitment.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">3. Information We Collect</h3>
+<p><strong style="color:var(--white)">Account & Billing:</strong> When you purchase a subscription, Stripe collects and processes your payment details. We receive only your email address, subscription tier, and a Stripe customer ID. No card data is stored by us.</p>
+<p><strong style="color:var(--white)">Technical Logs:</strong> Server logs contain request trace IDs (random UUIDs), risk scores, detection counts, latency, and HTTP status codes. No PII. Retained for 30 days.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">4. Third-Party Services</h3>
+<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
+  <li><strong style="color:var(--white)">Stripe</strong> — payment processing</li>
+  <li><strong style="color:var(--white)">Resend</strong> — transactional email delivery</li>
+  <li><strong style="color:var(--white)">Render</strong> — cloud infrastructure (US-based)</li>
+</ul>
+<p>We do not sell your personal data to any third party.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">5. Your Rights (GDPR / LGPD)</h3>
+<p>You have the right to access, rectify, erase, or port your personal data. Contact us at <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a>. We respond within 30 days.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">6. Contact</h3>
+<p>Okamoto Security Labs · Brazil · <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a></p>`
+  },
+  terms: {
+    title: 'Terms of Use',
+    effective: 'Effective Date: June 21, 2026',
+    body: `
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">1. Acceptance</h3>
+<p>By accessing or using Vortex DFS ("Service") provided by Okamoto Security Labs, you agree to these Terms. If you do not agree, do not use the Service.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">2. API Keys & Security</h3>
+<p>Upon payment you receive a unique API key (<code style="font-family:var(--mono);font-size:.82rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .35rem;border-radius:3px">vdfs_live_...</code>). You are responsible for keeping it confidential and for all activity under your key. Notify us immediately of unauthorized use.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">3. Acceptable Use</h3>
+<p>You may use the Service to anonymize data you are authorized to process and to integrate the API into your own products. You may not: process unauthorized data, reverse-engineer the Service infrastructure, resell API access without written consent, or circumvent rate limits or authentication.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">4. Subscription & Payment</h3>
+<p>Subscriptions are billed in advance (weekly, monthly, or annual) via Stripe and auto-renew until cancelled. We do not offer refunds for partial periods. A 7-day money-back guarantee applies to first-time purchases — contact us within 7 days.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">5. Rate Limits</h3>
+<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
+  <li>Demo (unauthenticated): 10 requests / 60 seconds per IP</li>
+  <li>Authenticated (paid): 300 requests / 60 seconds per API key</li>
+</ul>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">6. Disclaimer of Warranties</h3>
+<p style="font-size:.85rem;color:var(--slate)">THE SERVICE IS PROVIDED "AS IS". WE DO NOT WARRANT THAT THE SERVICE WILL BE ERROR-FREE OR DETECT ALL PII IN ANY GIVEN CONTENT. YOU ARE RESPONSIBLE FOR VALIDATING OUTPUT FOR YOUR USE CASE.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">7. Limitation of Liability</h3>
+<p style="font-size:.85rem;color:var(--slate)">TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR LIABILITY IS LIMITED TO THE AMOUNT YOU PAID IN THE 3 MONTHS PRECEDING THE CLAIM.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">8. Governing Law</h3>
+<p>These Terms are governed by the laws of Brazil. Disputes shall be resolved in the courts of Brazil.</p>
+<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">9. Contact</h3>
+<p>Okamoto Security Labs · Brazil · <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a></p>`
+  }
+};
+
+function showLegal(type) {
+  const doc = LEGAL[type];
+  document.getElementById('legal-content').innerHTML = `
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem">Okamoto Security Labs</div>
+    <h2 style="font-family:var(--serif);font-size:2rem;font-weight:400;margin-bottom:.25rem">${doc.title}</h2>
+    <p style="font-family:var(--mono);font-size:.72rem;color:var(--slate);margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)">${doc.effective}</p>
+    <div style="color:var(--slate);font-size:.92rem;line-height:1.75">${doc.body}</div>
+  `;
+  document.getElementById('legal-modal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLegal() {
+  document.getElementById('legal-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.getElementById('legal-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLegal();
+});
+
+
 function submitDiag() {
   const email = document.getElementById('diag-email').value.trim();
   const msg = document.getElementById('diag-msg');
