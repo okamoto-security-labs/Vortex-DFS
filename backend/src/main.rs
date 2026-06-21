@@ -234,11 +234,10 @@ fn add_cors(resp: HttpResponse, req: &HttpRequest) -> HttpResponse {
         "https://okamotosecurytlabs.com.br".to_string()
     };
 
-    let origin = cors_origin(req);
     let status = resp.status();
     let body = resp.into_body();
     HttpResponse::build(status)
-        .insert_header(("Access-Control-Allow-Origin", origin.as_str()))
+        .insert_header(("Access-Control-Allow-Origin", cors_origin.as_str()))
         .insert_header(("Access-Control-Allow-Methods", "POST, OPTIONS"))
         .insert_header(("Access-Control-Allow-Headers", "Content-Type, Authorization"))
         .message_body(body)
