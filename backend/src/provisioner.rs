@@ -24,7 +24,7 @@ pub async fn init_db() -> Result<(), String> {
         .statement_cache_capacity(0);
 
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(1)
         .connect_with(connect_opts)
         .await
         .map_err(|e| format!("Failed to connect to Supabase: {}", e))?;
