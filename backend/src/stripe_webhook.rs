@@ -21,7 +21,7 @@ use crate::provisioner::{
 const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
 
 // ---------------------------------------------------------------------------
-// Signature verification (unchanged from v1)
+// Signature verification
 // ---------------------------------------------------------------------------
 
 struct StripeSignature { timestamp: u64, v1: String }
@@ -74,7 +74,7 @@ struct StripeEvent {
 struct StripeEventData { object: serde_json::Value }
 
 // ---------------------------------------------------------------------------
-// Business logic
+// Business logic — all async now (Supabase calls)
 // ---------------------------------------------------------------------------
 
 async fn on_checkout_completed(obj: &serde_json::Value) {
@@ -82,9 +82,6 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
     let cust_id  = obj["customer"].as_str().unwrap_or("").to_string();
     let sub_id   = obj["subscription"].as_str().unwrap_or("").to_string();
 
-    // Extract price ID from line items to determine plan
-    // WHY METADATA FALLBACK: Payment Links don't always populate line_items
-    // in the webhook — we embed plan info in the Payment Link metadata as backup
     let price_id = obj["line_items"]["data"][0]["price"]["id"]
         .as_str()
         .or_else(|| obj["metadata"]["price_id"].as_str())
@@ -104,7 +101,7 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
         expires_at:      expiry_timestamp(billing_period),
     };
 
-    if let Err(e) = upsert_customer(customer.clone()) {
+    if let Err(e) = upsert_customer(customer.clone()).await {
         log::error!("Failed to save customer {}: {}", email, e);
         return;
     }
@@ -116,10 +113,10 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
 
 async fn on_payment_succeeded(obj: &serde_json::Value) {
     let sub_id = obj["subscription"].as_str().unwrap_or("");
-    if let Some(mut customer) = find_by_subscription(sub_id) {
+    if let Some(mut customer) = find_by_subscription(sub_id).await {
         customer.expires_at = expiry_timestamp(&customer.billing_period.clone());
         customer.status = "active".to_string();
-        if let Err(e) = upsert_customer(customer) {
+        if let Err(e) = upsert_customer(customer).await {
             log::error!("Failed to renew subscription {}: {}", sub_id, e);
         }
     }
@@ -127,17 +124,15 @@ async fn on_payment_succeeded(obj: &serde_json::Value) {
 
 async fn on_payment_failed(obj: &serde_json::Value) {
     let sub_id = obj["subscription"].as_str().unwrap_or("");
-    if let Err(e) = update_status(sub_id, "past_due") {
+    if let Err(e) = update_status(sub_id, "past_due").await {
         log::error!("Failed to mark past_due for {}: {}", sub_id, e);
     }
-    // Stripe retries automatically — we don't send email yet to avoid
-    // alarming the customer on the first failed attempt
 }
 
 async fn on_subscription_deleted(obj: &serde_json::Value) {
     let sub_id = obj["id"].as_str().unwrap_or("");
-    if let Some(customer) = find_by_subscription(sub_id) {
-        if let Err(e) = update_status(sub_id, "cancelled") {
+    if let Some(customer) = find_by_subscription(sub_id).await {
+        if let Err(e) = update_status(sub_id, "cancelled").await {
             log::error!("Failed to cancel {}: {}", sub_id, e);
         }
         if let Err(e) = send_cancellation_email(&customer).await {
@@ -193,6 +188,5 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
         _                               => {}
     }
 
-    // ALWAYS 200 — Stripe retries on any non-2xx for up to 3 days
     HttpResponse::Ok().finish()
 }
