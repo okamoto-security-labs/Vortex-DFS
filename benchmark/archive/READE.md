@@ -1,1 +1,0 @@
-Este relatório (v2, 19/06/2026) foi substituído. A metodologia foi revisada e os números corrigidos na v3. Mantido apenas para registro histórico. Ver: [link do v3].This report (v2, 06/19/2026) has been replaced. The methodology was revised and the numbers corrected in v3. Maintained for historical record purposes only. See: [link v3 shortly].
