@@ -5,6 +5,7 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
+use sqlx::postgres::PgPoolOptions;
 use std::time::{SystemTime, UNIX_EPOCH};
 use once_cell::sync::OnceCell;
 
@@ -14,7 +15,12 @@ pub async fn init_db() -> Result<(), String> {
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| "DATABASE_URL not set".to_string())?;
 
-    let pool = PgPool::connect(&database_url)
+    // statement_cache_capacity(0) disables prepared statements —
+    // required for Supabase pgBouncer in transaction mode.
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .statement_cache_capacity(0)
+        .connect(&database_url)
         .await
         .map_err(|e| format!("Failed to connect to Supabase: {}", e))?;
 
