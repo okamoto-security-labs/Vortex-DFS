@@ -322,6 +322,12 @@ fn encrypt_token_map(map: &HashMap<String, String>) -> String {
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
+    // Initialize Supabase connection pool
+    if let Err(e) = provisioner::init_db().await {
+        log::error!("Database initialization failed: {}", e);
+        std::process::exit(1);
+    }
+
     // Warm up regex engine at startup — not on first request
     let _ = &*anonymizer_engine::REGEX_SET;
     log::info!("Vortex DFS ready — {} patterns loaded", anonymizer_engine::PATTERNS.len());
@@ -339,9 +345,7 @@ async fn main() -> std::io::Result<()> {
                 .add(("Strict-Transport-Security", "max-age=31536000; includeSubDomains"))
             )
             .wrap(middleware::Logger::new("%r %s %Dms"))
-            // CORS preflight
             .route("/v1/shield/anonymize", web::method(actix_web::http::Method::OPTIONS).to(handle_preflight))
-            // Main endpoints
             .route("/v1/shield/anonymize", web::post().to(handle_anonymize))
             .route("/v1/webhook/stripe",   web::post().to(stripe_webhook::handle_stripe_webhook))
             .route("/healthz",             web::get().to(|| async { HttpResponse::Ok().body("ok") }))
@@ -351,4 +355,3 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
-
