@@ -87,6 +87,36 @@ pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
         DetectionPattern::new("SSN_US",            Category::Identity,
             r"\b[0-8]\d{2}[- ]\d{2}[- ]\d{4}\b"),
 
+        // ── BRAZIL identifiers ──────────────────────────────────────────────
+        // CPF (Cadastro de Pessoas Físicas) — Brazil's national taxpayer ID,
+        // the single most critical PII identifier for any BR-operated service.
+        // Formats: 123.456.789-00 (dotted) and 12345678900 (plain, 11 digits).
+        // Both check digits validated post-match in validate_cpf().
+        DetectionPattern::new("CPF_BR",            Category::Identity,
+            r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b"),
+
+        // CNPJ (Cadastro Nacional da Pessoa Jurídica) — Brazil's company tax ID.
+        // Formats: 12.345.678/0001-95 (dotted) and 12345678000195 (plain, 14 digits).
+        // Both check digits validated post-match in validate_cnpj().
+        DetectionPattern::new("CNPJ_BR",           Category::Identity,
+            r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b|\b\d{14}\b"),
+
+        // RG (Registro Geral) — Brazilian state ID card. Format varies by state;
+        // most common is 2 dots + dash with 8-9 digits + check char (digit or X).
+        // Context-anchored to "RG" to keep false positives low (no checksum standard).
+        DetectionPattern::new("RG_BR",             Category::Identity,
+            r"(?i)\bRG[:\s]*\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]\b"),
+
+        // CEP (Código de Endereçamento Postal) — Brazilian postal code.
+        // Format: 01310-100 or 01310100. Re-identification risk (Contact tier).
+        DetectionPattern::new("CEP_BR",            Category::Contact,
+            r"\b\d{5}-?\d{3}\b"),
+
+        // Brazilian phone — mobile (11 digits w/ 9 prefix) and landline,
+        // with optional +55 country code and (DD) area code in parens or bare.
+        DetectionPattern::new("PHONE_BR",          Category::Contact,
+            r"(?:\+?55[-.\s]?)?\(?\d{2}\)?[-.\s]?9?\d{4}[-.\s]?\d{4}\b"),
+
         // UK National Insurance Number
         DetectionPattern::new("NINO_UK",           Category::Identity,
             r"\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b"),
@@ -247,8 +277,16 @@ impl AnonymizerEngine {
             let regex   = &REGEX_INDIVIDUALS[*idx];
 
             for m in regex.find_iter(&clean_input) {
-                // Post-match validation for patterns that need it (e.g. Luhn check)
+                // Post-match validation for patterns that carry a checksum.
+                // This eliminates the bulk of false positives from arbitrary
+                // numeric sequences that happen to match the format.
                 if pattern.label == "CREDIT_CARD_PAN" && !validate_luhn(m.as_str()) {
+                    continue;
+                }
+                if pattern.label == "CPF_BR" && !validate_cpf(m.as_str()) {
+                    continue;
+                }
+                if pattern.label == "CNPJ_BR" && !validate_cnpj(m.as_str()) {
                     continue;
                 }
 
@@ -355,6 +393,54 @@ fn validate_luhn(s: &str) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// CPF check-digit validation — runs only on CPF_BR candidates.
+// CPF has two check digits computed mod 11 over the preceding digits.
+// Also rejects the well-known invalid repdigit CPFs (000..., 111..., etc.)
+// which pass the checksum math but are never issued.
+// ---------------------------------------------------------------------------
+fn validate_cpf(s: &str) -> bool {
+    let d: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
+    if d.len() != 11 { return false; }
+    // Reject all-same-digit sequences (000.000.000-00 … 999.999.999-99)
+    if d.iter().all(|&x| x == d[0]) { return false; }
+
+    // First check digit: weights 10..2 over the first 9 digits
+    let sum1: u32 = (0..9).map(|i| d[i] * (10 - i as u32)).sum();
+    let r1 = (sum1 * 10) % 11;
+    let dv1 = if r1 == 10 { 0 } else { r1 };
+    if dv1 != d[9] { return false; }
+
+    // Second check digit: weights 11..2 over the first 10 digits
+    let sum2: u32 = (0..10).map(|i| d[i] * (11 - i as u32)).sum();
+    let r2 = (sum2 * 10) % 11;
+    let dv2 = if r2 == 10 { 0 } else { r2 };
+    dv2 == d[10]
+}
+
+// ---------------------------------------------------------------------------
+// CNPJ check-digit validation — runs only on CNPJ_BR candidates.
+// CNPJ has two check digits computed mod 11 with the standard BR weight masks.
+// ---------------------------------------------------------------------------
+fn validate_cnpj(s: &str) -> bool {
+    let d: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
+    if d.len() != 14 { return false; }
+    if d.iter().all(|&x| x == d[0]) { return false; }
+
+    const W1: [u32; 12] = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const W2: [u32; 13] = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+    let sum1: u32 = (0..12).map(|i| d[i] * W1[i]).sum();
+    let r1 = sum1 % 11;
+    let dv1 = if r1 < 2 { 0 } else { 11 - r1 };
+    if dv1 != d[12] { return false; }
+
+    let sum2: u32 = (0..13).map(|i| d[i] * W2[i]).sum();
+    let r2 = sum2 % 11;
+    let dv2 = if r2 < 2 { 0 } else { 11 - r2 };
+    dv2 == d[13]
+}
+
+// ---------------------------------------------------------------------------
 // Tests — run with `cargo test`
 // ---------------------------------------------------------------------------
 #[cfg(test)]
@@ -398,6 +484,52 @@ mod tests {
         let input = "4111111111111111";
         let result = AnonymizerEngine::anonymize(input);
         assert!(result.detections.iter().any(|d| d.pattern_label == "CREDIT_CARD_PAN"));
+    }
+
+    #[test]
+    fn detects_valid_cpf_dotted() {
+        // 111.444.777-35 is a well-known checksum-valid test CPF
+        let input = "Meu CPF é 111.444.777-35 para cadastro";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+        assert!(!result.sanitized.contains("111.444.777-35"));
+    }
+
+    #[test]
+    fn detects_valid_cpf_plain() {
+        let input = "CPF 11144477735";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+    }
+
+    #[test]
+    fn rejects_invalid_cpf_checksum() {
+        // Right format, wrong check digits — must NOT be flagged as CPF
+        let input = "123.456.789-00";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(!result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+    }
+
+    #[test]
+    fn rejects_repdigit_cpf() {
+        let input = "000.000.000-00";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(!result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+    }
+
+    #[test]
+    fn detects_valid_cnpj() {
+        // 11.222.333/0001-81 is a checksum-valid test CNPJ
+        let input = "CNPJ da empresa: 11.222.333/0001-81";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(result.detections.iter().any(|d| d.pattern_label == "CNPJ_BR"));
+    }
+
+    #[test]
+    fn rejects_invalid_cnpj_checksum() {
+        let input = "11.222.333/0001-00";
+        let result = AnonymizerEngine::anonymize(input);
+        assert!(!result.detections.iter().any(|d| d.pattern_label == "CNPJ_BR"));
     }
 
     #[test]
