@@ -107,8 +107,7 @@ pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
         // PAN (Payment card number) — Luhn-valid check happens post-match in
         // validate_pan(); regex narrows candidates first (Visa/MC/Amex/Discover)
         DetectionPattern::new("CREDIT_CARD_PAN",   Category::Financial,
-            r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b"),
-
+           r"\b4[0-9]{3}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}(?:[0-9]{3})?\b|\b5[1-5][0-9]{2}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b|\b3[47][0-9]{2}[\s\-]?[0-9]{6}[\s\-]?[0-9]{5}\b|\b6(?:011|5[0-9]{2})[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b"),
         // IBAN — 2-letter country, 2 check digits, up to 30 alphanumeric BBAN
         // The character class [A-Z]{2} covers all 36 current IBAN countries
         DetectionPattern::new("IBAN",              Category::Financial,
