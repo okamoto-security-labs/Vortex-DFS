@@ -8,6 +8,10 @@
 // - Input sanitization: 64KB cap, empty body rejection
 // - No PII in logs: trace_id and risk_score only
 
+mod pqc_endpoints;
+mod signer_lwe;
+mod pqc_core;
+
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_web::middleware::DefaultHeaders;
 use base64::Engine as _;
@@ -349,6 +353,12 @@ async fn main() -> std::io::Result<()> {
             .route("/v1/shield/anonymize", web::post().to(handle_anonymize))
             .route("/v1/webhook/stripe",   web::post().to(stripe_webhook::handle_stripe_webhook))
             .route("/healthz",             web::get().to(|| async { HttpResponse::Ok().body("ok") }))
+            .route("/v1/pqc/sign",   web::post().to(pqc_endpoints::handle_sign))
+            .route("/v1/pqc/verify", web::post().to(pqc_endpoints::handle_verify))
+            .route("/v1/pqc/audit",  web::post().to(pqc_endpoints::handle_audit))
+            .route("/v1/pqc/sign",   web::method(actix_web::http::Method::OPTIONS).to(handle_preflight))
+            .route("/v1/pqc/verify", web::method(actix_web::http::Method::OPTIONS).to(handle_preflight))
+            .route("/v1/pqc/audit",  web::method(actix_web::http::Method::OPTIONS).to(handle_preflight))
     })
     .bind(&bind_addr)?
     .workers(num_cpus::get())
