@@ -113,10 +113,16 @@ pub async fn upsert_customer(customer: Customer) -> Result<(), String> {
 }
 
 pub fn find_by_api_key(api_key: &str) -> Option<Customer> {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(find_by_api_key_async(api_key))
+    let key = api_key.to_string();
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(find_by_api_key_async(&key))
+    })
+    .join()
+    .ok()
+    .flatten()
 }
-
 async fn find_by_api_key_async(api_key: &str) -> Option<Customer> {
     let pool = get_pool().ok()?;
     let row = sqlx::query(
