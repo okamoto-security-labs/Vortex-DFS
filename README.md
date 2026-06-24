@@ -9,19 +9,52 @@
 [![Status](https://img.shields.io/badge/Status-Production-brightgreen)]()
 [![Uptime](https://img.shields.io/uptimerobot/status/m800028416-f2df0e073fc60779bf7cb7a0)](https://okamotosecurytlabs.com.br)
 
-**[Landing Page](https://okamotosecurytlabs.com.br)** · **[Live Demo](https://okamotosecurytlabs.com.br)** · **[API Pricing](https://okamotosecurytlabs.com.br)** · **[Article](https://dev.to/gustavo89587/how-a-modular-arithmetic)**
+**[Landing Page](https://okamotosecurytlabs.com.br)** · **[Live Demo](https://okamotosecurytlabs.com.br/demo)** · **[Get API Key →](https://okamotosecurytlabs.com.br/#pricing)** · **[Research](https://okamotosecurytlabs.com.br/research)**
+
+> ⭐ If Vortex DFS is useful to you, consider starring this repo — it helps more than you think.
 
 ---
 
-## `/v1/shield/anonymize` — Production PII Anonymization API
+## API Endpoints — Production
 
-The fastest path to production-ready PII detection. No LLM. No third-party model. No data retention.
+| Endpoint | Description | Auth |
+|---|---|---|
+| `POST /v1/shield/anonymize` | PII redaction — 20 patterns, <10ms | Bearer or demo |
+| `POST /v1/pqc/sign` | Post-quantum LWE signature + TrustBand | Bearer |
+| `POST /v1/pqc/verify` | Verify LWE signature | Bearer |
+| `POST /v1/pqc/audit` | Crypto-agility scanner — NIST migration roadmap | Bearer or demo |
+
+**Base URL:** `https://vortex-dfs.onrender.com`
+
+---
+
+## Quick Start — 60 seconds
 
 ```bash
+# No API key required for demo (10 req/min)
+
+# 1. Anonymize PII
 curl -X POST https://vortex-dfs.onrender.com/v1/shield/anonymize \
   -H "Content-Type: application/json" \
   -d '{"content": "Call John at john.smith@corp.com or SSN 523-45-6789"}'
+
+# 2. Audit your crypto stack
+curl -X POST https://vortex-dfs.onrender.com/v1/pqc/audit \
+  -H "Content-Type: application/json" \
+  -d '{"content": "This system uses RSA-2048, ECDH, AES-128 and SHA-1"}'
+
+# 3. Sign with post-quantum LWE
+curl -X POST https://vortex-dfs.onrender.com/v1/pqc/sign \
+  -H "Authorization: Bearer vdfs_live_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"payload": "your data here"}'
 ```
+
+**[→ Get a production API key — from $9/week](https://okamotosecurytlabs.com.br/#pricing)**
+
+---
+
+## `/v1/shield/anonymize` — PII Redaction
 
 ```json
 {
@@ -33,7 +66,7 @@ curl -X POST https://vortex-dfs.onrender.com/v1/shield/anonymize \
   ],
   "token_map_enc": "AES-256-GCM encrypted reverse map",
   "trace_id": "11821208-990f-478b-858a-508ee12f7623",
-  "latency_ms": 7.54
+  "latency_ms": 0.043
 }
 ```
 
@@ -41,86 +74,90 @@ curl -X POST https://vortex-dfs.onrender.com/v1/shield/anonymize \
 
 | | LLM-based detection | Vortex DFS |
 |---|---|---|
-| Latency | 200ms–2s | **<10ms p99** |
+| Latency | 200ms–2s | **<1ms p50** |
 | Determinism | ❌ Nondeterministic | ✅ Same input = same output |
-| Data retention | ❌ Sends data to third party | ✅ Zero retention |
+| Data retention | ❌ Sends data to third party | ✅ Zero retention by architecture |
 | Cost | $$$ per token | **Flat subscription** |
-| Auditability | ❌ Black box | ✅ Fully auditable patterns |
-
-### NSA Advisory alignment
-
-NSA Cybersecurity Advisory [U/OO/169570-20](https://media.defense.gov/2020/Sep/17/2002499616/-1/-1/0/PERFORMING_OUT_OF_BAND_NETWORK_MANAGEMENT20200911.PDF) explicitly recommends:
-
-> *"Use automated redact filters to ensure the LLM doesn't leak sensitive infrastructure blueprints or PII in its reports."*
-
-Vortex DFS implements this recommendation as a production REST API.
+| Auditability | ❌ Black box | ✅ Open source, verify yourself |
 
 ### Detection coverage — 20 patterns across 4 tiers
 
 | Tier | Patterns |
 |---|---|
 | **Credentials** | API keys (AWS, GitHub, Stripe), JWT tokens, Bearer tokens |
-| **Identity** | SSN (US), Passport numbers, Driver's license |
+| **Identity** | SSN (US), CPF, CNPJ, RG, Passport, Driver's license |
 | **Financial** | Credit cards (Luhn-validated), IBAN, routing numbers |
-| **Contact** | Email, Phone (US/intl), IPv4/IPv6 |
-
-### Get started
-
-```bash
-# Free demo — 10 req/min, no key required
-curl -X POST https://vortex-dfs.onrender.com/v1/shield/anonymize \
-  -H "Content-Type: application/json" \
-  -d '{"content": "your text here"}'
-
-# Authenticated — 300 req/min
-curl -X POST https://vortex-dfs.onrender.com/v1/shield/anonymize \
-  -H "Authorization: Bearer vdfs_live_your_key" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "your text here"}'
-```
-
-**[→ Get an API key](https://okamotosecurytlabs.com.br)**
+| **Contact** | Email, Phone (US/BR/intl), IPv4/IPv6 |
 
 ---
 
-## What is Vortex DFS?
+## `/v1/pqc/audit` — Crypto-Agility Scanner
 
-Most security systems ask: *"does this look malicious?"*
+Scans any text, code, or configuration for cryptographic vulnerabilities. Returns inventory, quantum risk score, NIST migration recommendations, and hybrid roadmap.
 
-Vortex asks: *"does this obey the laws of physics and mathematics?"*
+```bash
+curl -X POST https://vortex-dfs.onrender.com/v1/pqc/audit \
+  -H "Content-Type: application/json" \
+  -d '{"content": "RSA-2048 signing, ECDH key exchange, AES-128, SHA-1"}'
+```
 
-If it doesn't — it's blocked. No model. No guesswork. No exceptions.
+```json
+{
+  "quantum_risk": {
+    "score": 0.78,
+    "band": "critical",
+    "harvest_now_decrypt_later": true,
+    "estimated_threat_horizon": "2030-2035"
+  },
+  "recommendations": [
+    {
+      "from": "RSA / ECDSA / DSA",
+      "to": "ML-DSA (CRYSTALS-Dilithium)",
+      "nist_standard": "FIPS 204",
+      "priority": "critical"
+    }
+  ],
+  "summary": {
+    "total_findings": 4,
+    "quantum_unsafe": 3,
+    "critical_count": 2
+  },
+  "latency_ms": 0.017
+}
+```
+
+We ran Vortex PQC Audit against Vortex's own infrastructure:
+- ✅ 4 quantum-safe algorithms detected
+- ✅ 0 critical findings
+- ✅ Harvest-Now-Decrypt-Later: false
+- ✅ Processing time: 0.015ms
 
 ---
 
 ## For decision makers
 
-### The problem with current security
-
-Modern systems rely on heuristics — pattern matching, machine learning, behavioral analysis. These approaches share one fundamental flaw: they can be fooled. An attacker who understands the model can craft inputs that appear legitimate.
-
-Quantum computing accelerates this problem. Algorithms that secure today's infrastructure — RSA, ECDSA, AES-CBC — are provably broken by quantum adversaries.
-
 ### Three guarantees
 
 | Guarantee | Mechanism |
 |---|---|
-| 🔐 Post-quantum by design | Signatures based on LWE — NIST 2024 standard. A quantum computer does not break this. |
-| ⚛ Physics-bound trust | Trust scores derived from distance and entropy, evaluated against deterministic thresholds. Not a model. Math. |
-| ⊢ Zero ambiguity | Every packet is Accept or Reject with a typed, auditable reason. No silent failures. |
+| 🔐 Post-quantum by design | Signatures based on LWE — NIST 2024 standard |
+| ⚛ Physics-bound trust | Trust scores from distance and entropy — not a model, math |
+| ⊢ Zero ambiguity | Every packet is Accept or Reject with auditable reason |
 
 ### Who needs this
 
+- AI teams sending data to LLMs — **PII never reaches the model**
+- Security teams auditing crypto migration readiness for NIST deadline
 - Financial infrastructure migrating away from RSA/ECDSA
-- IoT and embedded systems requiring predictable low-latency security
-- AI pipelines that need PII sanitization before data hits models or logs
 - Any system that cannot afford to be wrong
+
+### NSA Advisory alignment
+
+NSA Cybersecurity Advisory [U/OO/169570-20](https://media.defense.gov/2020/Sep/17/2002499616/-1/-1/0/PERFORMING_OUT_OF_BAND_NETWORK_MANAGEMENT20200911.PDF) recommends automated redact filters before LLM pipelines. Vortex DFS implements this as a production REST API.
 
 ---
 
-## For developers
-
-### Architecture
+## Architecture
 
 ```
 [ Network / Client ]
@@ -132,128 +169,75 @@ Quantum computing accelerates this problem. Algorithms that secure today's infra
 [ vortex_guard ]            ← HMAC-SHA256 auth, body limits, session sanitization
         │
         ▼
-[ /v1/shield/anonymize ]    ← PII detection engine (20 patterns, <10ms)
+[ /v1/shield/anonymize ]    ← PII detection engine (20 patterns, <1ms)
+[ /v1/pqc/sign·verify ]     ← Post-quantum LWE signatures
+[ /v1/pqc/audit ]           ← Crypto-agility scanner (35+ algorithms)
         │
         ▼
-[ engine ]                  ← Typestate pipeline: Unverified → Verified
-        │
-        ▼
-[ signer_lwe / pqc_core ]   ← Post-quantum signature verification
-        │
-        ▼
-[ metrics / cyber_guardian ] ← Trust scoring, anomaly logging
+[ signer_lwe / pqc_core ]   ← Fiat-Shamir over LWE + TrustBand evaluation
 ```
 
 ### Modules
 
 | Module | Language | Responsibility |
 |---|---|---|
-| `anonymizer_engine.rs` | Rust | PII detection — 20 patterns, 4 tiers, regex compiled at startup |
-| `provisioner.rs` | Rust | API key generation, customer management, Resend email |
-| `stripe_webhook.rs` | Rust | HMAC-SHA256 webhook verification, subscription lifecycle |
-| `protocol.rs` | Rust | Binary packet parsing — safe `from_le_bytes`, CRC-32 |
+| `anonymizer_engine.rs` | Rust | PII detection — 20 patterns, 4 tiers |
+| `pqc_endpoints.rs` | Rust | PQC sign, verify, audit endpoints |
 | `signer_lwe.rs` | Rust | Fiat-Shamir over LWE — post-quantum signatures |
-| `engine.rs` | Rust | Typestate pipeline — typed `TrustState` |
-| `intent_hash.rs` | Rust | HMAC-SHA256 — constant-time comparison |
-| `vortex_guard.rs` | Rust | Axum middleware — auth + sanitization |
-| `main.go` | Go | Gateway — protocol parity with Rust |
+| `pqc_core.rs` | Rust | TrustBand evaluation — physics-derived thresholds |
+| `provisioner.rs` | Rust | API key generation, customer management |
+| `stripe_webhook.rs` | Rust | HMAC-SHA256 webhook verification |
+| `protocol.rs` | Rust | Binary packet parsing — safe, no unsafe |
+| `engine.rs` | Rust | Typestate pipeline — typed TrustState |
 
-### Trust pipeline
+---
 
-```
-raw bytes
-    │
-    ├─ CRC mismatch?           → RejectedProtocol
-    ├─ Bad sync word?          → RejectedProtocol
-    ├─ LWE signature invalid?  → RejectedSignature
-    ├─ Metrics out of [0,1]?   → RejectedBounds
-    │
-    └─ Score evaluation
-           ├─ score ≥ 0.95    → HighTrust   ✅
-           ├─ score ≥ 0.70    → Operational ✅
-           ├─ score ≥ 0.20    → Fragile     ⚠️
-           └─ score < 0.20    → Critical    ❌
-```
-
-### Quick start
-
-```toml
-# Cargo.toml
-[dependencies]
-vortex-dfs = "0.1"
-```
-
-```rust
-use vortex_dfs::engine::{VortexGate, TrustState};
-use vortex_dfs::signer_lwe::keygen;
-
-let (sk, pk) = keygen(seed);
-let gate = VortexGate::new(pk.clone());
-
-let payload = build_telemetry_payload(distance, entropy);
-let raw = build_packet(0x0001, &payload);
-let sig = sk.sign(&payload, &pk, nonce);
-
-match gate.process_packet(&raw, &sig) {
-    TrustState::HighTrust                  => { /* proceed */ }
-    TrustState::Operational                => { /* proceed with monitoring */ }
-    TrustState::Fragile                    => { /* degrade gracefully */ }
-    TrustState::RejectedSignature          => { /* block — forged packet */ }
-    TrustState::RejectedProtocol(reason)   => { /* block — malformed */ }
-    TrustState::RejectedBounds             => { /* block — invalid metrics */ }
-}
-```
-
-### Configuration
-
-```bash
-# Required — never hardcoded
-export VORTEX_HMAC_KEY="$(openssl rand -hex 32)"
-export STRIPE_WEBHOOK_SECRET="whsec_..."
-export RESEND_API_KEY="re_..."
-export ALLOW_DEMO="true"
-export PORT="8080"
-```
-
-### Security properties
+## Security properties
 
 | Property | Mechanism |
 |---|---|
 | Post-quantum signatures | Fiat-Shamir over LWE → `pqcrypto-dilithium` in production |
-| Timing attack resistance | `subtle::ConstantTimeEq` / `hmac::Equal` |
-| No undefined behavior | Zero `unsafe` in critical paths |
-| Tamper detection | CRC-32 + hash-bound commitment |
-| Log injection prevention | Session IDs sanitized to `[a-zA-Z0-9-_]` |
-| DoS prevention | 1MB body limit before any allocation |
+| Timing attack resistance | Constant-time comparison |
+| Zero unsafe in critical paths | Verified — 0 unsafe blocks |
+| PII zero retention | Processed in memory, never written to disk or logs |
+| Log injection prevention | Session IDs sanitized before logging |
+| DoS prevention | 1MB body limit, rate limiting per IP |
 | No hardcoded secrets | All keys from environment at runtime |
-| PII zero retention | Content processed in memory, never written to disk |
 
-### Running tests
+---
 
-```bash
-cargo test
-go test ./...
-```
+## Pricing
+
+| Plan | Price | Includes |
+|---|---|---|
+| **Starter** | $9/week | `/v1/shield/anonymize`, PQC endpoints, community support |
+| **Pro** | $29/week | Everything + Sovereign Audit, Stripe webhook, email support |
+| **Enterprise** | $79/week | Everything + custom patterns, SLA, dedicated channel |
+
+**[→ Subscribe now](https://okamotosecurytlabs.com.br/#pricing)**
 
 ---
 
 ## Roadmap
 
-- [ ] `pqcrypto-dilithium` integration (production-grade NIST parameters)
-- [ ] Rate limiting in `vortex_guard`
-- [ ] Session TTL and rotation
-- [ ] SQLite persistence for customer data
+- [x] PII anonymization — 20 patterns, <1ms
+- [x] Post-quantum LWE sign/verify
+- [x] Crypto-agility audit scanner
+- [x] Stripe subscription + API key provisioning
+- [x] Brazilian PII patterns (CPF, CNPJ, RG, CEP)
+- [ ] `pqcrypto-dilithium` — production NIST parameters (ML-DSA)
+- [ ] Sovereign Audit — prompt injection detection with evidence hash
+- [ ] Redis rate limiting for horizontal scaling
 - [ ] Independent security audit
 - [ ] `crates.io` publication
-- [ ] Go module publication
 
 ---
 
-## Technical writing
+## Research
 
-→ **[How a tolerance overflow made our post-quantum signatures accept everything](https://dev.to/gustavo89587/how-a-modular-arithmetic)**
+→ **[How a tolerance overflow made our post-quantum signatures accept everything](https://okamotosecurytlabs.com.br/research)**
 
-A deep dive into the LWE verification bug we found and fixed — with full mathematical explanation and code.
+A silent bug in our LWE signature verification caused `verify()` to return `true` for any input. Full mathematical analysis and fix documented.
 
 ---
 
@@ -263,9 +247,11 @@ Apache 2.0 — see [LICENSE](LICENSE)
 
 ---
 
-Built at **[Okamoto Security Labs](https://okamotosecurytlabs.com.br)** · São Paulo, Brazil
+Built at **[Okamoto Security Labs](https://okamotosecurytlabs.com.br)** · São Paulo, Brazil · Independent post-quantum research.
 
-[🌐 Website](https://okamotosecurytlabs.com.br) · [💳 Pricing](https://okamotosecurytlabs.com.br) · [📄 Article](https://dev.to/gustavo89587/how-a-modular-arithmetic) · [⚖️ License](LICENSE)
+[🌐 Website](https://okamotosecurytlabs.com.br) · [💳 Get API Key](https://okamotosecurytlabs.com.br/#pricing) · [📄 Research](https://okamotosecurytlabs.com.br/research) · [⚖️ License](LICENSE)
+
+> ⭐ If this project is useful to you, a star helps the lab grow.
 
 ---
 
