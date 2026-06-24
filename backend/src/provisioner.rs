@@ -113,9 +113,8 @@ pub async fn upsert_customer(customer: Customer) -> Result<(), String> {
 }
 
 pub fn find_by_api_key(api_key: &str) -> Option<Customer> {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(find_by_api_key_async(api_key))
-    })
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(find_by_api_key_async(api_key))
 }
 
 async fn find_by_api_key_async(api_key: &str) -> Option<Customer> {
