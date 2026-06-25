@@ -5,7 +5,7 @@
 
 [![Rust](https://img.shields.io/badge/Rust-1.76-orange)](https://www.rust-lang.org/)
 [![Go](https://img.shields.io/badge/Go-1.22-blue)](https://golang.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
+[![License](https://img.shields.io/badge/License-BUSL--1.1-yellow)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Production-brightgreen)]()
 [![Uptime](https://img.shields.io/uptimerobot/status/m800028416-f2df0e073fc60779bf7cb7a0)](https://okamotosecurytlabs.com.br)
 
@@ -51,6 +51,132 @@ curl -X POST https://vortex-dfs.onrender.com/v1/pqc/sign \
 ```
 
 **[→ Get a production API key — from $9/week](https://okamotosecurytlabs.com.br/#pricing)**
+
+---
+
+## SDK Examples
+
+### Python
+
+```python
+import requests
+
+VORTEX_API_KEY = "vdfs_live_your_key_here"
+BASE_URL = "https://vortex-dfs.onrender.com"
+
+def anonymize(text: str) -> dict:
+    response = requests.post(
+        f"{BASE_URL}/v1/shield/anonymize",
+        headers={
+            "Authorization": f"Bearer {VORTEX_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={"content": text}
+    )
+    response.raise_for_status()
+    return response.json()
+
+def pqc_sign(payload: str) -> dict:
+    response = requests.post(
+        f"{BASE_URL}/v1/pqc/sign",
+        headers={
+            "Authorization": f"Bearer {VORTEX_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={"payload": payload}
+    )
+    response.raise_for_status()
+    return response.json()
+
+# Usage
+result = anonymize("John Smith, SSN 123-45-6789, card 4111-1111-1111-1111")
+print(result["sanitized"])   # → "[NAME] [SSN] [CARD]"
+print(result["risk_score"])  # → 0.94
+print(result["latency_ms"])  # → 12.3
+
+# Safe LLM pipeline — PII never reaches the model
+def safe_llm_call(user_input: str) -> str:
+    clean = anonymize(user_input)
+    return clean["sanitized"]
+```
+
+### JavaScript / Node.js
+
+```javascript
+const VORTEX_API_KEY = process.env.VORTEX_API_KEY;
+const BASE_URL = "https://vortex-dfs.onrender.com";
+
+async function anonymize(text) {
+  const response = await fetch(`${BASE_URL}/v1/shield/anonymize`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${VORTEX_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ content: text })
+  });
+
+  if (!response.ok) throw new Error(`Vortex error: ${response.status}`);
+  return response.json();
+}
+
+async function pqcSign(payload) {
+  const response = await fetch(`${BASE_URL}/v1/pqc/sign`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${VORTEX_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ payload })
+  });
+
+  if (!response.ok) throw new Error(`Vortex error: ${response.status}`);
+  return response.json();
+}
+
+// Usage
+const result = await anonymize("Maria Silva, CPF 123.456.789-00");
+console.log(result.sanitized);   // → "[NAME] [CPF]"
+console.log(result.risk_score);  // → 0.87
+console.log(result.latency_ms);  // → 11.2
+
+// Safe LLM pipeline — PII never reaches the model
+async function safeLLMCall(userInput) {
+  const clean = await anonymize(userInput);
+  return clean.sanitized;
+}
+```
+
+### TypeScript
+
+```typescript
+interface AnonymizeResponse {
+  sanitized: string;
+  token_map_enc: string;
+  risk_score: number;
+  detections: Array<{
+    pattern: string;
+    count: number;
+    positions: Array<[number, number]>;
+  }>;
+  trace_id: string;
+  latency_ms: number;
+}
+
+async function anonymize(text: string): Promise<AnonymizeResponse> {
+  const response = await fetch("https://vortex-dfs.onrender.com/v1/shield/anonymize", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.VORTEX_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ content: text })
+  });
+
+  if (!response.ok) throw new Error(`Vortex error: ${response.status}`);
+  return response.json() as Promise<AnonymizeResponse>;
+}
+```
 
 ---
 
@@ -243,7 +369,10 @@ A silent bug in our LWE signature verification caused `verify()` to return `true
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE)
+BUSL-1.1 — Business Source License 1.1
+
+Non-commercial use is free. Commercial use requires a paid license from Okamoto Security Labs.
+Contact: gustavo@okamotosecurytlabs.com.br — see [LICENSE](LICENSE)
 
 ---
 
