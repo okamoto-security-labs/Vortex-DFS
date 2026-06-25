@@ -243,7 +243,7 @@ A silent bug in our LWE signature verification caused `verify()` to return `true
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE)
+BUSL-1.1 — Business Source License 1.1. [LICENSE](LICENSE)
 
 ---
 
