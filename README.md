@@ -373,9 +373,7 @@ BUSL-1.1 — Business Source License 1.1
 
 Non-commercial use is free. Commercial use requires a paid license from Okamoto Security Labs.
 Contact: gustavo@okamotosecurytlabs.com.br — see [LICENSE](LICENSE)
-=======
-BUSL-1.1 — Business Source License 1.1. [LICENSE](LICENSE)
->>>>>>> 42453ca7c32afaa0d97f9164a4bcd10068b0c737
+
 
 ---
 
