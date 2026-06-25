@@ -369,7 +369,6 @@ A silent bug in our LWE signature verification caused `verify()` to return `true
 
 ## License
 
-<<<<<<< HEAD
 BUSL-1.1 — Business Source License 1.1
 
 Non-commercial use is free. Commercial use requires a paid license from Okamoto Security Labs.
