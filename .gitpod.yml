@@ -1,0 +1,38 @@
+image:
+  file: .devcontainer/Dockerfile.gitpod
+
+tasks:
+  - name: Setup
+    init: |
+      rustup update stable
+      rustup component add clippy rustfmt rust-src
+      cargo fetch
+      go mod download
+    command: |
+      if [ -z "$VORTEX_HMAC_KEY" ]; then
+        export VORTEX_HMAC_KEY=$(openssl rand -hex 32)
+        echo "export VORTEX_HMAC_KEY=\"$VORTEX_HMAC_KEY\"" >> ~/.bashrc
+      fi
+      echo "✅ Vortex DFS pronto"
+
+  - name: Tests
+    command: |
+      echo "Para rodar os testes:"
+      echo "  cargo test"
+      echo "  go test ./..."
+
+vscode:
+  extensions:
+    - rust-lang.rust-analyzer
+    - golang.go
+    - tamasfe.even-better-toml
+    - serayuzgur.crates
+    - usernamehw.errorlens
+
+ports:
+  - port: 8080
+    onOpen: notify
+    name: Vortex Gateway
+  - port: 9090
+    onOpen: ignore
+    name: Metrics

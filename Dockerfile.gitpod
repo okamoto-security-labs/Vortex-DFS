@@ -1,0 +1,8 @@
+FROM gitpod/workspace-full
+
+# Go já vem no workspace-full, só garantir versão
+RUN go install golang.org/x/tools/cmd/goimports@latest
+
+# Rust stable com componentes necessários
+RUN rustup update stable \
+ && rustup component add clippy rustfmt rust-src

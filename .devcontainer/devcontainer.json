@@ -1,0 +1,56 @@
+{
+  "name": "Vortex DFS — Rust + Go",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "stable",
+      "profile": "default"
+    },
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.22"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "golang.go",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb",
+        "usernamehw.errorlens",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.features": "all",
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        },
+        "go.formatTool": "goimports",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "VORTEX_HMAC_KEY": "${localEnv:VORTEX_HMAC_KEY}"
+  },
+
+  "forwardPorts": [8080, 9090],
+  "portsAttributes": {
+    "8080": { "label": "Vortex Gateway (Go)" },
+    "9090": { "label": "Metrics" }
+  },
+
+  "postStartCommand": "echo '✅ Vortex DFS pronto. Use: cargo build | cargo test | go test ./...'"
+}
