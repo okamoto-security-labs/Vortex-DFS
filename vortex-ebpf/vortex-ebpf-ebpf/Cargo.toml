@@ -1,0 +1,17 @@
+[package]
+name = "vortex-ebpf-ebpf"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+vortex-ebpf-common = { path = "../vortex-ebpf-common" }
+
+aya-ebpf = { workspace = true }
+aya-log-ebpf = { workspace = true }
+
+[build-dependencies]
+which = { workspace = true }
+
+[[bin]]
+name = "vortex-ebpf"
+path = "src/main.rs"
