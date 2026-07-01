@@ -177,7 +177,8 @@ fn auth_and_rate(req: &HttpRequest) -> Result<bool, HttpResponse> {
 
         // Authorization header present
         Some(h) => {
-            let key = h.strip_prefix("Bearer ").unwrap_or("").trim().to_string();
+            let key_store: web::Data<dyn KeyStore> = web::Data::new(InMemoryKeyStore::new());
+            App::new().app_data(key_store.clone())...
 
             if key.is_empty() {
                 return Err(HttpResponse::Unauthorized().json(err("Invalid Authorization format")));

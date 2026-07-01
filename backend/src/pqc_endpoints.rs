@@ -9,21 +9,17 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-use crate::signer_lwe::{keygen, verify, Signature};
+use crate::signer_lwe::{verify, Signature};
 use crate::pqc_core::{PqcVector, TrustBand};
+use crate::key_store::KeyStore;
 
 // ---------------------------------------------------------------------------
-// Deterministic seed from API key (demo: fixed seed)
-// Produção: derive de HSM ou KMS
+// FIX Finding #3: seed_from_key() REMOVIDO. A chave não é mais derivada
+// da string da API key -- é gerada uma vez com entropia real e recuperada
+// via web::Data<dyn KeyStore> injetado pelo actix (ver main.rs / app setup:
+// .app_data(web::Data::new(key_store)) usando InMemoryKeyStore ou uma
+// implementação real de produção).
 // ---------------------------------------------------------------------------
-fn seed_from_key(key: &str) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for &byte in key.as_bytes() {
-        h ^= byte as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
-}
 
 fn trust_band_str(band: &TrustBand) -> &'static str {
     match band {
@@ -41,7 +37,10 @@ fn trust_band_str(band: &TrustBand) -> &'static str {
 #[derive(Deserialize)]
 pub struct SignRequest {
     pub payload:  String,          // dados a assinar (texto ou base64)
-    pub nonce:    Option<u64>,     // aleatoriedade — produção: OsRng
+    // FIX Finding #4: campo `nonce` REMOVIDO. Aceitar nonce do cliente
+    // é o que permitia o ataque de recuperação de chave por reuso de
+    // nonce. sign() agora sempre gera aleatoriedade fresca internamente
+    // (OsRng) -- não existe mais nenhum jeito do chamador influenciar isso.
     pub distance: Option<f64>,     // parâmetro de confiança física [0,1]
     pub entropy:  Option<f64>,     // entropia do contexto [0,1]
 }
@@ -68,7 +67,11 @@ pub struct TrustOut {
     pub score: f64,
 }
 
-pub async fn handle_sign(req: HttpRequest, body: web::Json<SignRequest>) -> HttpResponse {
+pub async fn handle_sign(
+    req: HttpRequest,
+    body: web::Json<SignRequest>,
+    key_store: web::Data<dyn KeyStore>,
+) -> HttpResponse {
     let t0 = Instant::now();
 
     if body.payload.is_empty() {
@@ -80,22 +83,18 @@ pub async fn handle_sign(req: HttpRequest, body: web::Json<SignRequest>) -> Http
             .json(serde_json::json!({ "error": "payload exceeds 64KB" }));
     }
 
-    // Derive seed from Authorization header key (or fixed demo seed)
     let api_key = req.headers()
         .get("Authorization")
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .unwrap_or("demo");
-    let seed  = seed_from_key(api_key);
-    let nonce = body.nonce.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    });
 
-    let (sk, pk) = keygen(seed);
-    let sig      = sk.sign(body.payload.as_bytes(), &pk, nonce);
+    // FIX Finding #3: busca (ou cria, na primeira vez) a chave real via
+    // KeyStore -- nunca mais recalculada da string da API key.
+    let (sk, pk) = key_store.get_or_create(api_key);
+
+    // FIX Finding #4: sign() não recebe mais nonce nenhum vindo de fora.
+    let sig = sk.sign(body.payload.as_bytes(), &pk);
 
     // Trust evaluation
     let distance = body.distance.unwrap_or(0.1);
@@ -159,7 +158,11 @@ pub struct VerifyResponse {
     pub latency_ms: f64,
 }
 
-pub async fn handle_verify(req: HttpRequest, body: web::Json<VerifyRequest>) -> HttpResponse {
+pub async fn handle_verify(
+    req: HttpRequest,
+    body: web::Json<VerifyRequest>,
+    key_store: web::Data<dyn KeyStore>,
+) -> HttpResponse {
     let t0 = Instant::now();
 
     if body.payload.is_empty() {
@@ -172,9 +175,10 @@ pub async fn handle_verify(req: HttpRequest, body: web::Json<VerifyRequest>) -> 
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .unwrap_or("demo");
-    let seed = seed_from_key(api_key);
 
-    let (_sk, pk) = keygen(seed);
+    // FIX Finding #3: mesma correção do handle_sign -- busca a chave
+    // real via KeyStore, nunca recalcula da string da API key.
+    let (_sk, pk) = key_store.get_or_create(api_key);
     let sig = Signature {
         z: body.signature.z.clone(),
         w: body.signature.w.clone(),
