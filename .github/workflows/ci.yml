@@ -1,0 +1,72 @@
+name: CI
+
+# Roda em todo push e todo PR pra main — nenhum commit quebrado passa
+# despercebido de novo (era exatamente o gap identificado na auditoria
+# de 01/07/2026: "CI ainda é manual, testado só quando alguém lembra").
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # Equivalente ao "rubocop" do post original — falha o build se o
+      # código não segue o formato padrão do projeto.
+      - name: Format check
+        run: cargo fmt --check
+        continue-on-error: true # ainda não temos um padrão formal definido — não bloqueia por enquanto
+
+      # Equivalente ao Brakeman: análise estática de segurança/qualidade.
+      - name: Clippy (lint)
+        run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: true # projeto tem 9 warnings pré-existentes; ativar -D warnings de vez após limpá-los
+
+      # Equivalente ao bundler-audit: vulnerabilidades conhecidas em dependências.
+      - name: Security audit (cargo-audit)
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit || true
+        continue-on-error: true # não bloqueia ainda — primeira execução serve de baseline
+
+      - name: Build
+        run: cargo build --verbose
+
+      # O core do CI: os 29 testes, incluindo os 16 adversariais de
+      # segurança em signer_lwe.rs e key_store.rs. ESTE step NÃO tem
+      # continue-on-error — se algum teste de segurança falhar, o CI
+      # falha, ponto final. É o contrato que a auditoria estabeleceu.
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Report test count
+        if: always()
+        run: |
+          echo "## Resultado dos testes" >> $GITHUB_STEP_SUMMARY
+          cargo test 2>&1 | grep -E "test result:" >> $GITHUB_STEP_SUMMARY || true

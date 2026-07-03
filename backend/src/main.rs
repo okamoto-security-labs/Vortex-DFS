@@ -15,14 +15,13 @@
 //     colado por engano no meio do match Some(h) => {...}, apagando a linha
 //     que extraía `key` do header. Restaurado.
 // FIX Finding #3: KeyStore agora é criado UMA VEZ em main() e injetado via
-//     app_data — não é mais recalculado a partir da API key a cada request
-//     (isso era feito dentro de pqc_endpoints.rs; ver esse arquivo também).
-// FIX gap de rate limiting (PARCIAL — ver nota abaixo): /v1/pqc/sign e
-//     /v1/pqc/verify NÃO chamam auth_and_rate() — ou seja, hoje NÃO têm
-//     rate limit nenhum, diferente de /v1/shield/anonymize. Esta mudança
-//     prepara o terreno (auth_and_rate() agora retorna também a API key
-//     resolvida, não só o bool is_demo) mas NÃO conecta pqc_endpoints.rs
-//     a essa função ainda — isso continua pendente como próximo passo.
+//     app_data — não é mais recalculado a partir da API key a cada request.
+// FIX gap de rate limiting: handlers de /v1/pqc/sign, /v1/pqc/verify e
+//     /v1/pqc/audit agora chamam auth_and_rate() — antes nenhum dos três
+//     tinha rate limit (ver changelog de pqc_endpoints.rs).
+// FIX Finding #3, parte 2: PostgresKeyStore substitui o InMemoryKeyStore
+//     como padrão — chave persistida, criptografada em repouso, não é
+//     mais perdida a cada restart/hibernação do processo no Render.
 // ============================================================================
 
 mod key_store;
@@ -47,7 +46,7 @@ mod anonymizer_engine;
 mod provisioner;
 mod stripe_webhook;
 use anonymizer_engine::{AnonymizeResult, AnonymizerEngine};
-use key_store::{InMemoryKeyStore, KeyStore};
+use key_store::{KeyStore, PostgresKeyStore};
 use provisioner::find_by_api_key;
 
 // ---------------------------------------------------------------------------
@@ -87,7 +86,6 @@ fn check_rate_limit(ip: &str, limit: u32) -> bool {
         window_start: now,
     });
 
-    // Reset window if 60 seconds have passed
     if now - bucket.window_start >= 60 {
         bucket.count = 0;
         bucket.window_start = now;
@@ -98,11 +96,8 @@ fn check_rate_limit(ip: &str, limit: u32) -> bool {
 }
 
 /// Evict stale entries every ~1000 requests to prevent memory growth.
-/// WHY NOT A BACKGROUND TASK: actix-web free tier has no background threads.
-/// Probabilistic cleanup is O(1) amortized.
 fn maybe_evict_stale() {
     let now = now_secs();
-    // Only evict 1 in 1000 times to avoid lock contention
     if now % 1000 != 0 {
         return;
     }
@@ -156,9 +151,6 @@ fn err(msg: &str) -> serde_json::Value {
 
 // ---------------------------------------------------------------------------
 // IP extraction
-// WHY X-FORWARDED-FOR: Render sits behind Cloudflare. The real client IP
-// is in the X-Forwarded-For header, not the connection remote addr.
-// We take only the first IP to prevent spoofing via header injection.
 // ---------------------------------------------------------------------------
 fn client_ip(req: &HttpRequest) -> String {
     req.headers()
@@ -176,14 +168,9 @@ fn client_ip(req: &HttpRequest) -> String {
 // ---------------------------------------------------------------------------
 // Authentication + rate limiting (combined for single pass)
 //
-// Retorna Ok((is_demo, resolved_key)) ou Err(HttpResponse).
-//
-// `resolved_key` é a string que deve ser usada como lookup no KeyStore
-// (ver Finding #3): "demo" para chamadas sem Authorization ou em modo
-// demo, ou a API key real do cliente autenticado. Isso EXISTE pra que
-// /v1/pqc/sign e /v1/pqc/verify possam, no próximo passo, passar a
-// chamar esta função em vez de reimplementar a extração de header por
-// conta própria — hoje eles ainda não chamam (ver changelog no topo).
+// Retorna Ok((is_demo, resolved_key)) ou Err(HttpResponse). `resolved_key`
+// é usada como lookup no KeyStore: "demo" para chamadas sem Authorization
+// ou em modo demo, ou a API key real do cliente autenticado.
 // ---------------------------------------------------------------------------
 fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
     let ip = client_ip(req);
@@ -196,14 +183,12 @@ fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
         .map(|s| s.to_string());
 
     match auth_header {
-        // No Authorization header
         None => {
             if !demo_mode {
                 return Err(HttpResponse::Unauthorized().json(err(
                     "Missing Authorization header. Use: Authorization: Bearer vdfs_live_...",
                 )));
             }
-            // Demo mode — strict rate limit
             if !check_rate_limit(&format!("demo:{}", ip), 10) {
                 return Err(HttpResponse::TooManyRequests().json(err(
                     "Rate limit exceeded: 10 requests/minute for demo. Subscribe for higher limits."
@@ -212,7 +197,6 @@ fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
             Ok((true, "demo".to_string()))
         }
 
-        // Authorization header present
         Some(h) => {
             let key = h.strip_prefix("Bearer ").unwrap_or(&h).to_string();
 
@@ -220,7 +204,6 @@ fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
                 return Err(HttpResponse::Unauthorized().json(err("Invalid Authorization format")));
             }
 
-            // Demo calls from browser (non-vdfs_live_ keys) — treat as demo
             if demo_mode && !key.starts_with("vdfs_live_") {
                 if !check_rate_limit(&format!("demo:{}", ip), 10) {
                     return Err(HttpResponse::TooManyRequests()
@@ -229,21 +212,15 @@ fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
                 return Ok((true, "demo".to_string()));
             }
 
-            // Validate API key
             match find_by_api_key(&key) {
                 Some(c) if c.status == "active" => {
-                    // Authenticated — generous rate limit
-                    let rl_key = if key.len() >= 20 {
-                        &key[..20]
-                    } else {
-                        &key[..]
-                    };
+                    let rl_key = if key.len() >= 20 { &key[..20] } else { &key[..] };
                     if !check_rate_limit(&format!("auth:{}", rl_key), 300) {
                         return Err(HttpResponse::TooManyRequests().json(err(
                             "Rate limit exceeded: 300 requests/minute. Contact support to increase."
                         )));
                     }
-                    Ok((false, key)) // is_demo = false, chave real pro KeyStore
+                    Ok((false, key))
                 }
                 Some(_) => Err(HttpResponse::Forbidden().json(err(
                     "Subscription inactive or expired. Renew at okamotosecurytlabs.com.br",
@@ -255,9 +232,7 @@ fn auth_and_rate(req: &HttpRequest) -> Result<(bool, String), HttpResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// CORS — restrict to our domain + local dev
-// WHY MANUAL: actix-cors crate adds ~200KB to binary. For two allowed
-// origins, manual header injection is simpler and faster.
+// CORS
 // ---------------------------------------------------------------------------
 fn add_cors(resp: HttpResponse, req: &HttpRequest) -> HttpResponse {
     let origin = req
@@ -276,7 +251,6 @@ fn add_cors(resp: HttpResponse, req: &HttpRequest) -> HttpResponse {
     let cors_origin = if allowed.contains(&origin) {
         origin.to_string()
     } else {
-        // Default to our domain for non-browser clients
         "https://okamotosecurytlabs.com.br".to_string()
     };
 
@@ -293,9 +267,6 @@ fn add_cors(resp: HttpResponse, req: &HttpRequest) -> HttpResponse {
         .unwrap_or_else(|_| HttpResponse::InternalServerError().finish())
 }
 
-// ---------------------------------------------------------------------------
-// OPTIONS preflight handler (required for browser CORS)
-// ---------------------------------------------------------------------------
 async fn handle_preflight(req: HttpRequest) -> HttpResponse {
     add_cors(HttpResponse::NoContent().finish(), &req)
 }
@@ -307,12 +278,10 @@ async fn handle_anonymize(req: HttpRequest, body: web::Json<AnonymizeRequest>) -
     maybe_evict_stale();
     let t0 = Instant::now();
 
-    // Auth + rate limit
     if let Err(e) = auth_and_rate(&req) {
         return add_cors(e, &req);
     }
 
-    // Size guard
     if body.content.len() > 64 * 1024 {
         return add_cors(
             HttpResponse::PayloadTooLarge().json(err("Payload exceeds 64KB limit")),
@@ -320,7 +289,6 @@ async fn handle_anonymize(req: HttpRequest, body: web::Json<AnonymizeRequest>) -
         );
     }
 
-    // Empty guard
     if body.content.is_empty() {
         return add_cors(
             HttpResponse::UnprocessableEntity().json(err("content must not be empty")),
@@ -387,40 +355,28 @@ fn encrypt_token_map(map: &HashMap<String, String>) -> String {
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    // Initialize Supabase connection pool
     if let Err(e) = provisioner::init_db().await {
         log::error!("Database initialization failed: {}", e);
         std::process::exit(1);
     }
 
-    // Warm up regex engine at startup — not on first request
     let _ = &*anonymizer_engine::REGEX_SET;
     log::info!(
         "Vortex DFS ready — {} patterns loaded",
         anonymizer_engine::PATTERNS.len()
     );
 
-    // FIX Finding #3: KeyStore criado UMA VEZ aqui, fora do closure do
-    // HttpServer::new (que roda uma vez por worker thread).
-    //
-    // IMPORTANTE: web::Data::new(InMemoryKeyStore::new()) NÃO compila com
-    // a anotação `web::Data<dyn KeyStore>` — Data<T> não ganha coerção
-    // automática de tipo concreto pra trait object (isso exigiria
-    // CoerceUnsized, que o actix-web não implementa pra Data<T>). O
-    // caminho que funciona é montar o Arc<dyn KeyStore> primeiro — Arc
-    // do std SIM faz essa coerção automaticamente — e só depois envolver
-    // com web::Data::from(...).
-    //
-    // web::Data usa Arc por baixo, então o .clone() no closure abaixo é
-    // barato e todos os workers compartilham a MESMA instância —
-    // essencial, senão cada worker teria seu próprio conjunto de chaves.
-    //
-    // ⚠️ InMemoryKeyStore é adequado só pra este estágio (sem clientes
-    // pagantes ainda). Ver comentário de produção em key_store.rs antes
-    // de ter tráfego real: precisa de persistência (o processo reinicia
-    // no Render em cada deploy, e o free tier hiberna com inatividade —
-    // toda vez que isso acontece, as chaves em memória são perdidas).
-    let key_store_arc: std::sync::Arc<dyn KeyStore> = std::sync::Arc::new(InMemoryKeyStore::new());
+    // FIX Finding #3, parte 2: PostgresKeyStore — chave gerada uma vez,
+    // criptografada em repouso, persistida no mesmo Postgres/Supabase
+    // que o provisioner.rs já usa. Requer VORTEX_MASTER_KEY (32 bytes
+    // base64) e a tabela pqc_keys (ver migrations/001_pqc_keys.sql).
+    // Sem VORTEX_MASTER_KEY, /v1/pqc/sign e /v1/pqc/verify falham com
+    // 500 — intencional (fail loud, não fail silent com chave fraca).
+    let pg_pool = provisioner::get_pool().expect(
+        "Postgres pool deve estar inicializado antes do KeyStore (provisioner::init_db já rodou acima)",
+    );
+    let key_store_arc: std::sync::Arc<dyn KeyStore> =
+        std::sync::Arc::new(PostgresKeyStore::new(pg_pool));
     let key_store: web::Data<dyn KeyStore> = web::Data::from(key_store_arc);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());

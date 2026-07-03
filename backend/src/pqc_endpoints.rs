@@ -19,6 +19,10 @@ use crate::key_store::KeyStore;
 // via web::Data<dyn KeyStore> injetado pelo actix (ver main.rs / app setup:
 // .app_data(web::Data::new(key_store)) usando InMemoryKeyStore ou uma
 // implementação real de produção).
+//
+// FIX gap de rate limiting: os 3 handlers (sign, verify, audit) agora
+// chamam crate::auth_and_rate(&req) -- a mesma função que já protegia
+// /v1/shield/anonymize. Antes, nenhum dos três tinha rate limit.
 // ---------------------------------------------------------------------------
 
 fn trust_band_str(band: &TrustBand) -> &'static str {
@@ -83,15 +87,25 @@ pub async fn handle_sign(
             .json(serde_json::json!({ "error": "payload exceeds 64KB" }));
     }
 
-    let api_key = req.headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .unwrap_or("demo");
+    // FIX gap de rate limiting: handle_sign agora passa por auth_and_rate(),
+    // a mesma função que já protege /v1/shield/anonymize. Isso aplica os
+    // limites de 10 req/min (demo) ou 300 req/min (autenticado) também
+    // aqui — antes, este endpoint não tinha rate limit nenhum.
+    let (_is_demo, api_key) = match crate::auth_and_rate(&req) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
 
     // FIX Finding #3: busca (ou cria, na primeira vez) a chave real via
     // KeyStore -- nunca mais recalculada da string da API key.
-    let (sk, pk) = key_store.get_or_create(api_key);
+    let (sk, pk) = match key_store.get_or_create(&api_key).await {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("key_store error em handle_sign: {}", e);
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": "internal key management error" }));
+        }
+    };
 
     // FIX Finding #4: sign() não recebe mais nonce nenhum vindo de fora.
     let sig = sk.sign(body.payload.as_bytes(), &pk);
@@ -170,15 +184,22 @@ pub async fn handle_verify(
             .json(serde_json::json!({ "error": "payload must not be empty" }));
     }
 
-    let api_key = req.headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .unwrap_or("demo");
+    // FIX gap de rate limiting: mesma correção do handle_sign.
+    let (_is_demo, api_key) = match crate::auth_and_rate(&req) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
 
     // FIX Finding #3: mesma correção do handle_sign -- busca a chave
     // real via KeyStore, nunca recalcula da string da API key.
-    let (_sk, pk) = key_store.get_or_create(api_key);
+    let (_sk, pk) = match key_store.get_or_create(&api_key).await {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("key_store error em handle_verify: {}", e);
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": "internal key management error" }));
+        }
+    };
     let sig = Signature {
         z: body.signature.z.clone(),
         w: body.signature.w.clone(),
@@ -357,8 +378,16 @@ static CRYPTO_PATTERNS: &[CryptoPattern] = &[
     CryptoPattern { pattern: "SSL",       algorithm: "SSL",       category: "protocol",   quantum_safe: false, risk_level: "critical" },
 ];
 
-pub async fn handle_audit(_req: HttpRequest, body: web::Json<AuditRequest>) -> HttpResponse {
+pub async fn handle_audit(req: HttpRequest, body: web::Json<AuditRequest>) -> HttpResponse {
     let t0 = Instant::now();
+
+    // BÔNUS (não fazia parte do escopo original): handle_audit não tinha
+    // NENHUMA autenticação ou rate limit -- `_req` nem era usado. Mesmo
+    // não expondo segredo criptográfico, é uma superfície de abuso (DoS
+    // via scan repetido) que os outros dois endpoints já tinham fechado.
+    if let Err(resp) = crate::auth_and_rate(&req) {
+        return resp;
+    }
 
     if body.content.is_empty() {
         return HttpResponse::UnprocessableEntity()

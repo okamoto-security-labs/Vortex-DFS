@@ -23,10 +23,11 @@
 // ============================================================================
 
 use rand::RngCore;
+use serde::{Deserialize, Serialize};
 
-pub const N: usize = 16; // dimensão do lattice (produção: ≥512)
-pub const Q: i64 = 257; // módulo primo      (produção: ~2^23)
-pub const ETA: i64 = 2; // amplitude do erro
+pub const N:   usize = 16;   // dimensão do lattice (produção: ≥512)
+pub const Q:   i64   = 257;  // módulo primo      (produção: ~2^23)
+pub const ETA: i64   = 2;    // amplitude do erro
 
 // NOVO: o challenge agora é limitado a um pequeno intervalo, igual aos
 // esquemas reais de assinatura em lattice (Dilithium usa polinômios de
@@ -40,28 +41,25 @@ pub const CHALLENGE_BOUND: i64 = 50;
 // Deixamos uma margem de segurança e travamos bem abaixo de Q/2 (=128).
 pub const TOLERANCE: i64 = CHALLENGE_BOUND * ETA + 2; // = 12, << 128
 
-#[derive(Clone)]
-pub struct SecretKey {
-    s: Vec<i64>,
-}
-#[derive(Clone)]
-pub struct PublicKey {
-    pub a: Vec<Vec<i64>>,
-    pub b: Vec<i64>,
-}
+// FIX Finding #3, parte 2 (KeyStore persistente): derives de serde
+// adicionados pra permitir serializar a chave (secreta, criptografada
+// antes de persistir; pública, em texto claro) no Postgres via
+// PostgresKeyStore em key_store.rs. `s` continua privado — o derive
+// macro gera código dentro deste módulo, então tem acesso ao campo
+// mesmo sendo privado pra código externo.
+#[derive(Clone, Serialize, Deserialize)] pub struct SecretKey { s: Vec<i64> }
+#[derive(Clone, Serialize, Deserialize)] pub struct PublicKey  { pub a: Vec<Vec<i64>>, pub b: Vec<i64> }
 
 pub struct Signature {
-    pub z: Vec<i64>, // resposta: y + c·s mod q
-    pub w: Vec<i64>, // commitment: A·y mod q
-    pub c: i64,      // challenge: H(w || data), agora em [-CHALLENGE_BOUND, CHALLENGE_BOUND]
+    pub z: Vec<i64>,  // resposta: y + c·s mod q
+    pub w: Vec<i64>,  // commitment: A·y mod q
+    pub c: i64,       // challenge: H(w || data), agora em [-CHALLENGE_BOUND, CHALLENGE_BOUND]
 }
 
 fn pseudo_rand(seed: u64, idx: usize) -> i64 {
     // xorshift64 — usado só pra keygen determinística de teste/demo.
     // NUNCA usado mais para gerar o nonce de assinatura (ver sign()).
-    let mut x = seed
-        .wrapping_add(idx as u64)
-        .wrapping_add(0x9e3779b97f4a7c15);
+    let mut x = seed.wrapping_add(idx as u64).wrapping_add(0x9e3779b97f4a7c15);
     x = (x ^ (x >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
     x = (x ^ (x >> 27)).wrapping_mul(0x94d049bb133111eb);
     x ^= x >> 31;
@@ -72,9 +70,7 @@ fn sample_error(seed: u64, idx: usize) -> i64 {
     (pseudo_rand(seed, idx) % (2 * ETA + 1)) - ETA
 }
 
-fn mod_q(x: i64) -> i64 {
-    x.rem_euclid(Q)
-}
+fn mod_q(x: i64) -> i64 { x.rem_euclid(Q) }
 
 fn dist_circular(a: i64, b: i64) -> i64 {
     let d = (a - b).rem_euclid(Q);
@@ -109,19 +105,17 @@ fn challenge_hash(w: &[i64], data: &[u8]) -> i64 {
 /// a partir da API key em cada requisição.
 pub fn keygen_secure() -> (SecretKey, PublicKey) {
     let mut rng = rand::rngs::OsRng;
-    let s: Vec<i64> = (0..N)
-        .map(|_| (rng.next_u64() % (2 * ETA as u64 + 1)) as i64 - ETA)
-        .collect();
-    let a: Vec<Vec<i64>> = (0..N)
-        .map(|_| (0..N).map(|_| (rng.next_u64() % Q as u64) as i64).collect())
-        .collect();
-    let b: Vec<i64> = (0..N)
-        .map(|i| {
-            let dot: i64 = a[i].iter().zip(s.iter()).map(|(a, s)| a * s).sum();
-            let e_i = (rng.next_u64() % (2 * ETA as u64 + 1)) as i64 - ETA;
-            mod_q(dot + e_i)
-        })
-        .collect();
+    let s: Vec<i64> = (0..N).map(|_| {
+        (rng.next_u64() % (2 * ETA as u64 + 1)) as i64 - ETA
+    }).collect();
+    let a: Vec<Vec<i64>> = (0..N).map(|_| {
+        (0..N).map(|_| (rng.next_u64() % Q as u64) as i64).collect()
+    }).collect();
+    let b: Vec<i64> = (0..N).map(|i| {
+        let dot: i64 = a[i].iter().zip(s.iter()).map(|(a, s)| a * s).sum();
+        let e_i = (rng.next_u64() % (2 * ETA as u64 + 1)) as i64 - ETA;
+        mod_q(dot + e_i)
+    }).collect();
     (SecretKey { s }, PublicKey { a, b })
 }
 
@@ -132,26 +126,18 @@ pub fn keygen_secure() -> (SecretKey, PublicKey) {
 pub fn keygen(seed: u64) -> (SecretKey, PublicKey) {
     let s: Vec<i64> = (0..N).map(|i| sample_error(seed, i)).collect();
     let a: Vec<Vec<i64>> = (0..N)
-        .map(|i| {
-            (0..N)
-                .map(|j| pseudo_rand(seed ^ 0xdeadbeef, i * N + j))
-                .collect()
-        })
+        .map(|i| (0..N).map(|j| pseudo_rand(seed ^ 0xdeadbeef, i * N + j)).collect())
         .collect();
-    let b: Vec<i64> = (0..N)
-        .map(|i| {
-            let dot: i64 = a[i].iter().zip(s.iter()).map(|(a, s)| a * s).sum();
-            mod_q(dot + sample_error(seed ^ 0xcafe, i))
-        })
-        .collect();
+    let b: Vec<i64> = (0..N).map(|i| {
+        let dot: i64 = a[i].iter().zip(s.iter()).map(|(a, s)| a * s).sum();
+        mod_q(dot + sample_error(seed ^ 0xcafe, i))
+    }).collect();
     (SecretKey { s }, PublicKey { a, b })
 }
 
 impl SecretKey {
     #[cfg(test)]
-    pub(crate) fn expose_for_test(&self) -> &[i64] {
-        &self.s
-    }
+    pub(crate) fn expose_for_test(&self) -> &[i64] { &self.s }
 
     /// Fiat-Shamir sobre LWE, corrigido:
     ///   y = aleatoriedade fresca do SO — NUNCA vinda do chamador (fix #4)
@@ -164,13 +150,11 @@ impl SecretKey {
     pub fn sign(&self, data: &[u8], pk: &PublicKey) -> Signature {
         let mut rng = rand::rngs::OsRng;
         let y: Vec<i64> = (0..N).map(|_| (rng.next_u64() % Q as u64) as i64).collect();
-        let w: Vec<i64> = (0..N)
-            .map(|i| mod_q(pk.a[i].iter().zip(y.iter()).map(|(a, y)| a * y).sum()))
-            .collect();
+        let w: Vec<i64> = (0..N).map(|i| {
+            mod_q(pk.a[i].iter().zip(y.iter()).map(|(a, y)| a * y).sum())
+        }).collect();
         let c = challenge_hash(&w, data);
-        let z: Vec<i64> = y
-            .iter()
-            .zip(self.s.iter())
+        let z: Vec<i64> = y.iter().zip(self.s.iter())
             .map(|(&yi, &si)| mod_q(yi + c * si))
             .collect();
         Signature { z, w, c }
@@ -182,16 +166,12 @@ impl SecretKey {
 ///   2. c precisa estar no intervalo esperado — defesa em profundidade
 ///   3. tolerância é CONSTANTE, nunca derivada de c (fix #2)
 pub fn verify(pk: &PublicKey, data: &[u8], sig: &Signature) -> bool {
-    if sig.c.abs() > CHALLENGE_BOUND {
-        return false;
-    }
-    if sig.c != challenge_hash(&sig.w, data) {
-        return false;
-    }
+    if sig.c.abs() > CHALLENGE_BOUND { return false; }
+    if sig.c != challenge_hash(&sig.w, data) { return false; }
 
-    let az: Vec<i64> = (0..N)
-        .map(|i| mod_q(pk.a[i].iter().zip(sig.z.iter()).map(|(a, z)| a * z).sum()))
-        .collect();
+    let az: Vec<i64> = (0..N).map(|i| {
+        mod_q(pk.a[i].iter().zip(sig.z.iter()).map(|(a, z)| a * z).sum())
+    }).collect();
     let cb: Vec<i64> = pk.b.iter().map(|&bi| mod_q(sig.c * bi)).collect();
 
     (0..N).all(|i| dist_circular(mod_q(az[i] - cb[i]), sig.w[i]) <= TOLERANCE)
@@ -213,19 +193,15 @@ mod adversarial_core {
         // Sem conseguir resolver esse ciclo, tenta um c qualquer chutado:
         let guessed_c = 3i64; // dentro do range válido agora, mas "chutado"
         let z: Vec<i64> = vec![0; N];
-        let w: Vec<i64> = (0..N)
-            .map(|i| {
-                let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
-                mod_q(az - guessed_c * pk.b[i])
-            })
-            .collect();
+        let w: Vec<i64> = (0..N).map(|i| {
+            let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
+            mod_q(az - guessed_c * pk.b[i])
+        }).collect();
         // Mas agora o verify recalcula c a partir de w+data -- não é mais o que o atacante chutou
         let forged = Signature { z, w, c: guessed_c };
 
-        assert!(
-            !verify(&pk, data, &forged),
-            "FINDING #1 continua explorável: forjamento funcionou mesmo com o fix."
-        );
+        assert!(!verify(&pk, data, &forged),
+            "FINDING #1 continua explorável: forjamento funcionou mesmo com o fix.");
     }
 
     #[test]
@@ -235,22 +211,13 @@ mod adversarial_core {
         for data in messages {
             let guessed_c = 2i64;
             let z: Vec<i64> = vec![1; N];
-            let w: Vec<i64> = (0..N)
-                .map(|i| {
-                    let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
-                    mod_q(az - guessed_c * pk.b[i])
-                })
-                .collect();
-            let forged = Signature {
-                z: z.clone(),
-                w,
-                c: guessed_c,
-            };
-            assert!(
-                !verify(&pk, data, &forged),
-                "FINDING #1b continua explorável para {:?}",
-                data
-            );
+            let w: Vec<i64> = (0..N).map(|i| {
+                let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
+                mod_q(az - guessed_c * pk.b[i])
+            }).collect();
+            let forged = Signature { z: z.clone(), w, c: guessed_c };
+            assert!(!verify(&pk, data, &forged),
+                "FINDING #1b continua explorável para {:?}", data);
         }
     }
 
@@ -263,10 +230,8 @@ mod adversarial_core {
         let w: Vec<i64> = (0..N).map(|i| pseudo_rand(777, i)).collect();
         // usa um c dentro do range válido, mas w/z não relacionados a ele
         let garbage = Signature { z, w, c: 4 };
-        assert!(
-            !verify(&pk, data, &garbage),
-            "FINDING #2 continua explorável: par (z,w) não relacionado foi aceito."
-        );
+        assert!(!verify(&pk, data, &garbage),
+            "FINDING #2 continua explorável: par (z,w) não relacionado foi aceito.");
     }
 
     #[test]
@@ -276,10 +241,8 @@ mod adversarial_core {
         let z: Vec<i64> = vec![0; N];
         let w: Vec<i64> = vec![0; N];
         let out_of_range = Signature { z, w, c: 999 }; // fora de [-5,5]
-        assert!(
-            !verify(&pk, data, &out_of_range),
-            "challenge fora do range deveria ser rejeitado direto."
-        );
+        assert!(!verify(&pk, data, &out_of_range),
+            "challenge fora do range deveria ser rejeitado direto.");
     }
 
     // CONTROLES POSITIVOS
@@ -288,10 +251,7 @@ mod adversarial_core {
         let (sk, pk) = keygen(1234);
         let data = b"legitimate transaction";
         let sig = sk.sign(data, &pk); // sem nonce agora
-        assert!(
-            verify(&pk, data, &sig),
-            "assinatura legítima deveria passar"
-        );
+        assert!(verify(&pk, data, &sig), "assinatura legítima deveria passar");
     }
 
     #[test]
@@ -309,10 +269,7 @@ mod adversarial_core {
         let data = "invoice #4471 — R$ 250,00".as_bytes();
         let mut sig = sk.sign(data, &pk);
         sig.z[0] = mod_q(sig.z[0] + 1);
-        assert!(
-            !verify(&pk, data, &sig),
-            "z adulterado não deveria verificar"
-        );
+        assert!(!verify(&pk, data, &sig), "z adulterado não deveria verificar");
     }
 
     #[test]
@@ -324,10 +281,7 @@ mod adversarial_core {
         let data = b"payment approved";
         let mut sig = sk.sign(data, &pk);
         sig.w[0] = mod_q(sig.w[0] + 1);
-        assert!(
-            !verify(&pk, data, &sig),
-            "w adulterado deveria invalidar a assinatura"
-        );
+        assert!(!verify(&pk, data, &sig), "w adulterado deveria invalidar a assinatura");
     }
 
     // FINDING #4: nonce não é mais parâmetro de sign() -- teste de tipo/API,
@@ -341,11 +295,9 @@ mod adversarial_core {
         let data = b"repeated message";
         let sig1 = sk.sign(data, &pk);
         let sig2 = sk.sign(data, &pk);
-        assert_ne!(
-            sig1.w, sig2.w,
+        assert_ne!(sig1.w, sig2.w,
             "duas assinaturas da mesma mensagem tem o mesmo commitment -- \
-             sinal de que y não está usando aleatoriedade fresca."
-        );
+             sinal de que y não está usando aleatoriedade fresca.");
         assert!(verify(&pk, data, &sig1));
         assert!(verify(&pk, data, &sig2));
     }
@@ -388,15 +340,11 @@ mod stress_tests {
         for attempt in 0..attempts {
             let space = 2 * CHALLENGE_BOUND + 1;
             let guessed_c = (attempt as i64 % space) - CHALLENGE_BOUND;
-            let z: Vec<i64> = (0..N)
-                .map(|i| pseudo_rand(attempt.wrapping_mul(7919), i))
-                .collect();
-            let w: Vec<i64> = (0..N)
-                .map(|i| {
-                    let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
-                    mod_q(az - guessed_c * pk.b[i])
-                })
-                .collect();
+            let z: Vec<i64> = (0..N).map(|i| pseudo_rand(attempt.wrapping_mul(7919), i)).collect();
+            let w: Vec<i64> = (0..N).map(|i| {
+                let az: i64 = pk.a[i].iter().zip(z.iter()).map(|(a, z)| a * z).sum();
+                mod_q(az - guessed_c * pk.b[i])
+            }).collect();
             let forged = Signature { z, w, c: guessed_c };
             if verify(&pk, data, &forged) {
                 successes += 1;
@@ -408,12 +356,9 @@ mod stress_tests {
         // com folga estatística. Qualquer coisa muito acima disso indica
         // uma regressão real (ex: alguém reintroduziu o bug de binding).
         let expected = 1.0 / (2 * CHALLENGE_BOUND + 1) as f64;
-        assert!(
-            rate < expected * 3.0,
+        assert!(rate < expected * 3.0,
             "taxa de forjamento ({:.2}%) muito acima do esperado (~{:.2}%) -- possível regressão",
-            rate * 100.0,
-            expected * 100.0
-        );
+            rate * 100.0, expected * 100.0);
     }
 
     #[test]
@@ -423,11 +368,7 @@ mod stress_tests {
         for i in 0..100 {
             let data = format!("message number {}", i).into_bytes();
             let sig = sk.sign(&data, &pk);
-            assert!(
-                verify(&pk, &data, &sig),
-                "assinatura legítima #{} foi rejeitada",
-                i
-            );
+            assert!(verify(&pk, &data, &sig), "assinatura legítima #{} foi rejeitada", i);
         }
     }
 
@@ -435,11 +376,8 @@ mod stress_tests {
     fn stress_tolerance_never_approaches_half_q() {
         // trava estruturalmente: TOLERANCE tem que ficar bem abaixo de Q/2
         // pra nao reabrir o Finding #2 se alguem mudar CHALLENGE_BOUND no futuro
-        assert!(
-            TOLERANCE < (Q / 2) * 9 / 10,
+        assert!(TOLERANCE < (Q / 2) * 9 / 10,
             "TOLERANCE ({}) está perigosamente perto de Q/2 ({}) -- risco de reabrir Finding #2",
-            TOLERANCE,
-            (Q / 2) * 9 / 10
-        );
+            TOLERANCE, (Q/2)*9/10);
     }
 }
