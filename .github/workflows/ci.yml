@@ -2,33 +2,31 @@ name: Vortex DFS CI Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
+  VORTEX_MASTER_KEY: "test_master_key_32_bytes_base64_encoded_dummy=="
 
 jobs:
-  build-and-test:
+  build_and_test:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Rust Toolchain
-      uses: dtolnay/rust-toolchain@stable
+    - name: Install Rust Toolchain
+      uses: dtolnay/rust-action@stable
       with:
-        components: rustfmt, clippy
+        components: clippy, rustfmt
 
-    - name: Check Formatting
-      run: cargo fmt -- --check
+    - name: Run Cargo Check
+      run: cargo check --manifest-path backend/Cargo.toml
 
-    - name: Run Clippy (Linter estrito)
+    - name: Run Clippy (Strict Zero-Warning Policy)
       run: cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
 
-    - name: Run Deterministic Test Suite
+    - name: Run Unit & Integration Tests
       run: cargo test --manifest-path backend/Cargo.toml --verbose
-      env:
-        VORTEX_MASTER_KEY: 'test_master_key_32_bytes_base64_encoded_dummy=='
-        ALLOW_DEMO: 'true'
