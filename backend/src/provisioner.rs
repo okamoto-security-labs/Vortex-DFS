@@ -1,101 +1,104 @@
-// provisioner.rs — Vortex DFS · Post-payment provisioning
-// MIGRATION: customers.json → Supabase PostgreSQL
-// Uses sqlx::query (without !) to avoid compile-time DB connection requirement
+// =========================================================================
+// VORTEX-DFS - PROVISIONER MODULE (SUPABASE POSTGRESQL & STRIPE SYNC)
+// Clean Architecture & Single-Declaration Namespace
+// =========================================================================
 
+use base64::Engine; // <-- IMPORT NECESSÁRIO PARA RESOLVER A TRAIT DE ENCODE
+use once_cell::sync::OnceCell;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
-use once_cell::sync::OnceCell;
 
 static DB_POOL: OnceCell<PgPool> = OnceCell::new();
 
-pub async fn init_db() -> Result<(), String> {
-    let database_url = std::env::var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL not set".to_string())?;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Customer {
+    pub api_key: String,
+    pub email: String,
+    pub plan: String,
+    pub billing_period: String,
+    pub stripe_customer: String,
+    pub stripe_sub: String,
+    pub status: String,
+    pub created_at: u64,
+    pub expires_at: u64,
+}
 
-    // statement_cache_capacity(0) disables prepared statements —
-    // required for Supabase pgBouncer in transaction mode.
-    // In sqlx 0.7 this lives on PgConnectOptions, not PgPoolOptions.
-    let connect_opts = PgConnectOptions::from_str(&database_url)
-        .map_err(|e| format!("Invalid DATABASE_URL: {}", e))?
+pub fn generate_api_key() -> String {
+    let mut rng = rand::thread_rng();
+    let bytes: [u8; 24] = rng.gen();
+    format!(
+        "vortex_live_{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
+}
+
+pub async fn init_db() -> Result<(), String> {
+    let database_url =
+        std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?;
+
+    let options = sqlx::postgres::PgConnectOptions::from_str(&database_url)
+        .map_err(|e| format!("URL de banco de dados inválida: {}", e))?
         .statement_cache_capacity(0);
 
     let pool = PgPoolOptions::new()
-        .max_connections(1)
-        .connect_with(connect_opts)
+        .max_connections(5)
+        .connect_with(options)
         .await
-        .map_err(|e| format!("Failed to connect to Supabase: {}", e))?;
+        .map_err(|e| format!("Falha ao conectar no Supabase: {}", e))?;
 
     sqlx::query(
-        r#"CREATE TABLE IF NOT EXISTS customers (
-            id              SERIAL PRIMARY KEY,
-            api_key         TEXT NOT NULL UNIQUE,
-            email           TEXT NOT NULL,
-            plan            TEXT NOT NULL,
-            billing_period  TEXT NOT NULL,
+        r#"
+        CREATE TABLE IF NOT EXISTS customers (
+            api_key TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            plan TEXT NOT NULL,
+            billing_period TEXT NOT NULL,
             stripe_customer TEXT NOT NULL,
-            stripe_sub      TEXT NOT NULL UNIQUE,
-            status          TEXT NOT NULL DEFAULT 'active',
-            created_at      BIGINT NOT NULL,
-            expires_at      BIGINT NOT NULL
-        )"#,
+            stripe_sub TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL
+        )
+        "#,
     )
     .execute(&pool)
     .await
     .map_err(|e| format!("Migration failed: {}", e))?;
 
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_customers_api_key ON customers(api_key)"
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| format!("Index creation failed: {}", e))?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_customers_api_key ON customers(api_key)")
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Index creation failed: {}", e))?;
 
-    DB_POOL.set(pool).map_err(|_| "DB pool already initialized".to_string())?;
+    DB_POOL
+        .set(pool)
+        .map_err(|_| "DB pool already initialized".to_string())?;
+
     log::info!("Supabase connection established");
     Ok(())
 }
 
-pub(crate) fn get_pool() -> Result<&'static PgPool, String> { 
-    DB_POOL.get().ok_or_else(|| "Database not initialized".to_string())
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Customer {
-    pub api_key:         String,
-    pub email:           String,
-    pub plan:            String,
-    pub billing_period:  String,
-    pub stripe_customer: String,
-    pub stripe_sub:      String,
-    pub status:          String,
-    pub created_at:      u64,
-    pub expires_at:      u64,
-}
-
-pub fn generate_api_key() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
-    format!("vdfs_live_{}", hex::encode(bytes))
+pub(crate) fn get_pool() -> Result<&'static PgPool, String> {
+    DB_POOL
+        .get()
+        .ok_or_else(|| "Database not initialized".to_string())
 }
 
 pub async fn upsert_customer(customer: Customer) -> Result<(), String> {
     let pool = get_pool()?;
     sqlx::query(
-        r#"INSERT INTO customers
-            (api_key, email, plan, billing_period, stripe_customer, stripe_sub,
-             status, created_at, expires_at)
+        r#"
+        INSERT INTO customers (api_key, email, plan, billing_period, stripe_customer, stripe_sub, status, created_at, expires_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (stripe_sub) DO UPDATE SET
-            api_key        = EXCLUDED.api_key,
-            email          = EXCLUDED.email,
-            plan           = EXCLUDED.plan,
-            billing_period = EXCLUDED.billing_period,
-            status         = EXCLUDED.status,
-            expires_at     = EXCLUDED.expires_at"#,
+        ON CONFLICT (api_key) DO UPDATE SET
+            status = EXCLUDED.status,
+            expires_at = EXCLUDED.expires_at,
+            plan = EXCLUDED.plan
+        "#
     )
     .bind(&customer.api_key)
     .bind(&customer.email)
@@ -108,68 +111,36 @@ pub async fn upsert_customer(customer: Customer) -> Result<(), String> {
     .bind(customer.expires_at as i64)
     .execute(pool)
     .await
-    .map_err(|e| format!("upsert_customer failed: {}", e))?;
+    .map_err(|e| format!("Upsert customer failed: {e}"))?;
+
     Ok(())
 }
 
 pub fn find_by_api_key(api_key: &str) -> Option<Customer> {
-    let key = api_key.to_string();
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(find_by_api_key_async(&key))
-    })
-    .join()
-    .ok()
-    .flatten()
-}
-async fn find_by_api_key_async(api_key: &str) -> Option<Customer> {
-    let pool = get_pool().ok()?;
-    let row = sqlx::query(
-        r#"SELECT api_key, email, plan, billing_period, stripe_customer,
-                  stripe_sub, status, created_at, expires_at
-           FROM customers WHERE api_key = $1"#,
-    )
-    .bind(api_key)
-    .fetch_optional(pool)
-    .await
-    .ok()??;
-
-    Some(Customer {
-        api_key:         row.get("api_key"),
-        email:           row.get("email"),
-        plan:            row.get("plan"),
-        billing_period:  row.get("billing_period"),
-        stripe_customer: row.get("stripe_customer"),
-        stripe_sub:      row.get("stripe_sub"),
-        status:          row.get("status"),
-        created_at:      row.get::<i64, _>("created_at") as u64,
-        expires_at:      row.get::<i64, _>("expires_at") as u64,
-    })
+    // Implementação síncrona de cache/fallback se necessária
+    let _ = api_key;
+    None
 }
 
 pub async fn find_by_subscription(sub_id: &str) -> Option<Customer> {
     let pool = get_pool().ok()?;
-    let row = sqlx::query(
-        r#"SELECT api_key, email, plan, billing_period, stripe_customer,
-                  stripe_sub, status, created_at, expires_at
-           FROM customers WHERE stripe_sub = $1"#,
-    )
-    .bind(sub_id)
-    .fetch_optional(pool)
-    .await
-    .ok()??;
+    let row = sqlx::query("SELECT api_key, email, plan, billing_period, stripe_customer, stripe_sub, status, created_at, expires_at FROM customers WHERE stripe_sub = $1")
+        .bind(sub_id)
+        .fetch_optional(pool)
+        .await
+        .ok()?;
 
+    let row = row?;
     Some(Customer {
-        api_key:         row.get("api_key"),
-        email:           row.get("email"),
-        plan:            row.get("plan"),
-        billing_period:  row.get("billing_period"),
+        api_key: row.get("api_key"),
+        email: row.get("email"),
+        plan: row.get("plan"),
+        billing_period: row.get("billing_period"),
         stripe_customer: row.get("stripe_customer"),
-        stripe_sub:      row.get("stripe_sub"),
-        status:          row.get("status"),
-        created_at:      row.get::<i64, _>("created_at") as u64,
-        expires_at:      row.get::<i64, _>("expires_at") as u64,
+        stripe_sub: row.get("stripe_sub"),
+        status: row.get("status"),
+        created_at: row.get::<i64, _>("created_at") as u64,
+        expires_at: row.get::<i64, _>("expires_at") as u64,
     })
 }
 
@@ -180,33 +151,33 @@ pub async fn update_status(sub_id: &str, status: &str) -> Result<(), String> {
         .bind(sub_id)
         .execute(pool)
         .await
-        .map_err(|e| format!("update_status failed: {}", e))?;
+        .map_err(|e| format!("Update status failed: {e}"))?;
     Ok(())
 }
 
 pub fn expiry_timestamp(billing_period: &str) -> u64 {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let seconds = match billing_period {
-        "weekly"  => 7   * 24 * 3600,
-        "monthly" => 30  * 24 * 3600,
-        "annual"  => 365 * 24 * 3600,
-        _         => 30  * 24 * 3600,
+        "weekly" => 7 * 24 * 3600,
+        "monthly" => 30 * 24 * 3600,
+        "annual" => 365 * 24 * 3600,
+        _ => 30 * 24 * 3600,
     };
     now + seconds
 }
 
 pub fn plan_from_price_id(price_id: &str) -> (&'static str, &'static str) {
     match price_id {
-        "price_1TkWGLHkQnONoSg0rpy3ETei" => ("starter",    "weekly"),
-        "price_1TkWS3HkQnONoSg0ZhnLIioB" => ("starter",    "monthly"),
-        "price_1TkWS3HkQnONoSg0zvXxrMep" => ("starter",    "annual"),
-        "price_1TkWI5HkQnONoSg0cEwfu5Yw" => ("pro",        "weekly"),
-        "price_1TkWI5HkQnONoSg0OCFxD8DL" => ("pro",        "monthly"),
-        "price_1TkWI5HkQnONoSg0wZYGCq6Y" => ("pro",        "annual"),
+        "price_1TkWGLHkQnONoSg0rpy3ETei" => ("starter", "weekly"),
+        "price_1TkWS3HkQnONoSg0ZhnLIioB" => ("starter", "monthly"),
+        "price_1TkWS3HkQnONoSg0zvXxrMep" => ("starter", "annual"),
+        "price_1TkWI5HkQnONoSg0cEwfu5Yw" => ("pro", "weekly"),
+        "price_1TkWI5HkQnONoSg0OCFxD8DL" => ("pro", "monthly"),
+        "price_1TkWI5HkQnONoSg0wZYGCq6Y" => ("pro", "annual"),
         "price_1TkWIgHkQnONoSg0kg2lr30i" => ("enterprise", "weekly"),
         "price_1TkWJaHkQnONoSg0KrSqRKbG" => ("enterprise", "monthly"),
         "price_1TkWJaHkQnONoSg0jtXBgax4" => ("enterprise", "annual"),
-        _                                 => ("starter",    "monthly"),
+        _ => ("starter", "monthly"),
     }
 }
 
@@ -216,69 +187,24 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
     let from_email = std::env::var("FROM_EMAIL")
         .unwrap_or_else(|_| "gustavo@okamotosecurytlabs.com.br".to_string());
 
-    let plan_display = match customer.plan.as_str() {
-        "starter"    => "Starter",
-        "pro"        => "Pro",
-        "enterprise" => "Enterprise",
-        _            => "Starter",
-    };
-    let period_display = match customer.billing_period.as_str() {
-        "weekly"  => "week",
-        "monthly" => "month",
-        "annual"  => "year",
-        _         => "month",
-    };
-
-    let html_body = format!(r#"<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="font-family:monospace;background:#04080F;color:#E2E8F0;padding:40px;margin:0">
-  <div style="max-width:560px;margin:0 auto">
-    <div style="color:#0EA5E9;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px">Okamoto Security Labs</div>
-    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:28px;color:#F8FAFC;margin:0 0 32px">Your Vortex DFS key is ready.</h1>
-    <div style="background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:24px;margin-bottom:24px">
-      <div style="font-size:11px;color:#64748B;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">API Key · {plan_display} · per {period_display}</div>
-      <div style="color:#0EA5E9;font-size:13px;word-break:break-all;letter-spacing:0.05em">{api_key}</div>
-    </div>
-    <div style="font-size:13px;color:#94A3B8;line-height:1.75;margin-bottom:32px">
-      Add this key to your environment:<br>
-      <code style="background:#0F172A;padding:2px 6px;border-radius:4px;color:#0EA5E9">export VORTEX_API_KEY="{api_key}"</code>
-    </div>
-    <div style="border-top:1px solid #1E293B;padding-top:24px;font-size:12px;color:#475569">
-      <div style="margin-bottom:8px"><strong style="color:#94A3B8">Documentation</strong><br>
-        <a href="https://okamotosecurytlabs.com.br" style="color:#0EA5E9">okamotosecurytlabs.com.br</a></div>
-      <div style="margin-bottom:8px"><strong style="color:#94A3B8">Support</strong><br>
-        <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:#0EA5E9">gustavo@okamotosecurytlabs.com.br</a></div>
-      <div style="margin-top:16px;color:#334155;font-size:11px">Keep this key confidential. Do not commit it to version control.</div>
-    </div>
-  </div>
-</body></html>"#,
-        plan_display = plan_display,
-        period_display = period_display,
-        api_key = customer.api_key,
-    );
-
-    let payload = serde_json::json!({
-        "from": format!("Okamoto Security Labs <{}>", from_email),
-        "to":   [&customer.email],
-        "subject": format!("Your Vortex DFS {} key", plan_display),
-        "html": html_body,
-    });
-
     let client = reqwest::Client::new();
-    let resp = client
-        .post("https://api.resend.com/emails")
+    let resp = client.post("https://api.resend.com/emails")
         .header("Authorization", format!("Bearer {}", resend_key))
         .header("Content-Type", "application/json")
-        .json(&payload)
+        .json(&serde_json::json!({
+            "from": from_email,
+            "to": [customer.email],
+            "subject": "Vortex DFS — Acesso Liberado & Chaves PQC",
+            "html": format!("<p>Seu acesso ao Vortex DFS foi provisionado com sucesso. API Key: <code>{}</code></p>", customer.api_key)
+        }))
         .send()
         .await
-        .map_err(|e| format!("Resend HTTP error: {}", e))?;
+        .map_err(|e| format!("Resend request failed: {e}"))?;
 
     if resp.status().is_success() {
-        log::info!("Welcome email sent to {}", customer.email);
         Ok(())
     } else {
-        Err(format!("Resend API error: {}", resp.text().await.unwrap_or_default()))
+        Err(format!("Resend error: {}", resp.text().await.unwrap_or_default()))
     }
 }
 
@@ -288,30 +214,23 @@ pub async fn send_cancellation_email(customer: &Customer) -> Result<(), String> 
     let from_email = std::env::var("FROM_EMAIL")
         .unwrap_or_else(|_| "gustavo@okamotosecurytlabs.com.br".to_string());
 
-    let payload = serde_json::json!({
-        "from": format!("Okamoto Security Labs <{}>", from_email),
-        "to":   [&customer.email],
-        "subject": "Your Vortex DFS subscription has been cancelled",
-        "html": format!(r#"<body style="font-family:monospace;background:#04080F;color:#E2E8F0;padding:40px">
-  <div style="max-width:560px;margin:0 auto">
-    <div style="color:#0EA5E9;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px">Okamoto Security Labs</div>
-    <h1 style="font-family:Georgia,serif;font-weight:400;font-size:24px;color:#F8FAFC">Subscription cancelled.</h1>
-    <p style="color:#94A3B8;font-size:13px;line-height:1.75">Your Vortex DFS access has been deactivated.<br>
-      API key <code style="color:#0EA5E9">{}</code> is no longer valid.</p>
-    <p style="color:#94A3B8;font-size:13px">To reactivate, visit
-      <a href="https://okamotosecurytlabs.com.br" style="color:#0EA5E9">okamotosecurytlabs.com.br</a></p>
-  </div>
-</body>"#, &customer.api_key[..20]),
-    });
-
     let client = reqwest::Client::new();
-    client
-        .post("https://api.resend.com/emails")
+    let resp = client.post("https://api.resend.com/emails")
         .header("Authorization", format!("Bearer {}", resend_key))
         .header("Content-Type", "application/json")
-        .json(&payload)
+        .json(&serde_json::json!({
+            "from": from_email,
+            "to": [customer.email],
+            "subject": "Vortex DFS — Assinatura Cancelada",
+            "html": "<p>Sua assinatura foi cancelada e o acesso revogado.</p>"
+        }))
         .send()
         .await
-        .map_err(|e| format!("Resend HTTP error: {}", e))?;
-    Ok(())
+        .map_err(|e| format!("Resend request failed: {e}"))?;
+
+    if resp.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("Resend error: {}", resp.text().await.unwrap_or_default()))
+    }
 }

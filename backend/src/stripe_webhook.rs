@@ -8,14 +8,13 @@
 
 use actix_web::{web, HttpRequest, HttpResponse};
 use hmac::{Hmac, Mac};
-use sha2::Sha256;
 use serde::Deserialize;
+use sha2::Sha256;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::provisioner::{
-    Customer, generate_api_key, upsert_customer, find_by_subscription,
-    update_status, expiry_timestamp, plan_from_price_id,
-    send_welcome_email, send_cancellation_email,
+    expiry_timestamp, find_by_subscription, generate_api_key, plan_from_price_id,
+    send_cancellation_email, send_welcome_email, update_status, upsert_customer, Customer,
 };
 
 const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
@@ -24,21 +23,33 @@ const TIMESTAMP_TOLERANCE_SECS: u64 = 300;
 // Signature verification
 // ---------------------------------------------------------------------------
 
-struct StripeSignature { timestamp: u64, v1: String }
+struct StripeSignature {
+    timestamp: u64,
+    v1: String,
+}
 
 fn parse_stripe_signature(header: &str) -> Option<StripeSignature> {
     let mut timestamp = None;
     let mut v1 = None;
     for part in header.split(',') {
-        if let Some(ts) = part.strip_prefix("t=") { timestamp = ts.parse().ok(); }
-        else if let Some(sig) = part.strip_prefix("v1=") { v1 = Some(sig.to_string()); }
+        if let Some(ts) = part.strip_prefix("t=") {
+            timestamp = ts.parse().ok();
+        } else if let Some(sig) = part.strip_prefix("v1=") {
+            v1 = Some(sig.to_string());
+        }
     }
-    Some(StripeSignature { timestamp: timestamp?, v1: v1? })
+    Some(StripeSignature {
+        timestamp: timestamp?,
+        v1: v1?,
+    })
 }
 
 fn verify_stripe_signature(raw: &[u8], header: &str, secret: &str) -> Result<(), &'static str> {
     let parsed = parse_stripe_signature(header).ok_or("bad header")?;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| "clock")?.as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "clock")?
+        .as_secs();
     if now.saturating_sub(parsed.timestamp) > TIMESTAMP_TOLERANCE_SECS {
         return Err("stale timestamp");
     }
@@ -55,8 +66,13 @@ fn verify_stripe_signature(raw: &[u8], header: &str, secret: &str) -> Result<(),
 }
 
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter()
+        .zip(b.iter())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 // ---------------------------------------------------------------------------
@@ -65,22 +81,28 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 
 #[derive(Deserialize)]
 struct StripeEvent {
-    #[serde(rename = "type")] event_type: String,
+    #[serde(rename = "type")]
+    event_type: String,
     id: String,
     data: StripeEventData,
 }
 
 #[derive(Deserialize)]
-struct StripeEventData { object: serde_json::Value }
+struct StripeEventData {
+    object: serde_json::Value,
+}
 
 // ---------------------------------------------------------------------------
 // Business logic — all async now (Supabase calls)
 // ---------------------------------------------------------------------------
 
 async fn on_checkout_completed(obj: &serde_json::Value) {
-    let email    = obj["customer_details"]["email"].as_str().unwrap_or("").to_string();
-    let cust_id  = obj["customer"].as_str().unwrap_or("").to_string();
-    let sub_id   = obj["subscription"].as_str().unwrap_or("").to_string();
+    let email = obj["customer_details"]["email"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let cust_id = obj["customer"].as_str().unwrap_or("").to_string();
+    let sub_id = obj["subscription"].as_str().unwrap_or("").to_string();
 
     let price_id = obj["line_items"]["data"][0]["price"]["id"]
         .as_str()
@@ -90,15 +112,18 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
     let (plan, billing_period) = plan_from_price_id(price_id);
 
     let customer = Customer {
-        api_key:         generate_api_key(),
-        email:           email.clone(),
-        plan:            plan.to_string(),
-        billing_period:  billing_period.to_string(),
+        api_key: generate_api_key(),
+        email: email.clone(),
+        plan: plan.to_string(),
+        billing_period: billing_period.to_string(),
         stripe_customer: cust_id,
-        stripe_sub:      sub_id,
-        status:          "active".to_string(),
-        created_at:      SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-        expires_at:      expiry_timestamp(billing_period),
+        stripe_sub: sub_id,
+        status: "active".to_string(),
+        created_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        expires_at: expiry_timestamp(billing_period),
     };
 
     if let Err(e) = upsert_customer(customer.clone()).await {
@@ -146,7 +171,9 @@ async fn on_subscription_deleted(obj: &serde_json::Value) {
 // ---------------------------------------------------------------------------
 
 pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> HttpResponse {
-    let sig_header = match req.headers().get("Stripe-Signature")
+    let sig_header = match req
+        .headers()
+        .get("Stripe-Signature")
         .and_then(|h| h.to_str().ok())
     {
         Some(s) => s.to_string(),
@@ -157,7 +184,7 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
     };
 
     let secret = match std::env::var("STRIPE_WEBHOOK_SECRET") {
-        Ok(s)  => s,
+        Ok(s) => s,
         Err(_) => {
             log::error!("STRIPE_WEBHOOK_SECRET not set");
             return HttpResponse::InternalServerError().finish();
@@ -170,7 +197,7 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
     }
 
     let event: StripeEvent = match serde_json::from_slice(&raw_body) {
-        Ok(e)  => e,
+        Ok(e) => e,
         Err(e) => {
             log::error!("JSON parse error: {}", e);
             return HttpResponse::UnprocessableEntity().finish();
@@ -181,11 +208,11 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
 
     let obj = &event.data.object;
     match event.event_type.as_str() {
-        "checkout.session.completed"    => on_checkout_completed(obj).await,
-        "invoice.payment_succeeded"     => on_payment_succeeded(obj).await,
-        "invoice.payment_failed"        => on_payment_failed(obj).await,
+        "checkout.session.completed" => on_checkout_completed(obj).await,
+        "invoice.payment_succeeded" => on_payment_succeeded(obj).await,
+        "invoice.payment_failed" => on_payment_failed(obj).await,
         "customer.subscription.deleted" => on_subscription_deleted(obj).await,
-        _                               => {}
+        _ => {}
     }
 
     HttpResponse::Ok().finish()

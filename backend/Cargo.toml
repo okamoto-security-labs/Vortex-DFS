@@ -24,7 +24,7 @@ base64        = "0.21"
 aes-gcm       = "0.10"
 
 # Supabase / PostgreSQL
-sqlx          = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros"] "json" }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros", "json"] }
 
 # CPU count for workers
 num_cpus      = "1"

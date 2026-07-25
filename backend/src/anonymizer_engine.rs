@@ -13,11 +13,11 @@
 //   zero-width chars, mixed encodings)
 // - LLM prompt injection via embedded instructions inside PII fields is in-scope
 
+use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
-use once_cell::sync::Lazy;
 
 // ---------------------------------------------------------------------------
 // Pattern registry
@@ -39,44 +39,59 @@ pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
         // ── TIER 1: Credentials / Secrets ──────────────────────────────────
 
         // AWS access key — AKIA prefix is AWS's own namespace marker; length 20 is fixed
-        DetectionPattern::new("AWS_ACCESS_KEY",    Category::Credential, r"AKIA[0-9A-Z]{16}"),
-
+        DetectionPattern::new("AWS_ACCESS_KEY", Category::Credential, r"AKIA[0-9A-Z]{16}"),
         // AWS secret key — 40 chars base64-ish following common env var names
         // The lookahead on env var names dramatically reduces false positives in code
-        DetectionPattern::new("AWS_SECRET_KEY",    Category::Credential,
-            r"(?i)(?:aws_secret|secret_access_key)[_\s]*[:=][_\s]*[A-Za-z0-9/+]{40}"),
-
+        DetectionPattern::new(
+            "AWS_SECRET_KEY",
+            Category::Credential,
+            r"(?i)(?:aws_secret|secret_access_key)[_\s]*[:=][_\s]*[A-Za-z0-9/+]{40}",
+        ),
         // GCP service account key files embed this literal string
-        DetectionPattern::new("GCP_SERVICE_ACCT",  Category::Credential,
-            r#""type"\s*:\s*"service_account""#),
-
+        DetectionPattern::new(
+            "GCP_SERVICE_ACCT",
+            Category::Credential,
+            r#""type"\s*:\s*"service_account""#,
+        ),
         // JWT — three base64url segments. We match the header+payload only;
         // the signature segment varies in length and isn't needed for detection
-        DetectionPattern::new("JWT",               Category::Credential,
-            r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
-
+        DetectionPattern::new(
+            "JWT",
+            Category::Credential,
+            r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+        ),
         // GitHub PAT — classic (ghp_) and fine-grained (github_pat_)
-        DetectionPattern::new("GITHUB_TOKEN",      Category::Credential,
-            r"(?:ghp_|github_pat_)[A-Za-z0-9_]{36,255}"),
-
+        DetectionPattern::new(
+            "GITHUB_TOKEN",
+            Category::Credential,
+            r"(?:ghp_|github_pat_)[A-Za-z0-9_]{36,255}",
+        ),
         // Generic high-entropy secret following common assignment patterns.
         // WHY THIS: catches tokens that don't follow vendor-specific formats
         // but are still secrets (internal APIs, OAuth tokens, etc.)
-        DetectionPattern::new("GENERIC_SECRET",    Category::Credential,
-            r#"(?i)(?:api[_-]?key|token|secret|password|passwd|pwd)\s*[:=]\s*["']?([A-Za-z0-9+/=_\-]{32,})"#),
-
+        DetectionPattern::new(
+            "GENERIC_SECRET",
+            Category::Credential,
+            r#"(?i)(?:api[_-]?key|token|secret|password|passwd|pwd)\s*[:=]\s*["']?([A-Za-z0-9+/=_\-]{32,})"#,
+        ),
         // Private key PEM block header — the content varies; the header is canonical
-        DetectionPattern::new("PRIVATE_KEY_PEM",   Category::Credential,
-            r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
-
+        DetectionPattern::new(
+            "PRIVATE_KEY_PEM",
+            Category::Credential,
+            r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
+        ),
         // Slack bot/app tokens
-        DetectionPattern::new("SLACK_TOKEN",       Category::Credential,
-            r"xox[baprs]-[A-Za-z0-9\-]{10,}"),
-
+        DetectionPattern::new(
+            "SLACK_TOKEN",
+            Category::Credential,
+            r"xox[baprs]-[A-Za-z0-9\-]{10,}",
+        ),
         // Stripe keys (live vs test — both redacted, tests can become prod)
-        DetectionPattern::new("STRIPE_KEY",        Category::Credential,
-            r"(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,}"),
-
+        DetectionPattern::new(
+            "STRIPE_KEY",
+            Category::Credential,
+            r"(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,}",
+        ),
         // ── TIER 2: Identity ────────────────────────────────────────────────
 
         // US SSN — dashes or spaces as separator; rejects all-zero segments
@@ -84,89 +99,115 @@ pub static PATTERNS: Lazy<Arc<Vec<DetectionPattern>>> = Lazy::new(|| {
         // numbers and dates. The negative lookahead on 000/666/900+ is SSA spec.
         // WHY NO LOOKAHEAD: Rust regex crate DFA engine does not support look-around.
         // We match broad SSN format and reject 000/666/9xx in post-match validation.
-        DetectionPattern::new("SSN_US",            Category::Identity,
-            r"\b[0-8]\d{2}[- ]\d{2}[- ]\d{4}\b"),
-
+        DetectionPattern::new(
+            "SSN_US",
+            Category::Identity,
+            r"\b[0-8]\d{2}[- ]\d{2}[- ]\d{4}\b",
+        ),
         // ── BRAZIL identifiers ──────────────────────────────────────────────
         // CPF (Cadastro de Pessoas Físicas) — Brazil's national taxpayer ID,
         // the single most critical PII identifier for any BR-operated service.
         // Formats: 123.456.789-00 (dotted) and 12345678900 (plain, 11 digits).
         // Both check digits validated post-match in validate_cpf().
-        DetectionPattern::new("CPF_BR",            Category::Identity,
-            r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b"),
-
+        DetectionPattern::new(
+            "CPF_BR",
+            Category::Identity,
+            r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b",
+        ),
         // CNPJ (Cadastro Nacional da Pessoa Jurídica) — Brazil's company tax ID.
         // Formats: 12.345.678/0001-95 (dotted) and 12345678000195 (plain, 14 digits).
         // Both check digits validated post-match in validate_cnpj().
-        DetectionPattern::new("CNPJ_BR",           Category::Identity,
-            r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b|\b\d{14}\b"),
-
+        DetectionPattern::new(
+            "CNPJ_BR",
+            Category::Identity,
+            r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b|\b\d{14}\b",
+        ),
         // RG (Registro Geral) — Brazilian state ID card. Format varies by state;
         // most common is 2 dots + dash with 8-9 digits + check char (digit or X).
         // Context-anchored to "RG" to keep false positives low (no checksum standard).
-        DetectionPattern::new("RG_BR",             Category::Identity,
-            r"(?i)\bRG[:\s]*\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]\b"),
-
+        DetectionPattern::new(
+            "RG_BR",
+            Category::Identity,
+            r"(?i)\bRG[:\s]*\d{1,2}\.?\d{3}\.?\d{3}-?[0-9Xx]\b",
+        ),
         // CEP (Código de Endereçamento Postal) — Brazilian postal code.
         // Format: 01310-100 or 01310100. Re-identification risk (Contact tier).
-        DetectionPattern::new("CEP_BR",            Category::Contact,
-            r"\b\d{5}-?\d{3}\b"),
-
+        DetectionPattern::new("CEP_BR", Category::Contact, r"\b\d{5}-?\d{3}\b"),
         // Brazilian phone — mobile (11 digits w/ 9 prefix) and landline,
         // with optional +55 country code and (DD) area code in parens or bare.
-        DetectionPattern::new("PHONE_BR",          Category::Contact,
-            r"(?:\+?55[-.\s]?)?\(?\d{2}\)?[-.\s]?9?\d{4}[-.\s]?\d{4}\b"),
-
+        DetectionPattern::new(
+            "PHONE_BR",
+            Category::Contact,
+            r"(?:\+?55[-.\s]?)?\(?\d{2}\)?[-.\s]?9?\d{4}[-.\s]?\d{4}\b",
+        ),
         // UK National Insurance Number
-        DetectionPattern::new("NINO_UK",           Category::Identity,
-            r"\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b"),
-
+        DetectionPattern::new(
+            "NINO_UK",
+            Category::Identity,
+            r"\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b",
+        ),
         // EU passport — generic format (letter prefix + 6-9 alphanumeric)
         // Not jurisdiction-specific; catches most EU formats with low FP rate
-        DetectionPattern::new("PASSPORT_GENERIC",  Category::Identity,
-            r"\b[A-Z]{1,2}[0-9]{6,9}\b"),
-
+        DetectionPattern::new(
+            "PASSPORT_GENERIC",
+            Category::Identity,
+            r"\b[A-Z]{1,2}[0-9]{6,9}\b",
+        ),
         // US Driver License — highly variable by state; we match the most common
         // format with a context anchor (word "license" or "DL" nearby).
         // WHY CONTEXT ANCHOR: pure number patterns have astronomical FP rates
-        DetectionPattern::new("DRIVER_LICENSE_US", Category::Identity,
-            r"(?i)(?:driver['\s]?s?\s+licen[sc]e|D[.\s]?L[.\s]?)[#:\s]*([A-Z0-9]{5,20})"),
-
+        DetectionPattern::new(
+            "DRIVER_LICENSE_US",
+            Category::Identity,
+            r"(?i)(?:driver['\s]?s?\s+licen[sc]e|D[.\s]?L[.\s]?)[#:\s]*([A-Z0-9]{5,20})",
+        ),
         // ── TIER 3: Financial ───────────────────────────────────────────────
 
         // PAN (Payment card number) — Luhn-valid check happens post-match in
         // validate_pan(); regex narrows candidates first (Visa/MC/Amex/Discover)
-        DetectionPattern::new("CREDIT_CARD_PAN",   Category::Financial,
-           r"\b4[0-9]{3}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}(?:[0-9]{3})?\b|\b5[1-5][0-9]{2}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b|\b3[47][0-9]{2}[\s\-]?[0-9]{6}[\s\-]?[0-9]{5}\b|\b6(?:011|5[0-9]{2})[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b"),
+        DetectionPattern::new(
+            "CREDIT_CARD_PAN",
+            Category::Financial,
+            r"\b4[0-9]{3}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}(?:[0-9]{3})?\b|\b5[1-5][0-9]{2}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b|\b3[47][0-9]{2}[\s\-]?[0-9]{6}[\s\-]?[0-9]{5}\b|\b6(?:011|5[0-9]{2})[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}[\s\-]?[0-9]{4}\b",
+        ),
         // IBAN — 2-letter country, 2 check digits, up to 30 alphanumeric BBAN
         // The character class [A-Z]{2} covers all 36 current IBAN countries
-        DetectionPattern::new("IBAN",              Category::Financial,
-            r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b"),
-
+        DetectionPattern::new(
+            "IBAN",
+            Category::Financial,
+            r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b",
+        ),
         // US routing + account number pair — ABA routing is always 9 digits
         // starting with 0-3. We require the pair to reduce FP.
-        DetectionPattern::new("US_BANK_ROUTING",   Category::Financial,
-            r"\b[0-3][0-9]{8}\b"),
-
+        DetectionPattern::new("US_BANK_ROUTING", Category::Financial, r"\b[0-3][0-9]{8}\b"),
         // ── TIER 4: Contact / Re-identification risk ────────────────────────
 
         // E-mail — RFC 5321 local-part is complex; this covers 99.9% of real
         // addresses without matching too broadly
-        DetectionPattern::new("EMAIL",             Category::Contact,
-            r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
-
+        DetectionPattern::new(
+            "EMAIL",
+            Category::Contact,
+            r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
+        ),
         // Phone — E.164 international + common local formats (US/EU)
         // Requires at least one separator to distinguish from arbitrary numbers
-        DetectionPattern::new("PHONE",             Category::Contact,
-            r"\b(?:\+?1[-.\s]?)?(?:\([0-9]{3}\)|[0-9]{3})[-.\s][0-9]{3}[-.\s][0-9]{4}\b"),
-
+        DetectionPattern::new(
+            "PHONE",
+            Category::Contact,
+            r"\b(?:\+?1[-.\s]?)?(?:\([0-9]{3}\)|[0-9]{3})[-.\s][0-9]{3}[-.\s][0-9]{4}\b",
+        ),
         // IPv4 — private ranges are especially sensitive in code/config context
-        DetectionPattern::new("IPV4_PRIVATE",      Category::Contact,
-            r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b"),
-
+        DetectionPattern::new(
+            "IPV4_PRIVATE",
+            Category::Contact,
+            r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b",
+        ),
         // IPv6 — full and compressed forms
-        DetectionPattern::new("IPV6",              Category::Contact,
-            r"\b(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}\b"),
+        DetectionPattern::new(
+            "IPV6",
+            Category::Contact,
+            r"\b(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}\b",
+        ),
     ])
 });
 
@@ -180,7 +221,8 @@ pub static REGEX_SET: Lazy<RegexSet> = Lazy::new(|| {
 // WHY SEPARATE FROM RegexSet: RegexSet tells us *which* patterns matched but
 // not *where*. We re-scan only with the matched subset — still near O(n).
 static REGEX_INDIVIDUALS: Lazy<Vec<Regex>> = Lazy::new(|| {
-    PATTERNS.iter()
+    PATTERNS
+        .iter()
         .map(|p| Regex::new(p.raw_pattern).unwrap())
         .collect()
 });
@@ -198,43 +240,47 @@ pub enum Category {
 }
 
 pub struct DetectionPattern {
-    pub label:       &'static str,
-    pub category:    Category,
+    pub label: &'static str,
+    pub category: Category,
     pub raw_pattern: &'static str,
 }
 
 impl DetectionPattern {
     const fn new(label: &'static str, category: Category, raw_pattern: &'static str) -> Self {
-        Self { label, category, raw_pattern }
+        Self {
+            label,
+            category,
+            raw_pattern,
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct Detection {
     pub pattern_label: String,
-    pub category:      Category,
-    pub start:         usize,
-    pub end:           usize,
-    pub raw_value:     String,  // stored only in encrypted token_map, never logged
+    pub category: Category,
+    pub start: usize,
+    pub end: usize,
+    pub raw_value: String, // stored only in encrypted token_map, never logged
 }
 
 #[derive(Debug)]
 pub struct AnonymizeResult {
-    pub sanitized:  String,
+    pub sanitized: String,
     /// token_map: "[REDACTED_001]" → original_value
     /// Caller encrypts this before returning to client (AES-256-GCM)
-    pub token_map:  HashMap<String, String>,
+    pub token_map: HashMap<String, String>,
     pub detections: Vec<DetectionSummary>,
     pub risk_score: f32,
-    pub trace_id:   String,
+    pub trace_id: String,
 }
 
 #[derive(Debug)]
 pub struct DetectionSummary {
     pub pattern_label: String,
-    pub count:         usize,
+    pub count: usize,
     // positions are byte offsets in the ORIGINAL input, useful for audit
-    pub positions:     Vec<(usize, usize)>,
+    pub positions: Vec<(usize, usize)>,
 }
 
 // ---------------------------------------------------------------------------
@@ -262,8 +308,8 @@ impl AnonymizerEngine {
 
         if matched_indices.is_empty() {
             return AnonymizeResult {
-                sanitized:  clean_input.into_owned(),
-                token_map:  HashMap::new(),
+                sanitized: clean_input.into_owned(),
+                token_map: HashMap::new(),
                 detections: vec![],
                 risk_score: 0.0,
                 trace_id,
@@ -274,7 +320,7 @@ impl AnonymizerEngine {
         let mut all_detections: Vec<Detection> = Vec::new();
         for idx in &matched_indices {
             let pattern = &PATTERNS[*idx];
-            let regex   = &REGEX_INDIVIDUALS[*idx];
+            let regex = &REGEX_INDIVIDUALS[*idx];
 
             for m in regex.find_iter(&clean_input) {
                 // Post-match validation for patterns that carry a checksum.
@@ -292,21 +338,21 @@ impl AnonymizerEngine {
 
                 all_detections.push(Detection {
                     pattern_label: pattern.label.to_string(),
-                    category:      pattern.category.clone(),
-                    start:         m.start(),
-                    end:           m.end(),
-                    raw_value:     m.as_str().to_string(),
+                    category: pattern.category.clone(),
+                    start: m.start(),
+                    end: m.end(),
+                    raw_value: m.as_str().to_string(),
                 });
             }
         }
 
         // Sort by start position descending — replace from end to preserve offsets
-        all_detections.sort_by(|a, b| b.start.cmp(&a.start));
+        all_detections.sort_by_key(|b| std::cmp::Reverse(b.start));
 
         // Build token_map and sanitized string in a single pass
-        let mut output      = clean_input.into_owned();
-        let mut token_map   = HashMap::new();
-        let mut token_seq   = 0usize;
+        let mut output = clean_input.into_owned();
+        let mut token_map = HashMap::new();
+        let mut token_seq = 0usize;
 
         for det in &all_detections {
             token_seq += 1;
@@ -334,7 +380,7 @@ impl AnonymizerEngine {
     /// Strip null bytes, zero-width chars, and normalize unicode to NFC.
     /// WHY: adversaries embed U+200B, U+FEFF, U+202E etc. to split tokens
     /// and evade regex matching while remaining semantically intact for the LLM.
-    fn normalize_input(input: &str) -> std::borrow::Cow<str> {
+    fn normalize_input(input: &str) -> std::borrow::Cow<'_, str> {
         // In production: use the `unicode-normalization` crate for NFC
         // and strip the ranges U+200B–U+200F, U+202A–U+202E, U+FEFF
         // Shown here as a doc stub for brevity
@@ -345,25 +391,32 @@ impl AnonymizerEngine {
         let mut map: HashMap<&str, Vec<(usize, usize)>> = HashMap::new();
         for d in detections {
             map.entry(&d.pattern_label)
-               .or_default()
-               .push((d.start, d.end));
+                .or_default()
+                .push((d.start, d.end));
         }
-        map.into_iter().map(|(label, positions)| DetectionSummary {
-            pattern_label: label.to_string(),
-            count: positions.len(),
-            positions,
-        }).collect()
+        map.into_iter()
+            .map(|(label, positions)| DetectionSummary {
+                pattern_label: label.to_string(),
+                count: positions.len(),
+                positions,
+            })
+            .collect()
     }
 
     fn compute_risk_score(detections: &[Detection]) -> f32 {
-        if detections.is_empty() { return 0.0; }
+        if detections.is_empty() {
+            return 0.0;
+        }
 
-        let base: f32 = detections.iter().map(|d| match d.category {
-            Category::Credential => 0.9,   // any single credential = near-critical
-            Category::Identity   => 0.6,
-            Category::Financial  => 0.5,
-            Category::Contact    => 0.2,
-        }).fold(0.0_f32, f32::max); // worst single detection anchors the score
+        let base: f32 = detections
+            .iter()
+            .map(|d| match d.category {
+                Category::Credential => 0.9, // any single credential = near-critical
+                Category::Identity => 0.6,
+                Category::Financial => 0.5,
+                Category::Contact => 0.2,
+            })
+            .fold(0.0_f32, f32::max); // worst single detection anchors the score
 
         // Volume multiplier — many detections compound the risk
         let volume_bonus = (detections.len() as f32 * 0.05).min(0.1);
@@ -377,19 +430,35 @@ impl AnonymizerEngine {
 // Eliminates ~60% of false positives from numeric sequences of the right length
 // ---------------------------------------------------------------------------
 fn validate_luhn(s: &str) -> bool {
-    let digits: Vec<u32> = s.chars()
+    let digits: Vec<u32> = s
+        .chars()
         .filter(|c| c.is_ascii_digit())
         .map(|c| c.to_digit(10).unwrap())
         .collect();
 
-    if digits.len() < 13 { return false; }
+    if digits.len() < 13 {
+        return false;
+    }
 
-    let sum: u32 = digits.iter().rev().enumerate().map(|(i, &d)| {
-        if i % 2 == 1 { let v = d * 2; if v > 9 { v - 9 } else { v } }
-        else { d }
-    }).sum();
+    let sum: u32 = digits
+        .iter()
+        .rev()
+        .enumerate()
+        .map(|(i, &d)| {
+            if i % 2 == 1 {
+                let v = d * 2;
+                if v > 9 {
+                    v - 9
+                } else {
+                    v
+                }
+            } else {
+                d
+            }
+        })
+        .sum();
 
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 // ---------------------------------------------------------------------------
@@ -400,15 +469,21 @@ fn validate_luhn(s: &str) -> bool {
 // ---------------------------------------------------------------------------
 fn validate_cpf(s: &str) -> bool {
     let d: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
-    if d.len() != 11 { return false; }
+    if d.len() != 11 {
+        return false;
+    }
     // Reject all-same-digit sequences (000.000.000-00 … 999.999.999-99)
-    if d.iter().all(|&x| x == d[0]) { return false; }
+    if d.iter().all(|&x| x == d[0]) {
+        return false;
+    }
 
     // First check digit: weights 10..2 over the first 9 digits
     let sum1: u32 = (0..9).map(|i| d[i] * (10 - i as u32)).sum();
     let r1 = (sum1 * 10) % 11;
     let dv1 = if r1 == 10 { 0 } else { r1 };
-    if dv1 != d[9] { return false; }
+    if dv1 != d[9] {
+        return false;
+    }
 
     // Second check digit: weights 11..2 over the first 10 digits
     let sum2: u32 = (0..10).map(|i| d[i] * (11 - i as u32)).sum();
@@ -423,8 +498,12 @@ fn validate_cpf(s: &str) -> bool {
 // ---------------------------------------------------------------------------
 fn validate_cnpj(s: &str) -> bool {
     let d: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
-    if d.len() != 14 { return false; }
-    if d.iter().all(|&x| x == d[0]) { return false; }
+    if d.len() != 14 {
+        return false;
+    }
+    if d.iter().all(|&x| x == d[0]) {
+        return false;
+    }
 
     const W1: [u32; 12] = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     const W2: [u32; 13] = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
@@ -432,7 +511,9 @@ fn validate_cnpj(s: &str) -> bool {
     let sum1: u32 = (0..12).map(|i| d[i] * W1[i]).sum();
     let r1 = sum1 % 11;
     let dv1 = if r1 < 2 { 0 } else { 11 - r1 };
-    if dv1 != d[12] { return false; }
+    if dv1 != d[12] {
+        return false;
+    }
 
     let sum2: u32 = (0..13).map(|i| d[i] * W2[i]).sum();
     let r2 = sum2 % 11;
@@ -467,7 +548,10 @@ mod tests {
     fn detects_ssn() {
         let input = "Patient SSN: 123-45-6789";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(result.detections.iter().any(|d| d.pattern_label == "SSN_US"));
+        assert!(result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "SSN_US"));
     }
 
     #[test]
@@ -475,7 +559,10 @@ mod tests {
         // Valid format, invalid Luhn — should NOT be detected
         let input = "Card: 4111111111111112";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(!result.detections.iter().any(|d| d.pattern_label == "CREDIT_CARD_PAN"));
+        assert!(!result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CREDIT_CARD_PAN"));
     }
 
     #[test]
@@ -483,7 +570,10 @@ mod tests {
         // Luhn-valid Visa test number
         let input = "4111111111111111";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(result.detections.iter().any(|d| d.pattern_label == "CREDIT_CARD_PAN"));
+        assert!(result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CREDIT_CARD_PAN"));
     }
 
     #[test]
@@ -491,7 +581,10 @@ mod tests {
         // 111.444.777-35 is a well-known checksum-valid test CPF
         let input = "Meu CPF é 111.444.777-35 para cadastro";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+        assert!(result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CPF_BR"));
         assert!(!result.sanitized.contains("111.444.777-35"));
     }
 
@@ -499,7 +592,10 @@ mod tests {
     fn detects_valid_cpf_plain() {
         let input = "CPF 11144477735";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+        assert!(result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CPF_BR"));
     }
 
     #[test]
@@ -507,14 +603,20 @@ mod tests {
         // Right format, wrong check digits — must NOT be flagged as CPF
         let input = "123.456.789-00";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(!result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+        assert!(!result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CPF_BR"));
     }
 
     #[test]
     fn rejects_repdigit_cpf() {
         let input = "000.000.000-00";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(!result.detections.iter().any(|d| d.pattern_label == "CPF_BR"));
+        assert!(!result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CPF_BR"));
     }
 
     #[test]
@@ -522,14 +624,20 @@ mod tests {
         // 11.222.333/0001-81 is a checksum-valid test CNPJ
         let input = "CNPJ da empresa: 11.222.333/0001-81";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(result.detections.iter().any(|d| d.pattern_label == "CNPJ_BR"));
+        assert!(result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CNPJ_BR"));
     }
 
     #[test]
     fn rejects_invalid_cnpj_checksum() {
         let input = "11.222.333/0001-00";
         let result = AnonymizerEngine::anonymize(input);
-        assert!(!result.detections.iter().any(|d| d.pattern_label == "CNPJ_BR"));
+        assert!(!result
+            .detections
+            .iter()
+            .any(|d| d.pattern_label == "CNPJ_BR"));
     }
 
     #[test]
