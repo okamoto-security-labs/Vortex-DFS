@@ -30,3 +30,15 @@ jobs:
 
     - name: Run Unit & Integration Tests
       run: cargo test --manifest-path backend/Cargo.toml --verbose
+
+    - name: Check Formatting
+      run: cargo fmt --manifest-path backend/Cargo.toml -- --check
+
+    - name: Run Clippy (Linter estrito)
+      run: cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+
+    - name: Run Deterministic Test Suite
+      run: cargo test --manifest-path backend/Cargo.toml --verbose
+      env:
+        VORTEX_MASTER_KEY: 'test_master_key_32_bytes_base64_encoded_dummy=='
+        ALLOW_DEMO: 'true'      
