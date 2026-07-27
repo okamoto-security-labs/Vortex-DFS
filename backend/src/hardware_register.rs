@@ -101,8 +101,21 @@ impl InstructionProcessor for DirectInstructionProcessor {
                 return Err(VortexError::InvalidApiKeyNullByte);
             }
 
-            // Execução determinística baseada na semente de hardware 999[cite: 1, 4]
-            let reg_block = HardwareRegisterBlock::new(999);
+            // Derivação determinística de seed a partir do conteúdo da key (FNV-1a 64-bit)
+            // Garante que keys diferentes produzam seeds (e registradores) diferentes
+            const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+            const FNV_PRIME: u64 = 0x100000001b3;
+
+            let mut hash = FNV_OFFSET_BASIS;
+            for &byte in key_bytes {
+                hash ^= byte as u64;
+                hash = hash.wrapping_mul(FNV_PRIME);
+            }
+
+            let seed = hash;
+
+            // Execução determinística baseada na semente derivada da key[cite: 1, 4]
+            let reg_block = HardwareRegisterBlock::new(seed);
             Ok(reg_block)
         }
     }
@@ -154,5 +167,26 @@ mod verification_sandbox {
         let result = processor.execute_cycle("malicious\0input").await;
 
         assert_eq!(result, Err(VortexError::InvalidApiKeyNullByte));
+    }
+
+    #[tokio::test]
+    async fn test_key_specific_register_derivation() {
+        let processor = DirectInstructionProcessor::new();
+
+        // Diferentes keys devem produzir blocos de registradores diferentes
+        let block_a = processor.execute_cycle("key_alpha").await.unwrap();
+        let block_b = processor.execute_cycle("key_beta").await.unwrap();
+
+        assert_ne!(
+            block_a.data, block_b.data,
+            "FALHA: keys diferentes produziram registradores idênticos!"
+        );
+
+        // Mesma key deve produzir o mesmo bloco consistentemente
+        let block_a2 = processor.execute_cycle("key_alpha").await.unwrap();
+        assert_eq!(
+            block_a.data, block_a2.data,
+            "FALHA: mesma key produziu registradores diferentes!"
+        );
     }
 }
