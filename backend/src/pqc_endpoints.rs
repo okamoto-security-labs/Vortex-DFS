@@ -637,31 +637,34 @@ pub async fn handle_audit(req: HttpRequest, body: web::Json<AuditRequest>) -> Ht
     let content = &body.content;
 
     // Scan for crypto patterns
-    let mut findings: Vec<CryptoFinding> = Vec::new();
-    let mut seen_algorithms: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut findings: Vec<CryptoFinding> = Vec::with_capacity(CRYPTO_PATTERNS.len());
+    let mut seen_algorithms: std::collections::HashSet<&str> =
+        std::collections::HashSet::with_capacity(CRYPTO_PATTERNS.len());
 
     for pat in CRYPTO_PATTERNS {
         if seen_algorithms.contains(pat.algorithm) {
             continue;
         }
 
-        let occurrences: Vec<String> = content
-            .lines()
-            .enumerate()
-            .filter(|(_, line)| line.contains(pat.pattern))
-            .map(|(i, line)| format!("line {}: {}", i + 1, line.trim()))
-            .take(3) // max 3 contextos por algoritmo
-            .collect();
+        let mut contexts = Vec::new();
+        for (idx, line) in content.lines().enumerate() {
+            if line.contains(pat.pattern) {
+                contexts.push(format!("line {}: {}", idx + 1, line.trim()));
+                if contexts.len() == 3 {
+                    break;
+                }
+            }
+        }
 
-        if !occurrences.is_empty() {
+        if !contexts.is_empty() {
             seen_algorithms.insert(pat.algorithm);
             findings.push(CryptoFinding {
                 algorithm: pat.algorithm,
                 category: pat.category,
                 quantum_safe: pat.quantum_safe,
                 risk_level: pat.risk_level,
-                occurrences: occurrences.len(),
-                context: occurrences,
+                occurrences: contexts.len(),
+                context: contexts,
             });
         }
     }
@@ -858,4 +861,20 @@ pub async fn handle_audit(req: HttpRequest, body: web::Json<AuditRequest>) -> Ht
         },
         latency_ms,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pqc_sign_benchmark_smoke() {
+        let payload = "benchmark payload".repeat(16);
+        let start = Instant::now();
+        let (_sk, pk) = crate::signer_lwe::keygen(42);
+        let sig = crate::signer_lwe::SecretKey { s: vec![1; crate::signer_lwe::N] }.sign(payload.as_bytes(), &pk);
+        let elapsed = start.elapsed();
+        assert!(elapsed.as_millis() <= 200);
+        assert_eq!(sig.w.len(), crate::signer_lwe::N);
+    }
 }

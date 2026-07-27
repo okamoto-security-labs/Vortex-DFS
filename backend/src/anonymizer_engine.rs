@@ -17,6 +17,7 @@ use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};
 use std::collections::HashMap;
 use std::sync::Arc;
+use unicode_normalization::UnicodeNormalization;
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
@@ -381,10 +382,36 @@ impl AnonymizerEngine {
     /// WHY: adversaries embed U+200B, U+FEFF, U+202E etc. to split tokens
     /// and evade regex matching while remaining semantically intact for the LLM.
     fn normalize_input(input: &str) -> std::borrow::Cow<'_, str> {
-        // In production: use the `unicode-normalization` crate for NFC
-        // and strip the ranges U+200B–U+200F, U+202A–U+202E, U+FEFF
-        // Shown here as a doc stub for brevity
-        std::borrow::Cow::Borrowed(input)
+        let normalized = input.nfc().collect::<String>();
+        let mut cleaned = String::with_capacity(normalized.len());
+        let mut changed = false;
+
+        for ch in normalized.chars() {
+            let is_bypass = matches!(
+                ch,
+                '\u{0000}'
+                    | '\u{200B}'
+                    | '\u{200C}'
+                    | '\u{200D}'
+                    | '\u{2060}'
+                    | '\u{FEFF}'
+                    | '\u{202A}'..='\u{202E}'
+                    | '\u{2066}'..='\u{2069}'
+            );
+
+            if is_bypass {
+                changed = true;
+                continue;
+            }
+
+            cleaned.push(ch);
+        }
+
+        if !changed && normalized == input {
+            std::borrow::Cow::Borrowed(input)
+        } else {
+            std::borrow::Cow::Owned(cleaned)
+        }
     }
 
     fn aggregate_detections(detections: &[Detection]) -> Vec<DetectionSummary> {
@@ -527,6 +554,16 @@ fn validate_cnpj(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn benchmark_anonymizer_hot_path_smoke() {
+        let input = "Contact: user@example.com\nKey: AKIAIOSFODNN7EXAMPLE\nSSN: 123-45-6789";
+        let start = std::time::Instant::now();
+        let result = AnonymizerEngine::anonymize(input);
+        let elapsed = start.elapsed();
+        assert!(!result.token_map.is_empty());
+        assert!(elapsed.as_millis() <= 200);
+    }
 
     #[test]
     fn detects_aws_key() {

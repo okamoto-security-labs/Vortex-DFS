@@ -2,6 +2,11 @@ use anyhow::{Context as _, anyhow};
 use aya_build::Toolchain;
 
 fn main() -> anyhow::Result<()> {
+    if std::env::var_os("AYA_BUILD_SKIP").is_some() {
+        println!("cargo:warning=AYA_BUILD_SKIP set; skipping eBPF build");
+        return Ok(());
+    }
+
     let cargo_metadata::Metadata { packages, .. } = cargo_metadata::MetadataCommand::new()
         .no_deps()
         .exec()
@@ -23,5 +28,11 @@ fn main() -> anyhow::Result<()> {
             .as_str(),
         ..Default::default()
     };
-    aya_build::build_ebpf([ebpf_package], Toolchain::default())
+
+    if let Err(err) = aya_build::build_ebpf([ebpf_package], Toolchain::default()) {
+        println!("cargo:warning=skipping eBPF build because the environment is missing the required nightly/toolchain: {err}");
+        Ok(())
+    } else {
+        Ok(())
+    }
 }

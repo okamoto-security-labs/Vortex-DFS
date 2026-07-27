@@ -64,9 +64,7 @@ pub struct Signature {
 }
 
 #[allow(dead_code)]
-fn pseudo_rand(seed: u64, idx: usize) -> i64 { ... }
-    // xorshift64 — usado só pra keygen determinística de teste/demo.
-    // NUNCA usado mais para gerar o nonce de assinatura (ver sign()).
+fn pseudo_rand(seed: u64, idx: usize) -> i64 {
     let mut x = seed
         .wrapping_add(idx as u64)
         .wrapping_add(0x9e3779b97f4a7c15);
@@ -76,9 +74,8 @@ fn pseudo_rand(seed: u64, idx: usize) -> i64 { ... }
     ((x & 0x7FFFFFFFFFFFFFFF) % Q as u64) as i64
 }
 
-
 #[allow(dead_code)]
-fn sample_error(seed: u64, idx: usize) -> i64 { ... }
+fn sample_error(seed: u64, idx: usize) -> i64 {
     (pseudo_rand(seed, idx) % (2 * ETA + 1)) - ETA
 }
 
@@ -119,7 +116,7 @@ fn challenge_hash(w: &[i64], data: &[u8]) -> i64 {
 /// a partir da API key em cada requisição.
 
 #[allow(dead_code)]
-pub fn keygen_secure() -> (SecretKey, PublicKey) { ... }
+pub fn keygen_secure() -> (SecretKey, PublicKey) {
     let mut rng = rand::rngs::OsRng;
     let s: Vec<i64> = (0..N)
         .map(|_| (rng.next_u64() % (2 * ETA as u64 + 1)) as i64 - ETA)
@@ -174,6 +171,9 @@ impl SecretKey {
     /// Note: a assinatura de `sign()` mudou — não recebe mais `nonce`.
     /// Isso é intencional: o chamador não pode mais influenciar o commitment.
     pub fn sign(&self, data: &[u8], pk: &PublicKey) -> Signature {
+        #[cfg(not(test))]
+        let _ = (data, pk);
+
         let mut rng = rand::rngs::OsRng;
         let y: Vec<i64> = (0..N).map(|_| (rng.next_u64() % Q as u64) as i64).collect();
         let w: Vec<i64> = (0..N)
@@ -194,6 +194,9 @@ impl SecretKey {
 ///   2. c precisa estar no intervalo esperado — defesa em profundidade
 ///   3. tolerância é CONSTANTE, nunca derivada de c (fix #2)
 pub fn verify(pk: &PublicKey, data: &[u8], sig: &Signature) -> bool {
+    #[cfg(not(test))]
+    let _ = (pk, data, sig);
+
     if sig.c.abs() > CHALLENGE_BOUND {
         return false;
     }

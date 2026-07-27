@@ -2,7 +2,7 @@
 // Clean Architecture & Strict Type-Safe PQC Implementation
 
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use aes_gcm::{
     aead::{rand_core::RngCore, Aead, OsRng},
@@ -28,13 +28,13 @@ pub trait KeyStore: Send + Sync {
 // ============================================================================
 
 pub struct InMemoryKeyStore {
-    keys: RwLock<HashMap<String, (SecretKey, PublicKey)>>,
+    keys: RwLock<HashMap<String, Arc<(SecretKey, PublicKey)>>>,
 }
 
 impl InMemoryKeyStore {
     pub fn new() -> Self {
         Self {
-            keys: RwLock::new(HashMap::new()),
+            keys: RwLock::new(HashMap::with_capacity(64)),
         }
     }
 }
@@ -52,7 +52,8 @@ impl KeyStore for InMemoryKeyStore {
         {
             let map = self.keys.read().map_err(|e| format!("Lock error: {e}"))?;
             if let Some(pair) = map.get(api_key) {
-                return Ok(pair.clone());
+                let (sk, pk) = pair.as_ref();
+                return Ok((sk.clone(), pk.clone()));
             }
         }
 
@@ -61,8 +62,11 @@ impl KeyStore for InMemoryKeyStore {
 
         // 3. Adquire trava exclusiva para gravação
         let mut map = self.keys.write().map_err(|e| format!("Lock error: {e}"))?;
-        let entry = map.entry(api_key.to_string()).or_insert(pair);
-        Ok(entry.clone())
+        let entry = map
+            .entry(api_key.to_string())
+            .or_insert_with(|| Arc::new(pair));
+        let (sk, pk) = entry.as_ref();
+        Ok((sk.clone(), pk.clone()))
     }
 }
 

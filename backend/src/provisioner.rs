@@ -181,6 +181,16 @@ pub fn plan_from_price_id(price_id: &str) -> (&'static str, &'static str) {
     }
 }
 
+fn mask_api_key(api_key: &str) -> String {
+    if api_key.len() <= 8 {
+        return "****".to_string();
+    }
+
+    let prefix = &api_key[..4];
+    let suffix = &api_key[api_key.len().saturating_sub(4)..];
+    format!("{}****{}", prefix, suffix)
+}
+
 pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
     let resend_key = std::env::var("RESEND_API_KEY")
         .map_err(|_| "RESEND_API_KEY not set".to_string())?;
@@ -195,7 +205,7 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
             "from": from_email,
             "to": [customer.email],
             "subject": "Vortex DFS — Acesso Liberado & Chaves PQC",
-            "html": format!("<p>Seu acesso ao Vortex DFS foi provisionado com sucesso. API Key: <code>{}</code></p>", customer.api_key)
+            "html": format!("<p>Seu acesso ao Vortex DFS foi provisionado com sucesso. API Key: <code>{}</code></p>", mask_api_key(&customer.api_key))
         }))
         .send()
         .await
@@ -205,6 +215,20 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("Resend error: {}", resp.text().await.unwrap_or_default()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn masks_api_key_in_email_content() {
+        let key = "vortex_live_AAAAAAAAAAAAAAAAAAAAAAAA";
+        let masked = mask_api_key(key);
+        assert!(masked.contains("****"));
+        assert!(!masked.contains("AAAAAAAAAAAAAAAAAAAAAAA"));
+        assert!(masked.len() >= 8);
     }
 }
 

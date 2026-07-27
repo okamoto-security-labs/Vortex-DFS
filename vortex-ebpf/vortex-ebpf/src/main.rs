@@ -1,8 +1,7 @@
-use anyhow::Context as _;
+use anyhow::{Context as _, anyhow};
 use aya::programs::{Xdp, XdpMode};
 use clap::Parser;
-#[rustfmt::skip]
-use log::{debug, warn};
+use log::warn;
 use tokio::signal;
 
 #[derive(Debug, Parser)]
@@ -25,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     };
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     if ret != 0 {
-        debug!("remove limit on locked memory failed, ret is: {ret}");
+        return Err(anyhow!("setrlimit(MEMLOCK) failed"));
     }
 
     // This will include your eBPF object file as raw bytes at compile-time and load it at

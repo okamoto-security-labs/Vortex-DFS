@@ -12,6 +12,10 @@ use which::which;
 ///
 /// [bindeps]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html?highlight=feature#artifact-dependencies
 fn main() {
-    let bpf_linker = which("bpf-linker").unwrap();
-    println!("cargo:rerun-if-changed={}", bpf_linker.to_str().unwrap());
+    if let Some(bpf_linker) = which("bpf-linker").ok() {
+        println!("cargo:rerun-if-changed={}", bpf_linker.display());
+    } else {
+        println!("cargo:warning=bpf-linker not found; continuing without linker-based validation");
+    }
+    println!("cargo:rerun-if-env-changed=PATH");
 }
