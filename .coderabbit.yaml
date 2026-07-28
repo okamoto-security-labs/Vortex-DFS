@@ -5,17 +5,28 @@ early_access: false
 
 reviews:
   profile: "assertive"
-
   request_changes_workflow: true
   high_level_summary: true
   review_status: true
   review_details: true
 
+  high_level_summary_instructions: |
+    Summarize the security and architectural impact of the pull request.
+
+    Explicitly identify:
+    - runtime behavior changed;
+    - security guarantees affected;
+    - policies or decision semantics changed;
+    - tests added or missing;
+    - experimental versus production-facing behavior;
+    - migration or compatibility risks.
+
+    Do not describe formatting-only changes as security improvements.
+
   auto_review:
     enabled: true
     drafts: true
     auto_incremental_review: true
-    auto_pause_after_reviewed_commits: 10
     base_branches:
       - "main"
     ignore_title_keywords:
@@ -27,6 +38,12 @@ reviews:
       - "dependabot[bot]"
       - "renovate[bot]"
 
+  finishing_touches:
+    unit_tests:
+      enabled: true
+    docstrings:
+      enabled: true
+
   path_filters:
     - "!**/target/**"
     - "!**/*.lock"
@@ -35,35 +52,39 @@ reviews:
     - "!**/generated/**"
     - "!**/*.min.js"
     - "!**/*.min.css"
+    - "!coverage/**"
+    - "!artifacts/**"
 
   path_instructions:
     - path: "backend/src/runtime/**"
       instructions: |
-        Review this code as a senior security runtime engineer.
+        Act as a Staff Security Engineer reviewing a deterministic enforcement runtime.
 
-        The Vortex runtime must remain deterministic, explicit, fail-closed
-        where required by policy, and independent from HTTP transport details.
+        Treat the following as blocking security regressions:
+        - an operation reaching execution without policy evaluation;
+        - missing evidence being interpreted as successful evidence;
+        - unknown or unavailable evidence being collapsed into false;
+        - fail-closed behavior becoming fail-open without an explicit policy change;
+        - denial decisions lacking stable machine-readable reason codes;
+        - nondeterministic ordering affecting validation or decisions;
+        - HTTP or Actix-specific behavior leaking into the runtime;
+        - panics, unwrap(), expect(), todo!(), unreachable!(), unsafe code,
+          or unchecked indexing in reachable runtime paths;
+        - secrets or attacker-controlled payloads exposed through Debug, logs,
+          errors, serialization, or audit records;
+        - public runtime behavior changing without negative-path tests.
 
-        Verify that:
-        - Decisions are reproducible for identical inputs.
-        - Security-relevant ordering is deterministic.
-        - Missing evidence is never silently treated as valid evidence.
-        - Fail-closed and fail-open behavior strictly follows RuntimePolicy.
-        - Every denial or degraded decision has a stable machine-readable reason.
-        - RuntimePolicy remains versioned and explicit.
-        - RequestContext is treated as normalized input, not implicitly trusted input.
-        - SecurityEvidence clearly distinguishes true, false, unknown, and unavailable states.
-        - New operations cannot bypass validation, policy evaluation, or audit.
-        - No handler-specific or Actix-specific logic leaks into the runtime layer.
-        - Panics, unwrap(), expect(), unchecked indexing, and unsafe code are flagged.
-        - Public runtime behavior is covered by unit tests.
-        - Security regressions and bypass paths are treated as high-severity findings.
+        Verify that identical normalized inputs and policy versions produce
+        identical decisions.
+
+        Require evidence for claims that a change improves security.
+        A refactor alone is not a security improvement.
 
     - path: "backend/src/runtime/validator.rs"
       instructions: |
-        Review validation order and enforcement semantics carefully.
+        Review this file as a security boundary.
 
-        Required deterministic validation order:
+        Required validation order:
         1. operation support
         2. structural validity
         3. identity
@@ -73,217 +94,277 @@ reviews:
         7. trust threshold
         8. anonymization requirement
 
-        Flag:
-        - reordered checks that alter decision semantics;
-        - early returns that omit required reason codes;
-        - missing negative-path tests;
-        - ambiguous evidence handling;
-        - validation paths that accidentally fail open;
-        - policies that can be bypassed through default values.
+        Request changes when:
+        - the order changes without an explicit architectural decision;
+        - an early return suppresses required reason codes;
+        - absent evidence can pass validation unexpectedly;
+        - defaults can bypass policy;
+        - a denial branch is not tested;
+        - fail-open behavior is introduced implicitly;
+        - validation results depend on map iteration order or unstable state.
+
+        Require tests for:
+        - allowed operation;
+        - unsupported operation;
+        - missing structural evidence;
+        - invalid identity;
+        - invalid payload integrity;
+        - invalid signature;
+        - replay;
+        - trust below threshold;
+        - missing anonymization;
+        - fail-open and fail-closed modes;
+        - repeated deterministic execution.
 
     - path: "backend/src/runtime/policy.rs"
       instructions: |
-        Treat policies as security contracts.
+        Treat RuntimePolicy as a versioned security contract.
 
-        Verify that:
-        - Defaults are conservative.
-        - Every policy has an explicit version.
-        - Allowed operations use deterministic collections.
-        - Trust thresholds are explicit and validated.
-        - Replay protection and audit requirements cannot be accidentally disabled.
-        - Production behavior is not weakened to support benchmark endpoints.
-        - Policy changes include tests for both allowed and denied behavior.
+        Request changes when:
+        - a production default is weakened;
+        - a policy version is absent or silently reused after semantic changes;
+        - an operation becomes allowed without tests;
+        - replay protection, audit, identity, signature, or payload integrity
+          requirements are disabled without explicit justification;
+        - benchmark requirements influence production defaults;
+        - incompatible policy changes lack migration documentation;
+        - policy construction accepts invalid trust thresholds or contradictory settings.
+
+        Require conservative defaults and deterministic collections.
 
     - path: "backend/src/runtime/decision.rs"
       instructions: |
-        Ensure decisions are stable, auditable, and machine-readable.
+        Review decisions for auditability and compatibility.
 
-        Verify that:
-        - Outcomes are explicit.
-        - Reason codes are stable and non-ambiguous.
-        - Denials cannot be represented as successful execution.
-        - Decisions contain sufficient policy and evidence context for audit.
-        - Human-readable messages do not replace structured reason codes.
-        - Serialization changes preserve compatibility or are versioned.
+        Request changes when:
+        - allow and deny outcomes can be confused;
+        - successful execution can be represented after denial;
+        - human-readable messages replace structured reason codes;
+        - reason codes are renamed or removed without compatibility notes;
+        - policy version or relevant evidence context is absent;
+        - serialization changes are unversioned;
+        - sensitive information is included in public decision output.
 
     - path: "backend/src/runtime/context.rs"
       instructions: |
-        Treat all incoming request data as untrusted.
+        Treat RequestContext as normalized but still untrusted input.
 
         Verify:
-        - No request field is trusted merely because it exists.
-        - Identity, payload metadata, timestamps, and request IDs are validated.
-        - Context construction cannot silently invent security evidence.
-        - Optional fields are handled explicitly.
-        - Sensitive data is not leaked through Debug, logs, errors, or serialization.
+        - request identifiers, timestamps, identities, and payload metadata are validated;
+        - context construction does not invent successful evidence;
+        - optional fields remain distinguishable from validated fields;
+        - attacker-controlled values have explicit size limits;
+        - secrets and raw sensitive payloads are not logged or serialized unintentionally;
+        - timestamps and replay windows do not trust client time blindly.
 
     - path: "backend/src/runtime/evidence.rs"
       instructions: |
-        Review evidence modeling for ambiguity and unsafe assumptions.
+        Review evidence modeling for ambiguity and provenance.
 
-        Verify:
-        - Unknown is not equivalent to false.
-        - Unavailable evidence is not interpreted as successful validation.
-        - Evidence provenance can be determined.
-        - Conflicting evidence is handled deterministically.
-        - Summaries do not discard security-relevant detail.
-        - Tests cover absent, malformed, contradictory, and boundary evidence.
+        Request changes when:
+        - unknown, unavailable, false, and true are conflated;
+        - evidence provenance cannot be determined;
+        - stale evidence has no timestamp or freshness semantics;
+        - contradictory evidence is resolved nondeterministically;
+        - evidence summaries discard details needed for denial or audit;
+        - evidence can be constructed as verified without a verifier.
 
-    - path: "backend/src/**/*pqc*.rs"
-      instructions: |
-        Treat all cryptographic code as experimental unless it relies on a
-        recognized, reviewed implementation of a standardized algorithm.
-
-        Flag:
-        - custom cryptographic primitives;
-        - non-cryptographic randomness;
-        - hard-coded secrets or keys;
-        - key reuse;
-        - missing zeroization;
-        - insecure serialization;
-        - insufficient domain separation;
-        - unauthenticated metadata;
-        - timing-sensitive comparisons;
-        - misleading production-security claims;
-        - tests that validate only successful round trips.
-
-        Require negative tests for corrupted keys, messages, signatures,
-        malformed inputs, replay attempts, and serialization failures.
+        Require boundary and contradiction tests.
 
     - path: "backend/src/signer_lwe.rs"
       instructions: |
-        Perform a cryptography-focused review.
+        Treat this file as experimental cryptographic research code.
 
-        Do not assume that naming something LWE or PQC makes it secure.
-        Identify whether the implementation is a standardized construction,
-        a research prototype, or custom cryptography.
+        Do not infer security from the names LWE, lattice, Fiat-Shamir, or PQC.
 
-        Flag any claim or code path that could cause this implementation to be
-        treated as production-grade without independent cryptographic review.
+        Request changes when:
+        - the implementation is described as production-grade;
+        - custom primitives are exposed as standardized cryptography;
+        - non-cryptographic hashes or randomness protect production data;
+        - toy parameters are used in production-facing paths;
+        - key generation, serialization, storage, rotation, or zeroization is unsafe;
+        - comparisons leak timing-sensitive information;
+        - invalid dimensions or malformed signatures can panic;
+        - tests validate only successful round trips;
+        - known attack success rates are normalized as acceptable production behavior.
+
+        Require explicit separation between:
+        - educational or research implementation;
+        - benchmark implementation;
+        - production cryptographic provider.
+
+        Prefer migration toward a reviewed implementation of a standardized
+        post-quantum signature algorithm instead of expanding custom cryptography.
+
+    - path: "backend/src/**/*pqc*.rs"
+      instructions: |
+        Review all post-quantum-facing code for algorithm identity, key lifecycle,
+        domain separation, input validation, replay, serialization, and misuse resistance.
+
+        Request changes for:
+        - hard-coded keys or secrets;
+        - keys derived directly from API keys or customer identifiers;
+        - key reuse across tenants or environments;
+        - unauthenticated metadata;
+        - insecure fallback algorithms;
+        - silent downgrade behavior;
+        - unbounded attacker-controlled input;
+        - production claims unsupported by external review.
+
+        Require negative tests for corrupted keys, signatures, messages,
+        serialization, tenant separation, replay, and wrong-key verification.
 
     - path: "backend/src/anonymizer_engine.rs"
       instructions: |
-        Review for privacy, data leakage, reversibility, and incomplete transformations.
+        Review as a privacy boundary.
 
-        Verify:
-        - All sensitive fields are covered.
-        - Nested and malformed inputs cannot bypass anonymization.
-        - Original sensitive values do not appear in logs or error messages.
-        - Transformations are deterministic only where intentionally required.
-        - Tests cover Unicode, empty values, very large input, nested objects,
-          repeated identifiers, malformed input, and partial failures.
+        Request changes when:
+        - nested data can bypass anonymization;
+        - unknown fields are silently copied despite containing sensitive data;
+        - original values appear in logs, errors, metrics, or audit events;
+        - transformations are reversible without an explicit authorized design;
+        - Unicode, malformed structures, large payloads, or partial failures are untested;
+        - repeated identifiers lose or unexpectedly preserve correlation;
+        - anonymization is claimed when data is merely masked cosmetically.
 
     - path: "backend/src/main.rs"
       instructions: |
         Keep the HTTP entrypoint thin.
 
-        Flag:
-        - business logic inside handlers;
-        - direct execution that should pass through the runtime;
-        - missing input-size limits;
-        - missing timeout handling;
-        - sensitive error disclosure;
-        - inconsistent status codes;
-        - unauthenticated production endpoints;
-        - benchmark routes being represented as production runtime routes.
+        Request changes when:
+        - handlers execute protected operations directly instead of using the runtime;
+        - authentication, policy selection, decision, audit, or execution logic
+          is duplicated inside handlers;
+        - attacker-controlled bodies lack size limits;
+        - blocking CPU work runs directly in async handlers;
+        - timeouts or cancellation are missing;
+        - internal errors or secrets are exposed;
+        - benchmark endpoints are presented as production runtime endpoints;
+        - status codes contradict RuntimeDecision outcomes.
 
     - path: "vortex-ebpf/**"
       instructions: |
         Review as verifier-sensitive kernel networking code.
 
-        Verify:
-        - Every packet access is bounds checked.
-        - Malformed and truncated packets are handled safely.
-        - Endianness is correct.
-        - No unbounded loops exist.
-        - Map lookups and absent-map entries have explicit behavior.
-        - Fail-open versus fail-closed behavior is documented.
-        - Userspace decisions cannot remain active indefinitely without expiry.
-        - Logging cannot create unacceptable performance overhead.
-        - XDP_DROP decisions cannot be triggered by incomplete parsing.
-        - Tests or packet fixtures cover malformed Ethernet, IPv4, and TCP headers.
+        Request changes when:
+        - packet access lacks complete bounds checks;
+        - malformed Ethernet, IPv4, IPv6, TCP, or UDP data can reach unchecked reads;
+        - byte order is ambiguous;
+        - loops are unbounded;
+        - absent map entries have undocumented behavior;
+        - decisions have no expiry or freshness mechanism;
+        - fail-open and fail-closed behavior is implicit;
+        - incomplete parsing can trigger XDP_DROP;
+        - high-volume logging can affect packet-path performance;
+        - userspace identity is trusted without verification.
+
+        Require packet fixtures or tests for truncated and malformed headers.
 
     - path: ".github/workflows/**"
       instructions: |
-        Review CI as part of the security boundary.
+        Treat CI as part of the security boundary.
 
-        Verify:
-        - cargo fmt, cargo check, strict clippy, and cargo test are enforced.
-        - Workflow permissions use least privilege.
-        - Third-party actions are pinned to stable versions.
-        - Secrets are never exposed to pull requests from forks.
-        - Security checks cannot be silently skipped.
-        - Caching does not introduce unsafe or stale artifacts.
-        - Failure of a required test blocks merging.
+        Request changes when:
+        - cargo fmt, cargo check, strict Clippy, or cargo test can be skipped;
+        - warnings stop being denied merely to make CI green;
+        - third-party actions use floating branches without justification;
+        - workflow permissions exceed least privilege;
+        - forked pull requests can access secrets;
+        - required checks continue after silent failures;
+        - generated or cached artifacts can cross trust boundaries;
+        - security jobs are informational instead of merge-blocking.
+
+        Distinguish warnings from blocking failures accurately.
 
     - path: "backend/src/**"
       instructions: |
-        Apply Rust production-quality review.
+        Apply production-quality Rust review.
 
-        Flag:
-        - unwrap(), expect(), panic!(), todo!(), and unreachable!() in reachable paths;
+        Request changes for:
         - ignored Result values;
-        - broad error conversion that destroys root-cause information;
-        - integer overflow or unsafe casts;
-        - accidental clones of secrets or large payloads;
-        - blocking work inside async handlers;
-        - unbounded allocation;
-        - missing limits on attacker-controlled input;
-        - unsafe concurrency assumptions;
-        - public APIs without tests;
-        - behavior changes without documentation.
+        - unwrap(), expect(), panic!(), todo!(), or unreachable!() in reachable paths;
+        - unsafe blocks without a documented invariant and focused tests;
+        - lossy error conversion;
+        - integer overflow, truncation, or unchecked casts;
+        - unbounded allocation from attacker-controlled values;
+        - accidental secret cloning or serialization;
+        - blocking work in async contexts;
+        - nondeterministic security-relevant collections;
+        - public API behavior changes without tests and documentation.
+
+        Do not request changes for stylistic preferences that rustfmt or Clippy
+        already enforce unless they create a correctness or security problem.
 
     - path: "backend/tests/**"
       instructions: |
-        Review tests using a TDD and adversarial-security mindset.
+        Review tests using TDD and adversarial-security principles.
 
-        Require tests to cover:
-        - expected success;
-        - expected denial;
+        Require exact assertions for:
+        - success;
+        - denial;
+        - stable reason codes;
         - malformed input;
-        - missing evidence;
+        - missing and unavailable evidence;
         - boundary values;
         - replay;
         - invalid identity;
         - invalid signature;
         - conflicting evidence;
-        - fail-open and fail-closed policy behavior;
+        - fail-open and fail-closed behavior;
         - deterministic repeated execution.
 
-        Flag tests that only assert that code runs without checking exact outcomes
-        and stable reason codes.
+        Flag:
+        - tests that only assert execution did not panic;
+        - nondeterministic sleeps or timing assumptions;
+        - external network dependencies;
+        - shared mutable global state;
+        - broad assertions unable to detect regressions;
+        - security tests whose expected outcome permits a known bypass.
 
     - path: "**/*test*.rs"
       instructions: |
-        Ensure tests are deterministic, isolated, descriptive, and meaningful.
+        Prefer deterministic table-driven tests.
 
-        Prefer table-driven tests where multiple policy/evidence combinations exist.
-        Avoid sleeps, external-network dependencies, shared mutable global state,
-        and assertions that are too broad to detect regressions.
+        Verify that test names describe the security property being protected.
+        Every fixed security bug should have a regression test that fails if the
+        vulnerable behavior is reintroduced.
 
     - path: "docs/**"
       instructions: |
-        Check documentation for technical accuracy and alignment with the code.
+        Review documentation against actual repository behavior.
 
-        Enforce a clear distinction between:
+        Require explicit labels for:
         - implemented;
         - experimental;
-        - planned.
+        - planned;
+        - deprecated.
 
-        Flag unsupported claims such as production-grade, mathematically secure,
-        post-quantum secure, zero-trust, enterprise-ready, or formally verified
-        unless the repository contains sufficient evidence.
+        Request changes for unsupported claims including:
+        - production-grade;
+        - enterprise-ready;
+        - formally verified;
+        - mathematically secure;
+        - post-quantum secure;
+        - zero-trust;
+        - impossible to bypass.
+
+        Architecture diagrams and runtime descriptions must match executable code.
 
     - path: "CLAUDE.md"
       instructions: |
-        Treat this file as an engineering journal and repository guidance document.
+        Review this file as an engineering journal and contributor guidance file.
 
-        Check that:
+        Verify:
         - dates use YYYY-MM-DD;
-        - completed and pending work are clearly separated;
-        - architectural decisions match the implementation;
-        - outdated instructions are identified;
-        - security guarantees are not overstated.
+        - completed and pending work are distinct;
+        - instructions match current paths and types;
+        - architectural decisions match code;
+        - known limitations remain visible;
+        - outdated guidance is removed rather than contradicted by newer sections.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
 
 chat:
   auto_reply: true
