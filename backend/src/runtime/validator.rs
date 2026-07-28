@@ -790,4 +790,381 @@ mod tests {
 
         assert!(report.is_valid());
     }
+
+    /// Policy with every optional requirement disabled so a single
+    /// requirement can be re-enabled per test without unrelated
+    /// failures polluting the report.
+    fn isolated_policy(fail_closed: bool) -> RuntimePolicy {
+        RuntimePolicy::new(
+            "test.isolated",
+            "1.0.0",
+        )
+        .allow_operation(Operation::Verify)
+        .with_identity_requirement(false)
+        .with_payload_integrity_requirement(false)
+        .with_signature_requirement(false)
+        .with_replay_protection(false)
+        .with_minimum_trust_band(None)
+        .with_fail_closed(fail_closed)
+    }
+
+    #[test]
+    fn structural_validity_false_fails_even_when_fail_open() {
+        let policy = isolated_policy(false);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(false);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::StructureInvalid
+        );
+    }
+
+    #[test]
+    fn structural_validity_missing_fails_closed() {
+        let policy = isolated_policy(true);
+
+        let context =
+            context_for(Operation::Verify);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::StructureInvalid
+        );
+    }
+
+    #[test]
+    fn structural_validity_missing_passes_fail_open() {
+        let policy = isolated_policy(false);
+
+        let context =
+            context_for(Operation::Verify);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert!(report.is_valid());
+    }
+
+    #[test]
+    fn identity_verified_false_is_reported_as_invalid() {
+        let policy =
+            isolated_policy(true)
+                .with_identity_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify)
+                .with_identity(
+                    IdentityContext::new(
+                        "client-001",
+                        "api_key",
+                        false,
+                    ),
+                );
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::IdentityInvalid
+        );
+    }
+
+    #[test]
+    fn identity_evidence_missing_fails_closed_when_identity_present() {
+        let policy =
+            isolated_policy(true)
+                .with_identity_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        // Identity is present, but no verification evidence was
+        // collected for it.
+        context.identity = Some(
+            IdentityContext::new(
+                "client-001",
+                "api_key",
+                true,
+            ),
+        );
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::IdentityInvalid
+        );
+    }
+
+    #[test]
+    fn payload_integrity_false_is_reported() {
+        let policy =
+            isolated_policy(true)
+                .with_payload_integrity_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        context
+            .evidence
+            .set_payload_integrity_valid(false);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::PayloadIntegrityFailed
+        );
+    }
+
+    #[test]
+    fn payload_integrity_missing_fails_closed() {
+        let policy =
+            isolated_policy(true)
+                .with_payload_integrity_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::PayloadIntegrityFailed
+        );
+    }
+
+    #[test]
+    fn signature_missing_fails_closed() {
+        let policy =
+            isolated_policy(true)
+                .with_signature_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::SignatureInvalid
+        );
+    }
+
+    #[test]
+    fn replay_evidence_missing_fails_closed() {
+        let policy =
+            isolated_policy(true)
+                .with_replay_protection(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::ReplayDetected
+        );
+    }
+
+    #[test]
+    fn trust_band_missing_fails_closed_when_minimum_required() {
+        let policy =
+            isolated_policy(true)
+                .with_minimum_trust_band(
+                    Some(RuntimeTrustBand::Operational),
+                );
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::TrustBelowThreshold
+        );
+    }
+
+    #[test]
+    fn sensitive_data_detection_missing_fails_closed() {
+        let policy =
+            isolated_policy(true)
+                .with_anonymization_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(
+            report.failures[0].reason,
+            DecisionReason::SensitiveDataDetected
+        );
+    }
+
+    #[test]
+    fn sensitive_data_detected_true_does_not_fail_validation() {
+        let policy =
+            isolated_policy(true)
+                .with_anonymization_requirement(true);
+
+        let mut context =
+            context_for(Operation::Verify);
+
+        context
+            .evidence
+            .set_structural_validity(true);
+
+        context
+            .evidence
+            .set_sensitive_data_detected(true);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        assert!(report.is_valid());
+    }
+
+    #[test]
+    fn multiple_failures_preserve_documented_validation_order() {
+        let policy =
+            RuntimePolicy::new(
+                "production.strict",
+                "1.0.0",
+            )
+            .allow_operation(Operation::Verify)
+            .with_anonymization_requirement(true);
+
+        // Every optional check is left unevaluated, and the policy is
+        // fail-closed, so all eight validation steps except
+        // "operation support" should report a failure, in the exact
+        // order documented on `RuntimeValidator::validate`.
+        let context =
+            context_for(Operation::Verify);
+
+        let report =
+            RuntimeValidator::validate(
+                &context,
+                &policy,
+            );
+
+        let reasons: Vec<DecisionReason> = report
+            .failures
+            .iter()
+            .map(|failure| failure.reason)
+            .collect();
+
+        assert_eq!(
+            reasons,
+            vec![
+                DecisionReason::StructureInvalid,
+                DecisionReason::IdentityMissing,
+                DecisionReason::PayloadIntegrityFailed,
+                DecisionReason::SignatureInvalid,
+                DecisionReason::ReplayDetected,
+                DecisionReason::TrustBelowThreshold,
+                DecisionReason::SensitiveDataDetected,
+            ]
+        );
+    }
 }
