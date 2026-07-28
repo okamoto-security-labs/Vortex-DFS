@@ -7,8 +7,24 @@
 //! modules. The runtime orchestrates those features without absorbing
 //! their internal logic.
 
+pub mod context;
+pub mod evidence;
 pub mod operation;
 pub mod trust;
+
+pub use context::{
+    current_timestamp_ms,
+    IdentityContext,
+    PayloadContext,
+    RequestContext,
+    ValidationFailure,
+};
+
+pub use evidence::{
+    EvidenceSummary,
+    EvidenceValue,
+    SecurityEvidence,
+};
 
 pub use operation::Operation;
 pub use trust::RuntimeTrustBand;
