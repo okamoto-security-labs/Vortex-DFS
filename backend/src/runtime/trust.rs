@@ -23,12 +23,14 @@ use serde::{Deserialize, Serialize};
     PartialOrd,
     Ord,
     Hash,
+    Default,
     Serialize,
     Deserialize,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeTrustBand {
     /// Evidence indicates a severe trust or integrity failure.
+    #[default]
     Critical,
 
     /// Evidence is incomplete, degraded, or near a rejection boundary.
@@ -78,11 +80,6 @@ impl RuntimeTrustBand {
     }
 }
 
-impl Default for RuntimeTrustBand {
-    fn default() -> Self {
-        Self::Critical
-    }
-}
 
 impl std::fmt::Display for RuntimeTrustBand {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
