@@ -7,7 +7,7 @@ use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
-use vortex_dfs::signer_lwe::{verify, PublicKey, SecretKey, Signature};
+use vortex_dfs::signer_lwe::verify;
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
