@@ -11,6 +11,7 @@ pub mod context;
 pub mod decision;
 pub mod evidence;
 pub mod operation;
+pub mod policy;
 pub mod trust;
 
 pub use context::{
@@ -35,4 +36,5 @@ pub use evidence::{
 };
 
 pub use operation::Operation;
+pub use policy::RuntimePolicy;
 pub use trust::RuntimeTrustBand;
