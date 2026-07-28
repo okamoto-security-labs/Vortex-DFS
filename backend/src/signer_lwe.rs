@@ -21,26 +21,21 @@
 // Finding #3 (chave derivável da API key) é corrigido na camada de
 //     pqc_endpoints.rs / key management, não aqui — ver arquivo separado.
 // ============================================================================
-
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-
 pub const N: usize = 16; // dimensão do lattice (produção: ≥512)
 pub const Q: i64 = 257; // módulo primo      (produção: ~2^23)
 pub const ETA: i64 = 2; // amplitude do erro
-
 // NOVO: o challenge agora é limitado a um pequeno intervalo, igual aos
 // esquemas reais de assinatura em lattice (Dilithium usa polinômios de
 // challenge de norma pequena, não um elemento arbitrário do corpo).
 // Isso é o que torna a tolerância de verificação matematicamente segura
 // de se fixar como constante.
 pub const CHALLENGE_BOUND: i64 = 50;
-
 // NOVO: tolerância fixa, calculada uma vez, nunca influenciada por
 // dado externo. Pior caso possível: CHALLENGE_BOUND * ETA = 10.
 // Deixamos uma margem de segurança e travamos bem abaixo de Q/2 (=128).
 pub const TOLERANCE: i64 = CHALLENGE_BOUND * ETA + 2; // = 12, << 128
-
 // FIX Finding #3, parte 2 (KeyStore persistente): derives de serde
 // adicionados pra permitir serializar a chave (secreta, criptografada
 // antes de persistir; pública, em texto claro) no Postgres via
@@ -56,13 +51,11 @@ pub struct PublicKey {
     pub a: Vec<Vec<i64>>,
     pub b: Vec<i64>,
 }
-
 pub struct Signature {
     pub z: Vec<i64>, // resposta: y + c·s mod q
     pub w: Vec<i64>, // commitment: A·y mod q
     pub c: i64,      // challenge: H(w || data), agora em [-CHALLENGE_BOUND, CHALLENGE_BOUND]
 }
-
 #[allow(dead_code)]
 fn pseudo_rand(seed: u64, idx: usize) -> i64 {
     let mut x = seed
@@ -73,7 +66,6 @@ fn pseudo_rand(seed: u64, idx: usize) -> i64 {
     x ^= x >> 31;
     ((x & 0x7FFFFFFFFFFFFFFF) % Q as u64) as i64
 }
-
 #[allow(dead_code)]
 fn sample_error(seed: u64, idx: usize) -> i64 {
     (pseudo_rand(seed, idx) % (2 * ETA + 1)) - ETA
@@ -87,10 +79,8 @@ fn dist_circular(a: i64, b: i64) -> i64 {
     let d = (a - b).rem_euclid(Q);
     d.min(Q - d)
 }
-
 /// FIX Finding #1: challenge agora depende do commitment `w`, não só de `data`.
 /// Isso amarra o desafio ao compromisso, como o Fiat-Shamir exige.
-///
 /// FIX Finding #2: saída restrita a um intervalo pequeno e simétrico,
 /// igual a esquemas reais de assinatura em lattice.
 fn challenge_hash(w: &[i64], data: &[u8]) -> i64 {
@@ -107,14 +97,12 @@ fn challenge_hash(w: &[i64], data: &[u8]) -> i64 {
     let range = (2 * CHALLENGE_BOUND + 1) as u64;
     ((h & 0x7FFFFFFFFFFFFFFF) % range) as i64 - CHALLENGE_BOUND
 }
-
 /// FIX Finding #3, parte 1: geração de chave com entropia REAL do SO,
 /// não derivada de nenhuma string (API key, nome de cliente, etc).
 /// Use esta função na hora de PROVISIONAR uma chave nova (uma vez só,
 /// no momento em que o cliente é criado — ver provisioner.rs). O
 /// resultado deve ser persistido em storage seguro; NUNCA recalculado
 /// a partir da API key em cada requisição.
-
 #[allow(dead_code)]
 pub fn keygen_secure() -> (SecretKey, PublicKey) {
     let mut rng = rand::rngs::OsRng;
@@ -133,7 +121,6 @@ pub fn keygen_secure() -> (SecretKey, PublicKey) {
         .collect();
     (SecretKey { s }, PublicKey { a, b })
 }
-
 /// Geração DETERMINÍSTICA de chave — útil só para testes e para o
 /// modo demo público (onde reprodutibilidade é aceitável e documentada).
 /// NUNCA usar isso pra derivar a chave de um cliente pagante a partir
@@ -155,7 +142,6 @@ pub fn keygen(seed: u64) -> (SecretKey, PublicKey) {
         .collect();
     (SecretKey { s }, PublicKey { a, b })
 }
-
 impl SecretKey {
     #[cfg(test)]
     pub(crate) fn expose_for_test(&self) -> &[i64] {
@@ -167,7 +153,6 @@ impl SecretKey {
     ///   w = A·y                          (commitment)
     ///   c = H(w || data)                 (challenge — agora amarrado a w, fix #1)
     ///   z = y + c·s mod q                (resposta)
-    ///
     /// Note: a assinatura de `sign()` mudou — não recebe mais `nonce`.
     /// Isso é intencional: o chamador não pode mais influenciar o commitment.
     pub fn sign(&self, data: &[u8], pk: &PublicKey) -> Signature {
@@ -188,7 +173,6 @@ impl SecretKey {
         Signature { z, w, c }
     }
 }
-
 /// Verificação corrigida:
 ///   1. c precisa bater com H(w || data) — não dá pra escolher w depois de c (fix #1)
 ///   2. c precisa estar no intervalo esperado — defesa em profundidade
@@ -211,7 +195,6 @@ pub fn verify(pk: &PublicKey, data: &[u8], sig: &Signature) -> bool {
 
     (0..N).all(|i| dist_circular(mod_q(az[i] - cb[i]), sig.w[i]) <= TOLERANCE)
 }
-
 #[cfg(test)]
 mod adversarial_core {
     use super::*;
@@ -242,7 +225,6 @@ mod adversarial_core {
             "FINDING #1 continua explorável: forjamento funcionou mesmo com o fix."
         );
     }
-
     #[test]
     fn finding_1b_forgery_must_fail_for_any_message() {
         let (_sk, pk) = keygen(7);
@@ -268,7 +250,6 @@ mod adversarial_core {
             );
         }
     }
-
     // FINDING #2 (tolerância agora é constante e pequena)
     #[test]
     fn finding_2_random_unrelated_pair_must_not_verify() {
@@ -283,7 +264,6 @@ mod adversarial_core {
             "FINDING #2 continua explorável: par (z,w) não relacionado foi aceito."
         );
     }
-
     #[test]
     fn finding_2b_out_of_range_challenge_rejected() {
         let (_sk, pk) = keygen(1);
@@ -296,7 +276,6 @@ mod adversarial_core {
             "challenge fora do range deveria ser rejeitado direto."
         );
     }
-
     // CONTROLES POSITIVOS
     #[test]
     fn control_legitimate_signature_still_verifies() {
@@ -308,7 +287,6 @@ mod adversarial_core {
             "assinatura legítima deveria passar"
         );
     }
-
     #[test]
     fn control_signature_does_not_transfer_between_messages() {
         let (sk, pk) = keygen(4321);
@@ -329,7 +307,6 @@ mod adversarial_core {
             "z adulterado não deveria verificar"
         );
     }
-
     #[test]
     fn control_tampered_w_is_rejected() {
         // novo controle: como agora c depende de w, adulterar w tem que
@@ -344,7 +321,6 @@ mod adversarial_core {
             "w adulterado deveria invalidar a assinatura"
         );
     }
-
     // FINDING #4: nonce não é mais parâmetro de sign() -- teste de tipo/API,
     // não de comportamento: se este código compila, a API não aceita mais
     // nonce externo. (a prova real é a assinatura de sign() em si, acima)
@@ -365,13 +341,10 @@ mod adversarial_core {
         assert!(verify(&pk, data, &sig2));
     }
 }
-
 #[cfg(test)]
 mod stress_tests {
     use super::*;
-
     /// IMPORTANTE: este teste NÃO espera zero forjamentos.
-    ///
     /// Com N=16 / Q=257 (parâmetros de DEMONSTRAÇÃO, nunca produção — ver
     /// topo do arquivo), o espaço de challenges cabível dentro de uma
     /// tolerância segura (<< Q/2) é necessariamente pequeno (~101 valores
@@ -379,12 +352,10 @@ mod stress_tests {
     /// acesso à API, uma chance de ~1% de forjar POR TENTATIVA -- muito
     /// diferente do bug original (Findings #1/#2), que davam 100% de
     /// sucesso OFFLINE, sem nenhuma interação com o servidor.
-    ///
     /// Este teste documenta e trava esse risco residual conhecido. Ele
     /// FALHA (propositalmente) se a taxa de forjamento subir acima do
     /// esperado -- o que aconteceria se alguém no futuro reduzir
     /// CHALLENGE_BOUND sem perceber a implicação de segurança.
-    ///
     /// MITIGAÇÃO OBRIGATÓRIA em produção (isso não é opcional):
     ///   1. Rate limiting agressivo em /v1/pqc/sign e /v1/pqc/verify
     ///      (hoje NÃO EXISTE nenhum rate limit nesses endpoints)
@@ -417,7 +388,6 @@ mod stress_tests {
                 successes += 1;
             }
         }
-
         let rate = successes as f64 / attempts as f64;
         // Limite tolerado: ~2x a probabilidade teórica esperada (1/space),
         // com folga estatística. Qualquer coisa muito acima disso indica
@@ -430,7 +400,6 @@ mod stress_tests {
             expected * 100.0
         );
     }
-
     #[test]
     fn stress_100_legitimate_roundtrips_all_succeed() {
         // garante que o fix não introduziu falso-negativo (rejeitar assinatura legítima)
@@ -445,7 +414,6 @@ mod stress_tests {
             );
         }
     }
-
     #[test]
     fn stress_tolerance_never_approaches_half_q() {
         // trava estruturalmente: TOLERANCE tem que ficar bem abaixo de Q/2
