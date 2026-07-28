@@ -449,7 +449,10 @@ mod tests {
         PayloadContext,
         RuntimeTrustBand,
     };
-
+    #[test]
+fn coderabbit_must_flag_panic_in_runtime_test() {
+    panic!("temporary CodeRabbit review validation");
+}
     fn context_for(
         operation: Operation,
     ) -> RequestContext {
