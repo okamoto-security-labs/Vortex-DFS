@@ -8,6 +8,7 @@
 //! their internal logic.
 
 pub mod context;
+pub mod decision;
 pub mod evidence;
 pub mod operation;
 pub mod trust;
@@ -18,6 +19,13 @@ pub use context::{
     PayloadContext,
     RequestContext,
     ValidationFailure,
+};
+
+pub use decision::{
+    DecisionOutcome,
+    DecisionPolicyReference,
+    DecisionReason,
+    RuntimeDecision,
 };
 
 pub use evidence::{
