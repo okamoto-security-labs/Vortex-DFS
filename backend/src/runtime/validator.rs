@@ -1,3 +1,7 @@
+// CodeRabbit validation test:
+// Review whether this validator preserves deterministic ordering,
+// fail-closed policy semantics, stable reason codes,
+// and sufficient negative-path test coverage.
 //! Deterministic runtime validation.
 //!
 //! Validators compare normalized request context and collected security
