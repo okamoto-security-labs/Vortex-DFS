@@ -183,3 +183,85 @@ Antes de considerar qualquer mudança "pronta":
 - [ ] GitHub Actions / CI ainda não existe — testes só rodam manualmente
 - [ ] Produção real de `/pqc/*` deveria migrar para `pqcrypto-dilithium`
       (N≥512) — os parâmetros atuais (N=16, Q=257) são só para demonstração
+
+
+---
+
+# Engineering Journal
+
+---
+
+## 2026-07-28
+
+### Runtime Architecture Refactor (Phase 1)
+
+Status: In Progress
+
+#### Goal
+
+Transform the Vortex backend from endpoint-driven execution into a deterministic runtime architecture.
+
+Target pipeline:
+
+Request
+→ RequestContext
+→ RuntimePolicy
+→ RuntimeValidator
+→ RuntimeDecision
+→ Execution
+→ Audit
+
+#### New Runtime Modules
+
+backend/src/runtime/
+
+- operation.rs
+- trust.rs
+- context.rs
+- evidence.rs
+- decision.rs
+- policy.rs
+- validator.rs
+
+#### Architectural Decisions
+
+- Runtime components are intentionally small and single-purpose.
+- Replace monolithic runtime implementation with modular architecture.
+- Introduce versioned RuntimePolicy.
+- Introduce RequestContext as the normalized request model.
+- Introduce SecurityEvidence as the single source of evaluated signals.
+- Introduce RuntimeValidator for deterministic policy validation.
+- Introduce RuntimeDecision with stable machine-readable reason codes.
+- Prefer deterministic collections (BTreeMap/BTreeSet) where ordering matters.
+- Runtime remains independent from HTTP handlers until full integration.
+
+#### Documentation Added
+
+docs/ARCHITECTURE.md
+
+docs/RUNTIME.md
+
+#### Current Status
+
+Implemented:
+
+- Runtime architecture
+- Operation model
+- Trust model
+- Context model
+- Evidence model
+- Decision model
+- Policy model
+- Validator
+
+Pending:
+
+- Executor
+- Audit
+- Decision Engine
+- Handler integration
+- End-to-end runtime flow
+
+#### CI
+
+Current work focuses on restoring a fully green CI while maintaining strict Clippy compliance.
