@@ -6,8 +6,18 @@
 use serde::{Deserialize, Serialize};
 
 /// Operations recognized by the Vortex deterministic runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub enum Operation {
     /// Runtime or service health verification.
     HealthCheck,
