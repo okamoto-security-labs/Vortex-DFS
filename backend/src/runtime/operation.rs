@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
     PartialOrd,
     Ord,
     Hash,
+    Default,
     Serialize,
     Deserialize,
 )]
@@ -47,6 +48,7 @@ pub enum Operation {
     KernelPolicyUpdate,
 
     /// Operation not recognized by the current runtime version.
+    #[default]
     Unknown,
 }
 
@@ -83,12 +85,6 @@ impl Operation {
     /// security audit event.
     pub const fn requires_audit(self) -> bool {
         !matches!(self, Self::HealthCheck | Self::Unknown)
-    }
-}
-
-impl Default for Operation {
-    fn default() -> Self {
-        Self::Unknown
     }
 }
 
