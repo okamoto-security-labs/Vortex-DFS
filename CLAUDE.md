@@ -303,3 +303,163 @@ CodeRabbit: Operational
 
 Engineering Governance: Active
 
+
+----
+
+# Engineering Journal
+
+## Session
+**Date:** 2026-07-29
+**Start:** 00:00
+**End:** 00:25
+**Duration:** ~25 minutes
+
+---
+
+## Objective
+
+Continue the documentation refactor and redefine the architectural positioning of the Vortex ecosystem.
+
+---
+
+## Completed
+
+### README (Vortex DFS)
+
+- Rewrote the README structure from scratch.
+- Introduced an engineering manifesto instead of a feature-first introduction.
+- Defined the central thesis of the project.
+- Repositioned Vortex as a **Deterministic Runtime Trust Layer**.
+- Added "Why Vortex Exists".
+- Added "What is Vortex?".
+- Added "Where Vortex Fits".
+- Added Runtime Placement.
+- Added Runtime Architecture.
+- Added Runtime Decision Model.
+- Added Runtime Flow.
+- Added Engineering Philosophy.
+- Added Engineering section.
+- Added Governance.
+- Added Quality Gates.
+- Added Testing Philosophy.
+- Added Closing Manifesto.
+
+---
+
+### README (Vortex Lab)
+
+Completely redefined the repository identity.
+
+Previous positioning:
+
+- Performance-focused
+- Hardware optimization
+- Zero-overhead telemetry
+
+New positioning:
+
+- Research & Engineering Laboratory
+- Research before Production
+- Engineering before Products
+
+Added:
+
+- Mission
+- Research Areas
+- Engineering Philosophy
+- Current Research
+- Benchmarking
+- Relationship to Vortex DFS
+- Guiding Principles
+- Vision
+- Closing Thoughts
+
+---
+
+## Architectural Decisions
+
+### AD-001
+
+Vortex is **not** a SIEM.
+
+Vortex is **not** an EDR.
+
+Vortex is **not** a SOAR.
+
+Vortex is a deterministic runtime trust layer positioned between autonomous reasoning and execution.
+
+---
+
+### AD-002
+
+The README should communicate an engineering thesis rather than advertise features.
+
+Documentation now explains:
+
+- Why the problem exists.
+- Why Vortex exists.
+- How deterministic trust is engineered.
+
+---
+
+### AD-003
+
+The Vortex ecosystem responsibilities are now clearly separated.
+
+Vortex DFS
+→ Production Runtime Trust Layer.
+
+Vortex Lab
+→ Research & Engineering Laboratory.
+
+Future commercial platform
+→ Product built on top of Vortex technologies.
+
+---
+
+## Key Messages Defined
+
+The project now consistently communicates:
+
+> Automation without trust is simply faster uncertainty.
+
+> Trust must be engineered.
+
+> Confidence is not a feature. It is an engineering outcome.
+
+> Vortex doesn't guess. It computes.
+
+---
+
+## Lessons Learned
+
+People naturally attempt to classify Vortex as:
+
+- SIEM
+- EDR
+- SOAR
+
+The documentation now explicitly explains where Vortex fits within the security ecosystem.
+
+Clear positioning is as important as implementation.
+
+---
+
+## Next Session
+
+- Finish README remaining sections.
+- Review repository structure.
+- Standardize terminology across repositories.
+- Review GitHub profile README.
+- Continue Release 1.0 documentation.
+
+---
+
+## Session Outcome
+
+This session did not primarily produce new code.
+
+It produced a clearer engineering identity for the Vortex ecosystem.
+
+The project evolved from being described by **what it does** to being described by **why it exists**.
+
