@@ -1,0 +1,22 @@
+   Compiling Vortex-DFS v0.1.0 (/home/gustavo/Vortex-DFS)
+error[E0433]: cannot find module or crate `tokio` in this scope
+  --> src/main.rs:46:3
+   |
+46 | #[tokio::main]
+   |   ^^^^^ use of unresolved module or unlinked crate `tokio`
+
+error[E0752]: `main` function is not allowed to be `async`
+  --> src/main.rs:47:1
+   |
+47 | async fn main() -> anyhow::Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `main` function is not allowed to be `async`
+
+error[E0063]: missing field `served_speed` in initializer of `agent_sdk::llm::Usage`
+  --> src/main.rs:28:20
+   |
+28 |             usage: Usage {
+   |                    ^^^^^ missing `served_speed`
+
+Some errors have detailed explanations: E0063, E0433, E0752.
+For more information about an error, try `rustc --explain E0063`.
+error: could not compile `Vortex-DFS` (bin "Vortex-DFS") due to 3 previous errors

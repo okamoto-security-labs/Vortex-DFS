@@ -1,0 +1,204 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.4
+   Compiling pin-project-lite v0.2.17
+   Compiling memchr v2.8.3
+   Compiling futures-core v0.3.33
+   Compiling bytes v1.12.1
+   Compiling serde_core v1.0.229
+   Compiling stable_deref_trait v1.2.1
+   Compiling itoa v1.0.18
+   Compiling futures-sink v0.3.33
+   Compiling smallvec v1.15.2
+   Compiling find-msvc-tools v0.1.9
+   Compiling autocfg v1.5.1
+   Compiling shlex v2.0.1
+   Compiling serde v1.0.229
+   Compiling slab v0.4.12
+   Compiling futures-channel v0.3.33
+   Compiling cc v1.4.0
+   Compiling pkg-config v0.3.33
+   Compiling once_cell v1.21.4
+   Compiling writeable v0.6.3
+   Compiling vcpkg v0.2.15
+   Compiling num-traits v0.2.19
+   Compiling litemap v0.8.2
+   Compiling equivalent v1.0.2
+   Compiling icu_normalizer_data v2.2.0
+   Compiling percent-encoding v2.3.2
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.2.0
+   Compiling futures-task v0.3.33
+   Compiling futures-io v0.3.33
+   Compiling http v1.5.0
+   Compiling zmij v1.0.23
+   Compiling crc32fast v1.5.0
+   Compiling regex-syntax v0.8.11
+   Compiling serde_json v1.0.151
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling aho-corasick v1.1.4
+   Compiling tracing-core v0.1.36
+   Compiling foreign-types-shared v0.1.1
+   Compiling bitflags v2.13.1
+   Compiling openssl v0.10.81
+   Compiling adler2 v2.0.1
+   Compiling errno v0.3.14
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.2
+   Compiling num-integer v0.1.46
+   Compiling signal-hook-registry v1.4.8
+   Compiling http-body v1.1.0
+   Compiling openssl-sys v0.9.117
+   Compiling value-bag v1.13.1
+   Compiling hashbrown v0.17.1
+   Compiling httparse v1.10.1
+   Compiling simd-adler32 v0.3.10
+   Compiling tracing v0.1.44
+   Compiling miniz_oxide v0.8.9
+   Compiling foreign-types v0.3.2
+   Compiling log v0.4.33
+   Compiling atomic-waker v1.1.2
+   Compiling tower-service v0.3.3
+   Compiling ref-cast v1.0.26
+   Compiling getrandom v0.3.4
+   Compiling version_check v0.9.5
+   Compiling indexmap v2.14.0
+   Compiling fnv v1.0.7
+   Compiling try-lock v0.2.5
+   Compiling parking_lot_core v0.9.12
+   Compiling native-tls v0.2.18
+   Compiling getrandom v0.4.3
+   Compiling zerocopy v0.8.55
+   Compiling ahash v0.8.12
+   Compiling flate2 v1.1.9
+   Compiling regex-automata v0.4.16
+   Compiling want v0.3.1
+   Compiling num-bigint v0.4.8
+   Compiling form_urlencoded v1.2.2
+   Compiling openssl-probe v0.2.1
+   Compiling compression-core v0.4.32
+   Compiling scopeguard v1.2.0
+   Compiling compression-codecs v0.4.38
+   Compiling lock_api v0.4.14
+   Compiling deranged v0.5.8
+   Compiling http-body-util v0.1.4
+   Compiling num-iter v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling sync_wrapper v1.0.2
+   Compiling borrow-or-share v0.2.4
+   Compiling unicode-general-category v1.1.0
+   Compiling powerfmt v0.2.0
+   Compiling time-core v0.1.9
+   Compiling tower-layer v0.3.3
+   Compiling num-conv v0.2.2
+   Compiling base64 v0.22.1
+   Compiling bit-vec v0.8.0
+   Compiling ipnet v2.12.0
+   Compiling allocator-api2 v0.2.21
+   Compiling num-rational v0.4.2
+   Compiling foldhash v0.2.0
+   Compiling anyhow v1.0.104
+   Compiling bit-set v0.8.0
+   Compiling hashbrown v0.16.1
+   Compiling parking_lot v0.12.5
+   Compiling num v0.4.3
+   Compiling uuid v1.24.0
+   Compiling vsimd v0.8.0
+   Compiling ryu v1.0.23
+   Compiling micromap v0.3.0
+   Compiling time v0.3.54
+   Compiling outref v0.5.2
+   Compiling thiserror v2.0.19
+   Compiling synstructure v0.13.2
+   Compiling lazy_static v1.5.0
+   Compiling zeroize v1.9.0
+   Compiling fraction v0.15.4
+   Compiling tokio-macros v2.7.2
+   Compiling displaydoc v0.2.7
+   Compiling serde_derive v1.0.229
+   Compiling ref-cast-impl v1.0.26
+   Compiling uuid-simd v0.8.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling async-trait v0.1.91
+   Compiling thiserror-impl v2.0.19
+   Compiling tokio v1.53.1
+   Compiling jsonschema-regex v0.46.10
+   Compiling bytecount v0.6.9
+   Compiling num-cmp v0.1.0
+   Compiling data-encoding v2.11.0
+   Compiling glob v0.3.4
+   Compiling regex v1.13.1
+   Compiling fancy-regex v0.18.0
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling futures-macro v0.3.33
+   Compiling openssl-macros v0.1.1
+   Compiling async-stream-impl v0.3.6
+   Compiling async-stream v0.3.6
+   Compiling agent-sdk-macros v0.16.0
+   Compiling futures-util v0.3.33
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling fluent-uri v0.4.1
+   Compiling agent-sdk-foundation v0.16.0
+   Compiling email_address v0.2.9
+   Compiling serde_urlencoded v0.7.1
+   Compiling icu_locale_core v2.2.0
+   Compiling referencing v0.46.10
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling tokio-util v0.7.19
+   Compiling futures-executor v0.3.33
+   Compiling tower v0.5.3
+   Compiling tokio-native-tls v0.3.1
+   Compiling async-compression v0.4.43
+   Compiling futures v0.3.33
+   Compiling tokio-stream v0.1.19
+   Compiling h2 v0.4.15
+   Compiling idna_adapter v1.2.2
+   Compiling agent-sdk-tools v0.16.0
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling jsonschema v0.46.10
+   Compiling tower-http v0.6.11
+   Compiling hyper v1.11.0
+   Compiling hyper-util v0.1.20
+   Compiling hyper-tls v0.6.0
+   Compiling reqwest v0.13.4
+   Compiling agent-sdk-providers v0.16.0
+   Compiling agent-sdk v0.16.0
+   Compiling Vortex-DFS v0.1.0 (/home/gustavo/Vortex-DFS)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.98s
+	Command being timed: "cargo build"
+	User time (seconds): 129.75
+	System time (seconds): 21.72
+	Percent of CPU this job got: 755%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.04
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 518608
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 386
+	Minor (reclaiming a frame) page faults: 4491199
+	Voluntary context switches: 23471
+	Involuntary context switches: 32256
+	Swaps: 0
+	File system inputs: 7896
+	File system outputs: 2514376
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
