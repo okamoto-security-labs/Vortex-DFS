@@ -1,1 +1,2 @@
 /target
+printf '\nbackend/wrk/\n' >> .gitignore
