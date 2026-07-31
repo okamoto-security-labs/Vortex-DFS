@@ -463,3 +463,76 @@ It produced a clearer engineering identity for the Vortex ecosystem.
 
 The project evolved from being described by **what it does** to being described by **why it exists**.
 
+---
+
+## Engineering Log — 2026-07-31
+
+### Vortex DFS + Agent SDK Runtime Integration
+
+Completed the first working end-to-end integration between the Vortex DFS Runtime and the Agent SDK.
+
+### Architecture
+
+Application  
+↓  
+Vortex DFS Runtime  
+↓  
+Policy Evaluation  
+↓  
+Trust Boundary Evaluation  
+↓  
+Authorization Decision  
+↓  
+Agent SDK  
+↓  
+Execution  
+
+### Current Implementation
+
+- Vortex evaluates the request before Agent SDK execution.
+- Explicit authorization decisions:
+  - APPROVED
+  - REVIEW REQUIRED
+  - BLOCKED
+- Agent SDK execution occurs only after Vortex approval.
+- Offline deterministic provider used for integration testing.
+- In-memory event store validated.
+- Runtime decision latency measured.
+- End-to-end audit summary produced.
+
+### Latest Benchmark
+
+- SDK version: 0.16.0
+- Iterations: 1,000
+- Successful executions: 1,000
+- Failed executions: 0
+- Average Agent SDK latency: approximately 24–28 microseconds
+- P99 latency: approximately 42–57 microseconds
+- Throughput: approximately 33,000–39,000 requests per second
+- Runtime authorization overhead: sub-microsecond in the local test
+
+### Important Limitation
+
+The current trust score is a controlled deterministic input.
+
+It is not yet calculated from live telemetry or production security signals.
+
+### Next Milestones
+
+- Dynamic trust score calculation
+- Runtime telemetry ingestion
+- Tool permission validation
+- Multiple policy profiles
+- Decision evidence collection
+- Agent tool execution tests
+- Concurrent agent benchmarks
+- Persistent event storage
+- Real provider integration
+
+### Session Outcome
+
+The Agent SDK provides execution capability.
+
+Vortex DFS now provides an explicit authorization boundary before that execution.
+
+The current milestone proves the architecture and runtime flow, not production readiness.
