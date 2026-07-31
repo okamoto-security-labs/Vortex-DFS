@@ -7,6 +7,9 @@ name = "Vortex-DFS"
 version = "0.1.0"
 dependencies = [
  "agent-sdk",
+ "anyhow",
+ "async-trait",
+ "tokio",
 ]
 
 [[package]]
