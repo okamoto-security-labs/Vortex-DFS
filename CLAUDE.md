@@ -463,3 +463,60 @@ It produced a clearer engineering identity for the Vortex ecosystem.
 
 The project evolved from being described by **what it does** to being described by **why it exists**.
 
+
+## Engineering Log — 2026-07-31
+
+### Runtime Integration Milestone
+
+Completed the first end-to-end integration between the Vortex DFS Runtime and the Agent SDK.
+
+Architecture:
+
+Application
+↓
+Vortex Runtime
+↓
+Policy Evaluation
+↓
+Trust Evaluation
+↓
+Authorization Decision
+↓
+Agent SDK
+↓
+Execution
+
+Current implementation:
+
+- Runtime policy evaluation
+- Trust score evaluation
+- Deterministic authorization
+- Agent SDK execution only after runtime approval
+- Offline deterministic benchmark
+- Runtime audit output
+- Execution audit summary
+
+Benchmark Results
+
+- Iterations: 1000
+- Successful executions: 1000
+- Failed executions: 0
+- Average latency: ~24–28 µs
+- Throughput: ~38k requests/sec
+
+Current limitations
+
+- Trust score is still deterministic.
+- Runtime signals are mocked.
+- Policy engine uses static thresholds.
+
+Next milestones
+
+- Runtime telemetry ingestion
+- Dynamic trust score calculation
+- Risk signals
+- Runtime evidence collection
+- Pluggable policy profiles
+- Decision trace logging
+- Policy versioning
+
