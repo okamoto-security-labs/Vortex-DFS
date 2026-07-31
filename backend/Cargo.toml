@@ -1,45 +1,35 @@
 [package]
-name = "vortex-dfs"
+name    = "vortex-dfs"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
 async-trait = "0.1"
-actix-web = "4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
-rand = "0.8"
-hex = "0.4"
-uuid = { version = "1", features = ["v4"] }
-regex = "1"
-once_cell = "1"
+actix-web     = "4"
+serde         = { version = "1", features = ["derive"] }
+serde_json    = "1"
+tokio         = { version = "1", features = ["full"] }
+reqwest       = { version = "0.11", features = ["json"] }
+rand          = "0.8"
+hex           = "0.4"
+uuid          = { version = "1", features = ["v4"] }
+regex         = "1"
+once_cell     = "1"
 unicode-normalization = "0.1"
-log = "0.4"
-env_logger = "0.10"
-hmac = "0.12"
-sha2 = "0.10"
-base64 = "0.21"
-aes-gcm = "0.10"
+log           = "0.4"
+env_logger    = "0.10"
+hmac          = "0.12"
+sha2          = "0.10"
+base64        = "0.21"
+aes-gcm       = "0.10"
 
 # Supabase / PostgreSQL
-sqlx = { version = "0.7", features = [
-    "runtime-tokio-native-tls",
-    "postgres",
-    "macros",
-    "json",
-] }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros", "json"] }
 
 # CPU count for workers
-num_cpus = "1"
-
-# Post-quantum signatures
-pqcrypto-traits = "0.3.5"
-pqcrypto-mldsa = { version = "0.1.2", features = ["serialization"] }
+num_cpus      = "1"
 
 [profile.release]
 opt-level = 3
-debug = true
-lto = false
-codegen-units = 1
+lto       = true
