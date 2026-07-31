@@ -2,6 +2,28 @@
 
 <p align="center">
 
+![Latency](https://img.shields.io/badge/Latency-23%C2%B5s-green)
+
+![Throughput](https://img.shields.io/badge/Throughput-39k%20req/s-blue)
+
+![Benchmark](https://img.shields.io/badge/Benchmark-1000%20Runs-success)
+
+![Failures](https://img.shields.io/badge/Failures-0-success)
+
+![Decision](https://img.shields.io/badge/Decision-Explicit-important)
+
+</p>
+
+Verify before execution.
+
+Every AI action must first cross an explicit trust boundary.
+
+The Runtime decides.
+
+The Agent executes.
+
+<p align="center">
+
 **Deterministic Runtime Trust Layer for AI-Enabled Systems**
 
 *Replacing uncertainty with deterministic runtime validation.*
