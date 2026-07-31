@@ -1,0 +1,10 @@
+[package]
+name = "Vortex-DFS"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+agent-sdk = "0.16.0"
+anyhow = "1.0.104"
+async-trait = "0.1.91"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,35 @@
+Vortex Agent SDK offline benchmark
+sdk_version=0.16.0
+provider=vortex-stub
+iterations=1000
+successful_runs=1000
+failed_runs=0
+average_us=26.142
+p50_us=24.125
+p95_us=34.074
+p99_us=56.015
+total_ms=27.988
+runs_per_second=35729.73
+	Command being timed: "target/release/Vortex-DFS"
+	User time (seconds): 0.02
+	System time (seconds): 0.01
+	Percent of CPU this job got: 112%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.03
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 7804
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1176
+	Voluntary context switches: 3078
+	Involuntary context switches: 5
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
