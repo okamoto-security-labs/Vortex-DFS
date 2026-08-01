@@ -60,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Controlled input for this first integration milestone.
     // A future phase will calculate it from real Vortex runtime signals.
-    let input_trust_score = 0.42;
+    let input_trust_score = 0.94;
 
     /*
      * VORTEX AUTHORIZATION PHASE
