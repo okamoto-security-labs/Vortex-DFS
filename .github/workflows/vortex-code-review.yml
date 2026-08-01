@@ -19,15 +19,14 @@ jobs:
 
       - name: Download Vortex Code
         run: |
-          curl -L \
-            https://codeload.github.com/okamoto-security-labs/vortex-code/tar.gz/refs/heads/test/vortex-runtime-review \
-            -o /tmp/vortex-code.tar.gz
+          curl --fail --location --retry 3             "https://codeload.github.com/okamoto-security-labs/vortex-code/tar.gz/72beea8"             --output /tmp/vortex-code.tar.gz
 
           mkdir -p /tmp/vortex-code
 
-          tar -xzf /tmp/vortex-code.tar.gz \
-            --strip-components=1 \
-            -C /tmp/vortex-code
+          tar -xzf /tmp/vortex-code.tar.gz             --strip-components=1             --directory /tmp/vortex-code
+
+          test -f /tmp/vortex-code/Cargo.toml
+          test -f /tmp/vortex-code/src/main.rs
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
