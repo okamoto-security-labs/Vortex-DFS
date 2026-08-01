@@ -1,0 +1,2 @@
+pub const ALLOW_THRESHOLD: f64 = 0.90;
+pub const ESCALATE_THRESHOLD: f64 = 0.60;
