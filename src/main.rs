@@ -1,5 +1,3 @@
-mod runtime;
-
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -14,10 +12,8 @@ use agent_sdk::{
 };
 use async_trait::async_trait;
 
-use runtime::{
-    decision::DecisionAction,
-    evaluator::evaluate,
-    policy::{ALLOW_THRESHOLD, ESCALATE_THRESHOLD},
+use vortex_dfs::runtime::{
+    ALLOW_THRESHOLD, AuthorizationRequest, DecisionAction, ESCALATE_THRESHOLD, authorize,
 };
 
 struct StubProvider;
@@ -68,9 +64,11 @@ async fn main() -> anyhow::Result<()> {
      * This phase happens before the Agent SDK receives permission
      * to execute the request.
      */
-    let vortex_start = Instant::now();
-    let decision = evaluate(input_trust_score);
-    let vortex_latency = vortex_start.elapsed();
+
+    let authorization = authorize(AuthorizationRequest::new(input_trust_score, POLICY_PROFILE));
+
+    let decision = &authorization.decision;
+    let vortex_latency = authorization.latency;
 
     let decision_label = match &decision.action {
         DecisionAction::Allow => "APPROVED",

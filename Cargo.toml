@@ -3,6 +3,10 @@ name = "Vortex-DFS"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "vortex_dfs"
+path = "src/lib.rs"
+
 [dependencies]
 agent-sdk = "0.16.0"
 anyhow = "1.0.104"
