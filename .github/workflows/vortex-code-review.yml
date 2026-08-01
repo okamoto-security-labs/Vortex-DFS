@@ -32,10 +32,11 @@ jobs:
         run: cargo build --release
 
       - name: Scan Vortex DFS
+        id: vortex_scan
         continue-on-error: true
         run: |
           ./vortex-code/target/release/vortex-code \
-            scan ./vortex-dfs/src \
+            scan ./vortex-dfs \
             --format github \
             --output vortex-github-review.json
 
@@ -45,7 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 vortex-code/.github/scripts/publish_review.py \
-            vortex-github-review.json || true
+            vortex-github-review.json
 
       - name: Upload Artifact
         if: always()
@@ -53,3 +54,9 @@ jobs:
         with:
           name: vortex-review
           path: vortex-github-review.json
+
+      - name: Enforce Vortex Code verdict
+        if: steps.vortex_scan.outcome == 'failure'
+        run: |
+          echo "Vortex Code detected runtime security findings."
+          exit 1
