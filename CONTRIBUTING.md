@@ -1,78 +1,159 @@
 # Contributing to Vortex DFS
 
-Thanks for cloning. If you're here, you probably found something interesting — or something broken. Both are welcome.
+Thank you for contributing to Vortex DFS.
+
+Vortex DFS is not another AI framework.
+
+It is a deterministic runtime authorization layer that decides whether an AI agent is allowed to execute before execution begins.
+
+Our philosophy is simple:
+
+> Runtime first.
+> Authorization first.
+> Determinism first.
 
 ---
 
-## Ways to contribute
+# What we value
 
-### 🔍 Security review
-This is the most valuable contribution. Read the code, try to break it, tell us what you find.
+Every contribution should improve at least one of these areas:
 
-Specifically:
-- `signer_lwe.rs` — review the Fiat-Shamir implementation
-- `protocol.rs` — try to craft packets that bypass CRC validation
-- `vortex_guard.rs` — test the HMAC verification edge cases
-- `pqc_core.rs` — verify the trust score math
+- Runtime authorization
+- Trust evaluation
+- Policy engine
+- Deterministic execution
+- Auditability
+- Performance
+- Developer experience
 
-Found a vulnerability? Open a private issue or email directly. Don't post it publicly first.
-
-### 🧪 Tests
-We have ~60 tests covering happy paths and adversarial inputs. What's missing:
-
-- Fuzzing with `cargo-fuzz`
-- Property-based tests with `proptest`
-- Integration tests between the Rust and Go sides
-- Benchmarks for the critical path latency
-
-### 📐 Production parameters
-The current `signer_lwe.rs` uses demo parameters (N=16, Q=65537). The roadmap includes replacing this with `pqcrypto-dilithium`. If you have experience with NIST PQC parameter sets, this is the highest-impact contribution.
-
-### 📖 Documentation
-- Examples for common integration patterns
-- Explanation of the physics-bound trust model
-- Go gateway documentation
+If it doesn't improve one of these, it probably doesn't belong here.
 
 ---
 
-## How to get started
+# Areas where contributions are welcome
 
-```bash
-git clone https://github.com/okamoto-security-labs/Vortex-DFS.git
-cd Vortex-DFS
+## Runtime authorization
 
-# Run Rust tests
-cargo test
+Review the authorization pipeline.
 
-# Run Go tests
-cd gateway && go test ./...
-```
+Examples:
 
----
+- authorization.rs
+- evaluator.rs
+- decision.rs
+- policy.rs
 
-## Ground rules
+Questions worth asking:
 
-- **No breaking changes without discussion** — open an issue first
-- **Tests are mandatory** — every change needs a test that would have caught the bug
-- **Security over performance** — if it's faster but less safe, it's wrong
-- **No unsafe without justification** — and justification means a comment explaining exactly why
+- Can an execution bypass authorization?
+- Are policy decisions deterministic?
+- Are edge cases correctly handled?
+- Is every decision auditable?
 
 ---
 
-## What we're not looking for
+## Trust evaluation
 
-- Dependency additions without strong justification
-- Style-only changes
-- AI-generated code without review
+Improve how runtime trust is calculated.
+
+Examples:
+
+- Runtime evidence
+- Trust signals
+- Risk aggregation
+- Confidence computation
+- Policy profiles
+
+Future milestones will replace static trust values with runtime-derived evidence.
 
 ---
 
-## Contact
+## Testing
 
-[📧 E-mail](./gugaokamoto1@gmail.com)
+High-value contributions include:
 
-[🔗Linkedin](./linkedin.com/in/gustavo-okamoto-de-carvalho-ti)
+- Unit tests
+- Integration tests
+- Benchmark scenarios
+- Failure simulations
+- Adversarial inputs
 
-Open an issue or reach out directly via the repository.
+Every bug should have a regression test.
 
-Built at **Okamoto Security Labs**.
+---
+
+## Documentation
+
+Help explain:
+
+- Runtime architecture
+- Authorization pipeline
+- SDK integration
+- Enterprise deployment
+- Security guarantees
+
+Clear documentation is part of the product.
+
+---
+
+# Coding principles
+
+We prefer:
+
+- Explicit code
+- Deterministic behavior
+- Small modules
+- Strong typing
+- Readability over cleverness
+
+Avoid unnecessary abstractions.
+
+---
+
+# Pull Requests
+
+Before opening a PR:
+
+- cargo fmt
+- cargo check --all-targets
+- cargo test
+
+The CI pipeline must pass.
+
+Every feature should include tests whenever practical.
+
+---
+
+# Security
+
+If you discover a security issue:
+
+Please do not disclose it publicly.
+
+Open a private security report or contact the maintainers directly.
+
+---
+
+# Things we generally avoid
+
+- Breaking public APIs without discussion
+- Unnecessary dependencies
+- Dead code
+- Large refactors without motivation
+- AI-generated code submitted without review
+
+---
+
+# Our philosophy
+
+Authorization is not a feature.
+
+Authorization is the first runtime decision.
+
+Everything else comes afterwards.
+
+---
+
+Built by
+
+Okamoto Security Labs
