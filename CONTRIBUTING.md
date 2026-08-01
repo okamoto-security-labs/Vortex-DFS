@@ -197,4 +197,10 @@ Runtime trust answers **whether the action should execute now**.
 
 Vortex DFS exists to make that final decision explicit, deterministic, and auditable.
 
+## Security
+
+Please refer to SECURITY.md for responsible vulnerability disclosure.
+
+Security vulnerabilities should not be disclosed publicly before they have been investigated and resolved.
+
 Built at **Okamoto Security Labs**.
