@@ -1,1015 +1,348 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Okamoto Security Labs — Deterministic Physics-Oriented AI Defense</title>
-<link rel="icon" type="image/png" href="data:image/png;base64,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">
-<meta name="description" content="Deterministic PII anonymization and security inspection API built in Rust. Vortex DFS — the security layer that reacts to mathematical invariants, not probability.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:#04080F; --bg-card:#0B1420; --bg-subtle:#0F1E2E;
-  --cyan:#0EA5E9; --cyan-dim:rgba(14,165,233,0.15);
-  --white:#F8FAFC; --slate:#64748B;
-  --border:rgba(14,165,233,0.10); --border-hi:rgba(14,165,233,0.25);
-  --serif:'DM Serif Display',Georgia,serif;
-  --sans:'Inter',system-ui,sans-serif;
-  --mono:'JetBrains Mono',monospace;
-}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--white);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
-nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1.1rem 2.5rem;background:rgba(4,8,15,0.90);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
-.nav-brand{display:flex;flex-direction:column;text-decoration:none}
-.nav-brand-name{font-family:var(--serif);font-size:1rem;color:var(--white)}
-.nav-brand-sub{font-family:var(--mono);font-size:0.62rem;color:var(--cyan);letter-spacing:.12em;text-transform:uppercase}
-.nav-links{display:flex;gap:2rem;list-style:none}
-.nav-links a{color:var(--slate);text-decoration:none;font-size:.875rem;transition:color .2s;cursor:pointer}
-.nav-links a:hover,.nav-links a.active{color:var(--white)}
-.nav-cta{background:transparent;color:var(--cyan);border:1px solid var(--border-hi);padding:.45rem 1.1rem;border-radius:6px;font-size:.8rem;font-weight:500;text-decoration:none;transition:background .2s}
-.nav-cta:hover{background:var(--cyan-dim)}
-.page{display:none;padding-top:80px;min-height:100vh}
-.page.active{display:block}
-.hero{min-height:calc(100vh - 80px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem 3rem;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 10%,rgba(14,165,233,0.06) 0%,transparent 65%);pointer-events:none}
-.hero-label{font-family:var(--mono);font-size:.72rem;color:var(--cyan);letter-spacing:.18em;text-transform:uppercase;margin-bottom:2rem;display:flex;align-items:center;gap:1rem}
-.hero-label::before,.hero-label::after{content:'';display:block;width:3rem;height:1px;background:var(--border-hi)}
-.hero h1{font-family:var(--serif);font-size:clamp(2.8rem,5.5vw,5.2rem);line-height:1.1;max-width:860px;margin-bottom:1.75rem;font-weight:400}
-.hero h1 em{font-style:italic;color:var(--cyan)}
-.hero-sub{font-size:clamp(.95rem,1.8vw,1.1rem);color:var(--slate);max-width:520px;margin-bottom:3rem;line-height:1.75}
-.hero-actions{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:4rem}
-.btn-primary{background:var(--cyan);color:#04080F;padding:.8rem 1.8rem;border-radius:7px;font-weight:600;font-size:.9rem;text-decoration:none;transition:opacity .2s,transform .15s;display:inline-block;cursor:pointer}
-.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
-.btn-ghost{background:transparent;color:var(--white);padding:.8rem 1.8rem;border-radius:7px;font-size:.9rem;text-decoration:none;border:1px solid var(--border-hi);transition:border-color .2s;display:inline-block;cursor:pointer}
-.btn-ghost:hover{border-color:var(--cyan)}
-.stat-row{display:flex;gap:3rem;flex-wrap:wrap;justify-content:center;border-top:1px solid var(--border);padding-top:2.5rem}
-.stat{text-align:center}
-.stat-num{font-family:var(--serif);font-size:2.2rem;color:var(--white)}
-.stat-label{font-family:var(--mono);font-size:.68rem;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin-top:.2rem}
-.section{padding:6rem 2rem}
-.container{max-width:1060px;margin:0 auto}
-.section-eyebrow{font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1rem}
-.section-title{font-family:var(--serif);font-size:clamp(1.8rem,3vw,2.8rem);line-height:1.15;font-weight:400;margin-bottom:1rem}
-.section-body{color:var(--slate);font-size:1rem;max-width:520px;line-height:1.75;margin-bottom:3rem}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem}
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.75rem;transition:border-color .2s}
-.card:hover{border-color:var(--border-hi)}
-.card-icon{font-size:1.5rem;margin-bottom:1rem}
-.card h3{font-size:1rem;font-weight:500;margin-bottom:.5rem}
-.card p{color:var(--slate);font-size:.88rem;line-height:1.65}
-.pipeline{max-width:600px}
-.pipe{display:flex;gap:1.25rem;padding:1.25rem 0;border-bottom:1px solid var(--border)}
-.pipe:last-child{border-bottom:none}
-.pipe-n{font-family:var(--mono);font-size:.68rem;color:var(--cyan);min-width:2rem;padding-top:.2rem}
-.pipe-title{font-size:.95rem;font-weight:500;margin-bottom:.3rem}
-.pipe-tag{font-family:var(--mono);font-size:.68rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .45rem;border-radius:3px;margin-left:.4rem}
-.pipe-body{color:var(--slate);font-size:.85rem;line-height:1.6}
-.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border-hi),transparent)}
-.docs-layout{display:grid;grid-template-columns:220px 1fr;gap:3rem;max-width:1060px;margin:0 auto;padding:3rem 2rem}
-.docs-nav{position:sticky;top:100px;height:fit-content}
-.docs-nav-title{font-family:var(--mono);font-size:.68rem;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem}
-.docs-nav ul{list-style:none;display:flex;flex-direction:column;gap:.25rem}
-.docs-nav a{color:var(--slate);text-decoration:none;font-size:.85rem;padding:.3rem .6rem;border-radius:5px;display:block;transition:all .15s}
-.docs-nav a:hover{color:var(--white);background:var(--bg-subtle)}
-.docs-content h2{font-family:var(--serif);font-size:1.9rem;font-weight:400;margin-bottom:1rem;padding-top:3rem}
-.docs-content h2:first-child{padding-top:0}
-.docs-content h3{font-size:1rem;font-weight:600;margin:1.5rem 0 .5rem}
-.docs-content p{color:var(--slate);font-size:.92rem;line-height:1.75;margin-bottom:1rem}
-.docs-content ul{color:var(--slate);font-size:.92rem;line-height:1.75;margin:0 0 1rem 1.25rem}
-.docs-content li{margin-bottom:.35rem}
-.docs-content code{font-family:var(--mono);font-size:.82rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .35rem;border-radius:3px}
-.code-block{background:var(--bg-card);border:1px solid var(--border-hi);border-radius:10px;overflow:hidden;margin:1.25rem 0}
-.code-bar{display:flex;align-items:center;gap:.4rem;padding:.7rem 1rem;background:var(--bg-subtle);border-bottom:1px solid var(--border)}
-.dot{width:9px;height:9px;border-radius:50%}
-.dot-r{background:#EF4444}.dot-y{background:#F59E0B}.dot-g{background:#10B981}
-.code-fname{font-family:var(--mono);font-size:.72rem;color:var(--slate);margin-left:.4rem}
-pre{padding:1.25rem 1.5rem;font-family:var(--mono);font-size:.8rem;line-height:1.75;color:var(--slate);overflow-x:auto}
-.kw{color:#C084FC}.fn{color:#60A5FA}.cy{color:var(--cyan)}.cm{color:#475569}.st{color:#34D399}
-.research-list{display:flex;flex-direction:column}
-.paper{padding:2.25rem 0;border-bottom:1px solid var(--border)}
-.paper:first-child{padding-top:0}
-.paper-meta{display:flex;gap:1rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap}
-.paper-date{font-family:var(--mono);font-size:.72rem;color:var(--slate)}
-.paper-tag{font-family:var(--mono);font-size:.68rem;color:var(--cyan);background:var(--cyan-dim);padding:.15rem .6rem;border-radius:20px;border:1px solid var(--border-hi)}
-.paper-h2{font-family:var(--serif);font-size:1.45rem;font-weight:400;margin-bottom:.75rem;line-height:1.3;text-decoration:none;color:var(--white);display:block}
-.paper-h2:hover{color:var(--cyan)}
-.paper-abstract{color:var(--slate);font-size:.9rem;line-height:1.75;max-width:680px;margin-bottom:1rem}
-.paper-abstract code{font-family:var(--mono);font-size:.8rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .3rem;border-radius:3px}
-.paper-links{display:flex;gap:1rem}
-.paper-link{font-family:var(--mono);font-size:.75rem;color:var(--cyan);text-decoration:none}
-.paper-link:hover{text-decoration:underline}
-.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start}
-.contact-info h2{font-family:var(--serif);font-size:2rem;font-weight:400;margin-bottom:1rem}
-.contact-info p{color:var(--slate);font-size:.92rem;line-height:1.75;margin-bottom:1.5rem}
-.contact-detail{display:flex;flex-direction:column;gap:1rem}
-.contact-item{display:flex;align-items:center;gap:.75rem}
-.contact-item-text{font-size:.9rem;color:var(--slate)}
-.contact-item-text a{color:var(--cyan);text-decoration:none}
-.contact-form{display:flex;flex-direction:column;gap:1rem}
-.form-group{display:flex;flex-direction:column;gap:.4rem}
-.form-label{font-size:.8rem;color:var(--slate);font-weight:500}
-.form-input,.form-textarea{background:var(--bg-card);border:1px solid var(--border);color:var(--white);padding:.75rem 1rem;border-radius:8px;font-family:var(--sans);font-size:.9rem;transition:border-color .2s;outline:none;width:100%}
-.form-input:focus,.form-textarea:focus{border-color:var(--cyan)}
-.form-textarea{height:140px;resize:vertical}
-.form-submit{background:var(--cyan);color:#04080F;padding:.8rem 1.5rem;border-radius:8px;font-weight:600;font-size:.9rem;border:none;cursor:pointer;transition:opacity .2s;align-self:flex-start}
-.form-submit:hover{opacity:.88}
-footer{padding:2rem 2.5rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
-.footer-brand{font-family:var(--serif);font-size:.95rem}
-footer p{color:var(--slate);font-size:.78rem}
-.footer-links{display:flex;gap:1.5rem}
-.footer-links a{color:var(--slate);text-decoration:none;font-size:.78rem;transition:color .2s;cursor:pointer}
-.footer-links a:hover{color:var(--white)}
-.zdr-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:.35rem .9rem;font-family:var(--mono);font-size:.68rem;color:#10B981;letter-spacing:.08em;margin-bottom:1.5rem}
-.zdr-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 6px #10B981;flex-shrink:0}
-.demo-privacy-note{font-family:var(--mono);font-size:.68rem;color:var(--slate);text-align:center;margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:.4rem}
-.demo-privacy-note::before{content:'🔒'}
-@media(max-width:768px){nav{padding:1rem 1.25rem}.nav-links{display:none}.docs-layout{grid-template-columns:1fr}.docs-nav{display:none}.contact-grid{grid-template-columns:1fr}footer{flex-direction:column;text-align:center}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
-/* ── Neon glow enhancements ─────────────────────────────────────────────── */
-.card{box-shadow:0 0 0 1px var(--border),0 4px 24px rgba(14,165,233,0.04)}
-.card:hover{border-color:var(--cyan);box-shadow:0 0 0 1px rgba(14,165,233,0.3),0 0 24px rgba(14,165,233,0.12),0 8px 32px rgba(14,165,233,0.08)}
-.plan.featured{box-shadow:0 0 0 1px var(--cyan),0 0 32px rgba(14,165,233,0.18),0 8px 40px rgba(14,165,233,0.10)}
-.btn-primary{box-shadow:0 0 16px rgba(14,165,233,0.35)}
-.btn-primary:hover{box-shadow:0 0 28px rgba(14,165,233,0.55)}
-nav{box-shadow:0 1px 0 var(--border),0 4px 24px rgba(4,8,15,0.8)}
-
-/* ── Live Demo ───────────────────────────────────────────────────────────── */
-#page-demo .demo-wrap{max-width:760px;margin:0 auto;padding:3rem 2rem 5rem}
-.demo-input-wrap{position:relative;margin-bottom:1.5rem}
-.demo-input{width:100%;min-height:140px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem;color:var(--white);font-family:var(--mono);font-size:.82rem;line-height:1.6;resize:vertical;outline:none;transition:border-color .2s}
-.demo-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(14,165,233,0.08)}
-.demo-btn{background:var(--cyan);color:#04080F;border:none;padding:.75rem 2rem;border-radius:7px;font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;box-shadow:0 0 16px rgba(14,165,233,0.35)}
-.demo-btn:hover{opacity:.88;box-shadow:0 0 28px rgba(14,165,233,0.55)}
-.demo-btn:disabled{opacity:.4;cursor:not-allowed}
-.demo-output{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-top:1.5rem;display:none}
-.demo-output.visible{display:block}
-.demo-sanitized{font-family:var(--mono);font-size:.82rem;line-height:1.7;color:var(--white);white-space:pre-wrap;word-break:break-word}
-.demo-sanitized .redacted{color:#0EA5E9;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);border-radius:3px;padding:0 4px;font-weight:600;box-shadow:0 0 8px rgba(14,165,233,0.2)}
-.demo-meta{display:flex;gap:1.5rem;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);flex-wrap:wrap}
-.demo-risk-bar{flex:1;min-width:180px}
-.demo-risk-label{font-family:var(--mono);font-size:.68rem;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
-.demo-risk-track{height:6px;background:var(--bg-subtle);border-radius:3px;overflow:hidden}
-.demo-risk-fill{height:100%;border-radius:3px;transition:width .6s ease}
-.demo-detections{font-family:var(--mono);font-size:.75rem;color:var(--slate);display:flex;flex-wrap:wrap;gap:.4rem}
-.demo-det-tag{background:var(--bg-subtle);border:1px solid var(--border);padding:.2rem .5rem;border-radius:4px;color:var(--cyan)}
-.demo-latency{font-family:var(--mono);font-size:.72rem;color:var(--slate);margin-top:.75rem}
-.demo-samples{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
-.demo-sample{background:var(--bg-subtle);border:1px solid var(--border);color:var(--slate);font-family:var(--mono);font-size:.7rem;padding:.3rem .7rem;border-radius:5px;cursor:pointer;transition:all .15s}
-.demo-sample:hover{border-color:var(--cyan);color:var(--white)}
-
-/* ── Articles ────────────────────────────────────────────────────────────── */
-.articles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;margin-top:2rem}
-.article-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;text-decoration:none;display:flex;flex-direction:column;gap:.75rem;transition:all .2s;box-shadow:0 0 0 1px var(--border)}
-.article-card:hover{border-color:var(--cyan);box-shadow:0 0 0 1px rgba(14,165,233,0.3),0 0 20px rgba(14,165,233,0.10);transform:translateY(-2px)}
-.article-tag{font-family:var(--mono);font-size:.65rem;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase}
-.article-title{font-family:var(--serif);font-size:1.05rem;font-weight:400;color:var(--white);line-height:1.4}
-.article-desc{font-size:.82rem;color:var(--slate);line-height:1.6;flex:1}
-.article-source{font-family:var(--mono);font-size:.7rem;color:var(--slate);margin-top:.25rem}
-
-/* ── Diagnosis CTA ───────────────────────────────────────────────────────── */
-.diag-section{background:linear-gradient(135deg,rgba(14,165,233,0.06) 0%,transparent 60%);border:1px solid rgba(14,165,233,0.15);border-radius:16px;padding:3rem;text-align:center;margin:4rem auto;max-width:680px;box-shadow:0 0 40px rgba(14,165,233,0.06)}
-.diag-section h3{font-family:var(--serif);font-size:1.8rem;font-weight:400;margin-bottom:.75rem}
-.diag-section p{color:var(--slate);margin-bottom:2rem;line-height:1.75}
-.diag-form{display:flex;gap:.75rem;max-width:420px;margin:0 auto;flex-wrap:wrap}
-.diag-input{flex:1;min-width:200px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:.7rem 1rem;color:var(--white);font-family:var(--sans);font-size:.88rem;outline:none;transition:border-color .2s}
-.diag-input:focus{border-color:var(--cyan)}
-.diag-btn{background:var(--cyan);color:#04080F;border:none;padding:.7rem 1.4rem;border-radius:7px;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap;box-shadow:0 0 16px rgba(14,165,233,0.3)}
-
-
-/* ── Pricing page ─────────────────────────────────────────────────────── */
-.pricing-hero{text-align:center;padding:5rem 2rem 3rem}
-.pricing-hero .section-eyebrow{margin-bottom:1rem}
-.pricing-hero h2{font-family:var(--serif);font-size:clamp(2rem,4vw,3.2rem);font-weight:400;margin-bottom:1rem}
-.pricing-hero p{color:var(--slate);max-width:480px;margin:0 auto 2.5rem;line-height:1.75}
-.billing-toggle{display:inline-flex;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;margin-bottom:3rem}
-.billing-toggle button{background:transparent;border:none;color:var(--slate);font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;padding:.45rem 1rem;border-radius:5px;cursor:pointer;transition:all .2s}
-.billing-toggle button.active{background:var(--bg-subtle);color:var(--white)}
-.plans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;max-width:960px;margin:0 auto;padding:0 2rem 5rem}
-.plan{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:2rem;display:flex;flex-direction:column;gap:1.25rem;transition:border-color .2s;position:relative}
-.plan:hover{border-color:var(--border-hi)}
-.plan.featured{border-color:var(--cyan);background:var(--bg-subtle)}
-.plan-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--cyan);color:#04080F;font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .85rem;border-radius:20px;white-space:nowrap}
-.plan-name{font-family:var(--mono);font-size:.72rem;color:var(--cyan);letter-spacing:.14em;text-transform:uppercase}
-.plan-price{display:flex;align-items:baseline;gap:.3rem}
-.plan-price-amount{font-family:var(--serif);font-size:3rem;color:var(--white);line-height:1}
-.plan-price-currency{font-size:.85rem;color:var(--slate);align-self:flex-start;padding-top:.6rem}
-.plan-price-period{font-size:.8rem;color:var(--slate)}
-.plan-price-note{font-family:var(--mono);font-size:.7rem;color:var(--cyan);margin-top:.25rem}
-.plan-desc{color:var(--slate);font-size:.88rem;line-height:1.65;padding-bottom:1rem;border-bottom:1px solid var(--border)}
-.plan-features{list-style:none;display:flex;flex-direction:column;gap:.65rem;flex:1}
-.plan-features li{display:flex;align-items:flex-start;gap:.6rem;font-size:.88rem;color:var(--slate)}
-.plan-features li::before{content:'→';color:var(--cyan);font-family:var(--mono);font-size:.75rem;padding-top:.15rem;flex-shrink:0}
-.plan-features li.dim{opacity:.45}
-.plan-features li.dim::before{color:var(--slate)}
-.plan-cta{display:block;text-align:center;padding:.8rem;border-radius:8px;font-weight:600;font-size:.88rem;cursor:pointer;transition:all .2s;border:none;font-family:var(--sans);text-decoration:none}
-.plan-cta-outline{background:transparent;color:var(--white);border:1px solid var(--border-hi)}
-.plan-cta-outline:hover{border-color:var(--cyan);color:var(--cyan)}
-.plan-cta-solid{background:var(--cyan);color:#04080F}
-.plan-cta-solid:hover{opacity:.88}
-.pricing-faq{max-width:680px;margin:0 auto;padding:0 2rem 5rem}
-.pricing-faq-title{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:2rem;text-align:center}
-.faq-item{border-bottom:1px solid var(--border);padding:1.25rem 0}
-.faq-q{font-size:.95rem;font-weight:500;color:var(--white);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem}
-.faq-q span{font-family:var(--mono);font-size:.9rem;color:var(--slate);transition:transform .2s}
-.faq-q.open span{transform:rotate(45deg)}
-.faq-a{color:var(--slate);font-size:.88rem;line-height:1.75;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .2s}
-.faq-a.open{max-height:200px;padding-top:.75rem}
-.pricing-guarantee{text-align:center;padding:0 2rem 4rem;color:var(--slate);font-size:.88rem}
-.pricing-guarantee strong{color:var(--white)}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Vortex DFS is a deterministic runtime trust and authorization layer that evaluates policy before autonomous execution.">
+  <meta name="theme-color" content="#07111f">
+  <title>Vortex DFS — Runtime Trust & Authorization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#050a12;
+      --bg-2:#08111e;
+      --panel:#0b1625;
+      --panel-2:#0e1b2d;
+      --text:#f4f8ff;
+      --muted:#91a2b8;
+      --line:rgba(148,190,255,.14);
+      --line-hi:rgba(100,211,255,.34);
+      --cyan:#55d7ff;
+      --blue:#5b8cff;
+      --green:#52e09b;
+      --amber:#ffc766;
+      --red:#ff7685;
+      --shadow:0 28px 80px rgba(0,0,0,.35);
+      --mono:'JetBrains Mono',monospace;
+      --sans:'Inter',system-ui,sans-serif;
+      --display:'Manrope',var(--sans);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;-webkit-font-smoothing:antialiased}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
+      radial-gradient(circle at 17% 0%,rgba(91,140,255,.14),transparent 30%),
+      radial-gradient(circle at 83% 12%,rgba(85,215,255,.10),transparent 26%);z-index:-2}
+    body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 72%);z-index:-1}
+    a{color:inherit}
+    .wrap{width:min(1160px,calc(100% - 40px));margin:auto}
+    .nav{position:sticky;top:0;z-index:50;background:rgba(5,10,18,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .nav-inner{height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+    .brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-family:var(--display);font-weight:800;letter-spacing:-.03em}
+    .mark{width:34px;height:34px;border:1px solid var(--line-hi);border-radius:10px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(85,215,255,.15),rgba(91,140,255,.08));box-shadow:0 0 28px rgba(85,215,255,.12)}
+    .mark svg{width:21px}
+    .brand small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;font-weight:500}
+    .links{display:flex;align-items:center;gap:24px}
+    .links a{text-decoration:none;color:var(--muted);font-size:14px}
+    .links a:hover{color:var(--text)}
+    .nav-cta{padding:9px 14px;border:1px solid var(--line-hi);border-radius:9px;color:var(--text)!important;background:rgba(85,215,255,.05)}
+    .hero{padding:104px 0 72px;text-align:center}
+    .eyebrow,.section-kicker{font:600 11px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--cyan)}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line-hi);padding:9px 12px;border-radius:999px;background:rgba(85,215,255,.05)}
+    .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+    h1{font:800 clamp(42px,7vw,82px)/1.02 var(--display);letter-spacing:-.06em;margin:30px auto 22px;max-width:970px}
+    .gradient{background:linear-gradient(105deg,#fff 12%,var(--cyan) 48%,#9eafff 85%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero-copy{max-width:710px;margin:0 auto;color:var(--muted);font-size:clamp(17px,2vw,20px)}
+    .hero-copy strong{color:var(--text);font-weight:600}
+    .actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:34px 0 42px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 18px;border-radius:10px;text-decoration:none;font-weight:650;font-size:14px;border:1px solid var(--line-hi)}
+    .btn-primary{background:linear-gradient(135deg,var(--cyan),#70a7ff);color:#03101a;border-color:transparent;box-shadow:0 10px 36px rgba(85,215,255,.18)}
+    .btn-secondary{background:rgba(255,255,255,.025)}
+    .badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:44px}
+    .badges img{height:22px}
+    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;max-width:920px;margin:auto}
+    .flow-card{position:relative;padding:17px 12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,rgba(14,27,45,.9),rgba(8,17,30,.82));font-family:var(--mono);font-size:12px;color:var(--muted)}
+    .flow-card strong{display:block;color:var(--text);font-family:var(--sans);font-size:14px;margin-bottom:3px}
+    .flow-card:not(:last-child)::after{content:"→";position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:var(--cyan);z-index:2}
+    section{padding:88px 0;border-top:1px solid var(--line)}
+    .section-head{display:grid;grid-template-columns:1.1fr .9fr;gap:80px;align-items:end;margin-bottom:44px}
+    h2{font:750 clamp(30px,4.3vw,52px)/1.08 var(--display);letter-spacing:-.045em;margin:13px 0 0}
+    .section-lead{color:var(--muted);font-size:17px;margin:0}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .compare-card,.card,.metric,.terminal,.roadmap,.quote{border:1px solid var(--line);border-radius:16px;background:linear-gradient(160deg,rgba(14,27,45,.88),rgba(8,17,30,.78));box-shadow:var(--shadow)}
+    .compare-card{padding:28px}
+    .compare-card h3{margin:0 0 16px;font-size:17px}
+    .compare-flow{font-family:var(--mono);font-size:13px;color:var(--muted);display:grid;gap:9px}
+    .compare-flow span{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.015)}
+    .compare-card.vortex{border-color:var(--line-hi)}
+    .compare-card.vortex h3{color:var(--cyan)}
+    .decision-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .card{padding:26px}
+    .decision{font:700 12px/1 var(--mono);letter-spacing:.1em;margin-bottom:18px}
+    .allow{color:var(--green)}.review{color:var(--amber)}.block{color:var(--red)}
+    .score{font:750 28px/1 var(--display);margin-bottom:11px}
+    .card p{margin:0;color:var(--muted);font-size:14px}
+    .pipeline-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}
+    .steps{display:grid;gap:10px}
+    .step{display:grid;grid-template-columns:38px 1fr;gap:14px;align-items:start;padding:15px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
+    .step-n{font:600 11px var(--mono);color:var(--cyan);padding-top:3px}
+    .step strong{display:block;font-size:14px;margin-bottom:3px}.step span{color:var(--muted);font-size:13px}
+    .terminal{overflow:hidden}
+    .term-bar{display:flex;align-items:center;gap:7px;padding:12px 15px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line)}
+    .dot{width:9px;height:9px;border-radius:50%}.r{background:#ff6b78}.y{background:#ffc760}.g{background:#54dd9b}
+    .term-title{margin-left:6px;color:var(--muted);font:11px var(--mono)}
+    pre{margin:0;padding:22px;overflow:auto;color:#b9c7d8;font:12px/1.75 var(--mono);white-space:pre-wrap}
+    .ok{color:var(--green)}.info{color:var(--cyan)}.warn{color:var(--amber)}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .metric{padding:24px}
+    .metric-value{font:750 32px/1 var(--display);letter-spacing:-.04em;margin-bottom:9px}
+    .metric-label{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--cyan)}
+    .metric-note{color:var(--muted);font-size:12px;margin-top:10px}
+    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+    .feature-icon{font:600 13px var(--mono);color:var(--cyan);margin-bottom:16px}
+    .card h3{font-size:16px;margin:0 0 8px}
+    .code{margin-top:26px}
+    .quote{padding:48px;text-align:center;border-color:var(--line-hi)}
+    .quote p{font:750 clamp(28px,4vw,48px)/1.15 var(--display);letter-spacing:-.045em;margin:0 auto 16px;max-width:850px}
+    .quote span{color:var(--muted)}
+    .roadmap{padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+    .roadmap h3{margin:0 0 15px;font-size:15px}
+    .roadmap ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+    .roadmap li{color:var(--muted);font-size:14px}
+    .roadmap li::before{content:"○";color:var(--muted);font-family:var(--mono);margin-right:10px}
+    .roadmap .done::before{content:"●";color:var(--green)}
+    .cta{padding:100px 0;text-align:center}
+    .cta h2{max-width:780px;margin:14px auto 18px}
+    .cta p{color:var(--muted);max-width:620px;margin:auto}
+    footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:13px}
+    .footer-inner{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
+    .footer-links{display:flex;gap:18px}.footer-links a{text-decoration:none}.footer-links a:hover{color:var(--text)}
+    .reveal{opacity:0;transform:translateY(18px);transition:.65s ease}.reveal.on{opacity:1;transform:none}
+    @media(max-width:900px){.links a:not(.nav-cta){display:none}.section-head,.pipeline-grid{grid-template-columns:1fr;gap:28px}.flow{grid-template-columns:1fr}.flow-card:not(:last-child)::after{content:"↓";right:auto;top:auto;left:50%;bottom:-21px;transform:translateX(-50%)}.decision-grid,.metrics,.features{grid-template-columns:1fr 1fr}.compare{grid-template-columns:1fr}.roadmap{grid-template-columns:1fr}}
+    @media(max-width:620px){.wrap{width:min(100% - 26px,1160px)}.hero{padding-top:78px}.decision-grid,.metrics,.features{grid-template-columns:1fr}.quote{padding:30px 20px}.nav-inner{height:64px}.brand small{display:none}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}}
+  </style>
 </head>
 <body>
-
-<nav>
-  <a href="#" class="nav-brand-logo" onclick="return showPage('home')" style="display:flex;align-items:center;gap:.75rem;text-decoration:none;">
-    <img src="data:image/png;base64,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" alt="Okamoto Security Labs" style="height:38px;width:auto;">
-    <span style="font-family:var(--mono);font-size:.62rem;color:var(--cyan);letter-spacing:.12em;text-transform:uppercase;">Post-Quantum Research</span>
-  </a>
-  <ul class="nav-links">
-    <li><a onclick="showPage('home')" id="nav-home" class="active">Home</a></li>
-    <li><a onclick="showPage('docs')" id="nav-docs">Docs</a></li>
-    <li><a onclick="showPage('demo')" id="nav-demo">Live Demo</a></li>
-    <li><a onclick="showPage('research')" id="nav-research">Research</a></li>
-    <li><a onclick="showPage('pricing')" id="nav-pricing">Pricing</a></li>
-    <li><a onclick="showPage('contact')" id="nav-contact">Contact</a></li>
-  </ul>
-  <a href="https://github.com/okamoto-security-labs/Vortex-DFS" class="nav-cta" target="_blank">GitHub →</a>
-</nav>
-
-<!-- HOME -->
-<div id="page-home" class="page active">
-  <section class="hero">
-    <div class="zdr-badge">Zero data retention — content is never stored</div>
-    <div class="hero-label">Okamoto Security Labs · Vortex DFS v0.1</div>
-    <h1>Security that obeys<br><em>mathematical invariants.</em><br>Not probability.</h1>
-    <p class="hero-sub">Vortex doesn't predict attacks. It reacts to the laws of exact sciences. A packet either satisfies the mathematics — or it doesn't.</p>
-    <div class="hero-actions">
-      <span class="btn-primary" onclick="showPage('docs')">Read the docs</span>
-      <a href="https://github.com/okamoto-security-labs/Vortex-DFS" class="btn-ghost" target="_blank">View on GitHub</a>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top" aria-label="Vortex DFS home">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5l7 14 7-14M8 5h8" stroke="#55d7ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Vortex DFS<small>Okamoto Security Labs</small></span>
+      </a>
+      <nav class="links" aria-label="Main navigation">
+        <a href="#architecture">Architecture</a>
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer" class="nav-cta">GitHub ↗</a>
+      </nav>
     </div>
-    <div class="stat-row">
-      <div class="stat"><div class="stat-num">11</div><div class="stat-label">Modules</div></div>
-      <div class="stat"><div class="stat-num">60+</div><div class="stat-label">Tests</div></div>
-      <div class="stat"><div class="stat-num">2</div><div class="stat-label">Languages</div></div>
-      <div class="stat"><div class="stat-num">0</div><div class="stat-label">Unsafe in critical paths</div></div>
-    </div>
-  </section>
-  <div class="divider"></div>
-  <section class="section">
-    <div class="container">
-      <div class="section-eyebrow">Core guarantees</div>
-      <h2 class="section-title">Three laws.<br>No exceptions.</h2>
-      <p class="section-body">Every request is evaluated against deterministic rules — not probabilistic models, not heuristics, not ML predictions. Pattern matching that is fully auditable and reproducible.</p>
-      <div class="card-grid">
-        <div class="card"><div class="card-icon">⚛</div><h3>Post-quantum architecture</h3><p>Signature layer built on LWE lattice (Fiat-Shamir). Audit-grade implementation — production path via pqcrypto-dilithium (NIST 2024 standard). Classical cryptography (HMAC-SHA256) secures the current API layer.</p></div>
-        <div class="card"><div class="card-icon">∫</div><h3>Physics-bound trust</h3><p>Trust scores derived from distance and entropy metrics, evaluated against deterministic thresholds. Not a model. Not a heuristic. Mathematics.</p></div>
-        <div class="card"><div class="card-icon">⊢</div><h3>Zero ambiguity</h3><p>Every packet is Accept or Reject with a typed, auditable reason. No silent failures. No undefined behavior. No gray area to exploit.</p></div>
-      </div>
-    </div>
-  </section>
-  <div class="divider"></div>
-  <section class="section" style="background:var(--bg-subtle)">
-    <div class="container">
-      <div class="section-eyebrow">Architecture</div>
-      <h2 class="section-title">Four layers.<br>One decision.</h2>
-      <p class="section-body">A packet only reaches the next layer if it fully satisfies the current one.</p>
-      <div class="pipeline">
-        <div class="pipe"><span class="pipe-n">01</span><div><div class="pipe-title">Protocol <span class="pipe-tag">protocol.rs · main.go</span></div><div class="pipe-body">Binary parsing via explicit byte reads. CRC-32 validation. No pointer casting, no unsafe.</div></div></div>
-        <div class="pipe"><span class="pipe-n">02</span><div><div class="pipe-title">Authentication <span class="pipe-tag">vortex_guard.rs</span></div><div class="pipe-body">HMAC-SHA256 with constant-time comparison. 1MB body limit. Session IDs sanitized before logging.</div></div></div>
-        <div class="pipe"><span class="pipe-n">03</span><div><div class="pipe-title">Signature <span class="pipe-tag">signer_lwe.rs</span></div><div class="pipe-body">Fiat-Shamir over LWE lattice. Hash-bound commitment. Audit-grade parameters (N=16) — production deployment uses pqcrypto-dilithium.</div></div></div>
-        <div class="pipe"><span class="pipe-n">04</span><div><div class="pipe-title">Trust evaluation <span class="pipe-tag">engine.rs · pqc_core.rs</span></div><div class="pipe-body">Distance and entropy evaluated against deterministic thresholds. Returns a typed TrustBand: HighTrust, Operational, Fragile, or Critical.</div></div></div>
-      </div>
-    </div>
-  </section>
-  <div class="divider"></div>
-  <section class="section">
-    <div class="container" style="text-align:center;max-width:640px">
-      <div class="section-eyebrow">Okamoto Security Labs · SDK</div>
-      <h2 class="section-title" style="max-width:100%">Ready to build on<br>deterministic rules, not probability?</h2>
-      <p class="section-body" style="margin:0 auto 2.5rem">The code is open. Read it, break it, tell us what you find.</p>
-      <div class="hero-actions">
-        <a href="https://github.com/okamoto-security-labs/Vortex-DFS" class="btn-primary" target="_blank">View on GitHub</a>
-        <span class="btn-ghost" onclick="showPage('contact')">Get in touch</span>
-      </div>
-    </div>
-  </section>
-</div>
+  </header>
 
-<!-- DOCS -->
-<div id="page-docs" class="page">
-  <div class="docs-layout">
-    <nav class="docs-nav">
-      <div class="docs-nav-title">Documentation</div>
-      <ul>
-        <li><a href="#gs">Getting started</a></li>
-        <li><a href="#install">Installation</a></li>
-        <li><a href="#qs">Quick start</a></li>
-        <li><a href="#config">Configuration</a></li>
-        <li><a href="#pipeline">Trust pipeline</a></li>
-        <li><a href="#modules">Modules</a></li>
-        <li><a href="#go">Go gateway</a></li>
-        <li><a href="#sec">Security properties</a></li>
-        <li><a href="#prod">Production checklist</a></li>
-      </ul>
-    </nav>
-    <div class="docs-content">
-      <h2 id="gs">Getting started</h2>
-      <p>Vortex DFS is a security inspection API written in Rust with a Go gateway. It replaces probabilistic heuristics with deterministic pattern evaluation — every request is either valid or it isn't, with a typed, auditable reason.</p>
-      <h2 id="install">Installation</h2>
-      <div class="code-block"><div class="code-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-fname">Cargo.toml</span></div><pre>[dependencies]
-vortex-dfs = <span class="st">"0.1"</span></pre></div>
-      <h2 id="qs">Quick start</h2>
-      <div class="code-block"><div class="code-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-fname">main.rs</span></div><pre><span class="kw">use</span> vortex_dfs::engine::{VortexGate, TrustState};
-<span class="kw">use</span> vortex_dfs::signer_lwe::keygen;
-
-<span class="kw">let</span> (sk, pk) = <span class="fn">keygen</span>(seed);
-<span class="kw">let</span> gate = VortexGate::<span class="fn">new</span>(pk.<span class="fn">clone</span>());
-<span class="kw">let</span> sig = sk.<span class="fn">sign</span>(&payload, &pk, nonce);
-
-<span class="kw">match</span> gate.<span class="fn">process_packet</span>(&raw, &sig) {
-    TrustState::<span class="cy">HighTrust</span>             => { <span class="cm">/* proceed */</span> }
-    TrustState::<span class="cy">Operational</span>           => { <span class="cm">/* monitor */</span> }
-    TrustState::<span class="cy">Fragile</span>               => { <span class="cm">/* degrade */</span> }
-    TrustState::<span class="cy">RejectedSignature</span>     => { <span class="cm">/* block */</span> }
-    TrustState::<span class="cy">RejectedProtocol</span>(why) => { <span class="cm">/* block */</span> }
-    TrustState::<span class="cy">RejectedBounds</span>        => { <span class="cm">/* block */</span> }
-}</pre></div>
-      <h2 id="config">Configuration</h2>
-      <div class="code-block"><div class="code-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-fname">terminal</span></div><pre><span class="kw">export</span> VORTEX_HMAC_KEY=<span class="st">"$(openssl rand -hex 32)"</span></pre></div>
-      <h2 id="pipeline">Trust pipeline</h2>
-      <div class="code-block"><div class="code-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-fname">states</span></div><pre>├─ CRC mismatch?           → <span class="cy">RejectedProtocol</span>
-├─ LWE signature invalid?  → <span class="cy">RejectedSignature</span>
-├─ Metrics out of [0,1]?   → <span class="cy">RejectedBounds</span>
-└─ score ≥ 0.95            → <span class="st">HighTrust</span>
-   score ≥ 0.70            → <span class="st">Operational</span>
-   score ≥ 0.20            → <span class="fn">Fragile</span>
-   score &lt; 0.20            → <span class="kw">Critical</span></pre></div>
-      <h2 id="modules">Modules</h2>
-      <h3>protocol.rs</h3><p>Binary packet parsing. Uses <code>from_le_bytes()</code> — no pointer casting, no unsafe. CRC-32 IEEE validation.</p>
-      <h3>signer_lwe.rs</h3><p>Fiat-Shamir over LWE lattice. Hash-bound commitment. For production use <code>pqcrypto-dilithium</code>.</p>
-      <h3>engine.rs</h3><p>Typestate pipeline with <code>PhantomData</code>. A packet cannot reach evaluation without passing validation — enforced at the type level.</p>
-      <h3>intent_hash.rs</h3><p>HMAC-SHA256 with constant-time comparison. Invalid hex returns an explicit typed error.</p>
-      <h3>vortex_guard.rs</h3><p>Axum middleware. 1MB body limit. Session IDs sanitized. HMAC key from environment.</p>
-      <h2 id="go">Go gateway</h2>
-      <div class="code-block"><div class="code-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="code-fname">main.go</span></div><pre>pkt, err := <span class="fn">ParsePacket</span>(buf)
-err = <span class="fn">VerifySignature</span>(payload, sigHex, key)
-raw := <span class="fn">BuildPacket</span>(<span class="cy">0x0001</span>, payload)</pre></div>
-      <h2 id="sec">Security properties</h2>
-      <ul>
-        <li><strong>LWE-based signature layer</strong> — Fiat-Shamir over LWE (audit-grade; production via pqcrypto-dilithium)</li>
-        <li><strong>Timing attack resistance</strong> — constant-time in Rust and Go</li>
-        <li><strong>No undefined behavior</strong> — zero unsafe in critical paths</li>
-        <li><strong>Tamper detection</strong> — CRC-32 + hash-bound commitment</li>
-        <li><strong>Log injection prevention</strong> — session IDs sanitized</li>
-        <li><strong>DoS prevention</strong> — 1MB body limit before allocation</li>
-        <li><strong>No hardcoded secrets</strong> — all keys from environment</li>
-      </ul>
-      <h2 id="prod">Production checklist</h2>
-      <ul>
-        <li>Set <code>VORTEX_HMAC_KEY</code> via secret manager</li>
-        <li>Replace <code>signer_lwe</code> with <code>pqcrypto-dilithium</code></li>
-        <li>Generate nonces from <code>OsRng</code></li>
-        <li>Add rate limiting to <code>vortex_guard</code></li>
-        <li>Run <code>git log -S "SECRET" --all</code> to verify clean history</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- RESEARCH -->
-<div id="page-research" class="page">
-  <section class="section">
-    <div class="container">
-      <div class="section-eyebrow">Okamoto Security Labs · Publications</div>
-      <h2 class="section-title">Research & Writing</h2>
-      <p class="section-body">Technical papers, LinkedIn articles, and engineering findings from our work on deterministic AI security and post-quantum cryptography.</p>
-
-      <div class="articles-grid">
-        <a href="https://dev.to/gustavo89587/how-a-modular-arithmetic-oversight-turned-a-cryptographic-primitive-into-a-no-op-and-what-we-did-1opc" target="_blank" class="article-card">
-          <div class="article-tag">Post-Quantum · LWE · Cryptography</div>
-          <div class="article-title">How a tolerance overflow made our post-quantum signatures accept everything</div>
-          <div class="article-desc">A silent bug in LWE verification caused verify() to return true for any input. Root cause, math analysis, and the Fiat-Shamir fix.</div>
-          <div class="article-source">→ dev.to</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/pdf-forgot-code-how-cosai-ai-committee-selling-cant-handle-okamoto-iqbff" target="_blank" class="article-card">
-          <div class="article-tag">AI Policy · CoSAI</div>
-          <div class="article-title">The PDF That Forgot the Code: How the CoSAI AI Committee Ignored the Engineer</div>
-          <div class="article-desc">An analysis of how AI safety committees produce governance frameworks disconnected from engineering reality.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/200ms-death-zone-why-identity-frameworks-cosaiiam-obsolete-okamoto-doydf" target="_blank" class="article-card">
-          <div class="article-tag">Performance · Identity</div>
-          <div class="article-title">The 200ms Death Zone: Why Identity Frameworks Are Killing Real-Time AI</div>
-          <div class="article-desc">At 300km/ms, latency is physics. Why probabilistic identity checks are architecturally incompatible with real-time AI systems.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/why-text-based-llm-security-dead-148ms-changes-gustavo-okamoto-t7amf" target="_blank" class="article-card">
-          <div class="article-tag">LLM Security · Performance</div>
-          <div class="article-title">Why text-based LLM security is dead (and why 1.48ms changes everything)</div>
-          <div class="article-desc">The cybersecurity market treats AI like an antivirus. Benchmark: Vortex DFS at 1.48ms overhead vs probabilistic alternatives.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/death-reactive-security-why-traditional-socs-have-failed-okamoto-4cdpf" target="_blank" class="article-card">
-          <div class="article-tag">SOC · Architecture</div>
-          <div class="article-title">The Death of Reactive Security: Why Traditional SOCs Have Already Lost</div>
-          <div class="article-desc">Organizations spend millions on alert systems that fire after the damage is done. The case for deterministic pre-execution validation.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-        <a href="https://medium.com/@gugaokamoto1/http-request-smuggling-against-llm-proxy-architectures-a-deterministic-security-analysis-efb3495054e1" target="_blank" class="article-card">
-          <div class="article-tag">HTTP Smuggling · LLM Proxy</div>
-          <div class="article-title">HTTP Request Smuggling Against LLM Proxy Architectures: A Deterministic Security Analysis</div>
-          <div class="article-desc">How CL.TE and TE.CL desync attacks bypass LLM security layers, and why deterministic middleware at the gateway level is the only fix.</div>
-          <div class="article-source">→ Medium</div>
-        </a>
-        <a href="https://github.com/meta-llama/llama-models/issues/488" target="_blank" class="article-card">
-          <div class="article-tag">Architecture · Alignment</div>
-          <div class="article-title">Architectural Mitigations Against Runtime Alignment Drifts in LLM Systems</div>
-          <div class="article-desc">System prompts alone fail. By treating LLM output as raw signal and computing a Detection Fidelity Score, we intercept drift before dispatch.</div>
-          <div class="article-source">→ meta-llama/llama-models #488</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/detection-systems-dont-fail-loudly-they-decay-silently/" target="_blank" class="article-card">
-          <div class="article-tag">Detection · Signal Quality</div>
-          <div class="article-title">Detection systems don't fail loudly — they decay silently</div>
-          <div class="article-desc">Most detection systems don't break. They slowly lose reliability until alerts mean nothing. How to measure and prevent signal decay.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-        <a href="https://medium.com/@gugaokamoto1/your-detection-coverage-is-a-lie-heres-how-to-actually-measure-signal-quality-0f5991d4efcc" target="_blank" class="article-card">
-          <div class="article-tag">Detection · Coverage · Signal Quality</div>
-          <div class="article-title">Your Detection Coverage Is a Lie — Here's How to Actually Measure Signal Quality</div>
-          <div class="article-desc">Coverage metrics are theater. A framework for measuring actual signal fidelity instead of checkbox compliance.</div>
-          <div class="article-source">→ Medium</div>
-        </a>
-        <a href="https://medium.com/@gugaokamoto1/the-deterministic-frontier-why-your-ai-infrastructure-is-structurally-flawed-a20fcd42bb39" target="_blank" class="article-card">
-          <div class="article-tag">Architecture · Determinism · AI</div>
-          <div class="article-title">The Deterministic Frontier: Why Your AI Infrastructure Is Structurally Flawed</div>
-          <div class="article-desc">Probabilistic pipelines fail silently at scale. The architectural case for deterministic validation layers in modern AI systems.</div>
-          <div class="article-source">→ Medium</div>
-        </a>
-        <a href="https://medium.com/@gugaokamoto1/the-gap-from-chatbots-to-autonomous-agents-the-vortex-paradigm-344a19972d03" target="_blank" class="article-card">
-          <div class="article-tag">Agents · Architecture · Vortex</div>
-          <div class="article-title">The Gap: From Chatbots to Autonomous Agents — The Vortex Paradigm</div>
-          <div class="article-desc">The jump from LLM chatbot to autonomous agent exposes infrastructure gaps that probabilistic security cannot close.</div>
-          <div class="article-source">→ Medium</div>
-        </a>
-        <a href="https://medium.com/@gugaokamoto1/the-tesla-anomaly-why-deterministic-physics-is-the-only-cure-for-agentic-ai-vulnerabilities-edb558fd5b9b" target="_blank" class="article-card">
-          <div class="article-tag">Physics · Agentic AI · Security</div>
-          <div class="article-title">The Tesla Anomaly: Why Deterministic Physics Is the Only Cure for Agentic AI Vulnerabilities</div>
-          <div class="article-desc">Agentic AI operating in physical systems requires security that obeys the same laws as the system it protects. Probabilistic models don't qualify.</div>
-          <div class="article-source">→ Medium</div>
-        </a>
-        <a href="https://www.linkedin.com/pulse/beyond-firewall-why-hardware-bound-sovereignty-only-real-okamoto-mqcvf" target="_blank" class="article-card">
-          <div class="article-tag">Hardware · Sovereignty · Security</div>
-          <div class="article-title">Beyond the Firewall: Why Hardware-Bound Sovereignty Is the Only Real Security</div>
-          <div class="article-desc">Software-only security has a ceiling. The case for hardware-anchored trust as the foundation of sovereign AI infrastructure.</div>
-          <div class="article-source">→ LinkedIn</div>
-        </a>
-      </div>
-
-      <div class="diag-section">
-        <h3>Get your AI infrastructure diagnosis.</h3>
-        <p>Enter your company domain and receive a free technical assessment of your AI pipeline's security posture — delivered to your inbox in 24 hours.</p>
-        <div class="diag-form">
-          <input type="email" class="diag-input" id="diag-email" placeholder="you@company.com">
-          <button class="diag-btn" onclick="submitDiag()">→ Get diagnosis</button>
+  <main id="top">
+    <section class="hero" style="border-top:0">
+      <div class="wrap">
+        <div class="eyebrow"><span class="pulse"></span> deterministic runtime authorization</div>
+        <h1>Every autonomous action deserves an <span class="gradient">authorization decision.</span></h1>
+        <p class="hero-copy">Vortex DFS evaluates runtime trust and policy <strong>before execution begins</strong>. The runtime decides. The Agent SDK executes.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">Explore the runtime <span>→</span></a>
+          <a class="btn btn-secondary" href="#quickstart">View integration</a>
         </div>
-        <div id="diag-msg" style="margin-top:1rem;font-family:var(--mono);font-size:.8rem;color:var(--cyan);display:none"></div>
+        <div class="badges" aria-label="Project status badges">
+          <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
+          <img src="https://img.shields.io/badge/Rust-2024-111827?logo=rust&logoColor=white" alt="Rust 2024">
+          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-5B8CFF" alt="Agent SDK 0.16.0">
+          <img src="https://img.shields.io/badge/License-BUSL--1.1-FFC766" alt="BUSL 1.1">
+        </div>
+        <div class="flow" aria-label="Execution pipeline">
+          <div class="flow-card"><strong>Application</strong>requests action</div>
+          <div class="flow-card"><strong>Vortex Runtime</strong>loads policy</div>
+          <div class="flow-card"><strong>Trust Boundary</strong>evaluates context</div>
+          <div class="flow-card"><strong>Decision</strong>allow · review · block</div>
+          <div class="flow-card"><strong>Executor</strong>Agent SDK / workflow</div>
+        </div>
       </div>
+    </section>
 
-    </div>
-  </section>
-</div>
-
-
-<!-- LIVE DEMO -->
-<div id="page-demo" class="page">
-  <section class="section">
-    <div class="container">
-      <div class="section-eyebrow">Vortex DFS · /v1/shield/anonymize</div>
-      <h2 class="section-title">Try it live.</h2>
-      <p class="section-body">Paste any text containing sensitive data. The endpoint detects and redacts PII, API keys, and secrets in real time — running on the production backend.</p>
-    </div>
-    <div class="demo-wrap">
-      <div class="demo-samples">
-        <span class="demo-sample" onclick="loadSample('pii')">PII sample</span>
-        <span class="demo-sample" onclick="loadSample('apikey')">API key</span>
-        <span class="demo-sample" onclick="loadSample('code')">Code with secrets</span>
-        <span class="demo-sample" onclick="loadSample('email')">Email + phone</span>
+    <section id="architecture">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Why Vortex exists</div><h2>Credentials are not a reason to execute.</h2></div>
+          <p class="section-lead">Most autonomous systems assume that possession of credentials is enough. Vortex inserts a deterministic decision boundary between intent and execution.</p>
+        </div>
+        <div class="compare reveal">
+          <article class="compare-card">
+            <h3>Traditional execution path</h3>
+            <div class="compare-flow"><span>Application request</span><span>Agent or workflow</span><span>Credentials present</span><span>Execution begins</span></div>
+          </article>
+          <article class="compare-card vortex">
+            <h3>Vortex execution path</h3>
+            <div class="compare-flow"><span>Application request</span><span>Runtime context and policy</span><span>Explicit authorization decision</span><span>Execution only when approved</span></div>
+          </article>
+        </div>
       </div>
-      <div class="demo-input-wrap">
-        <textarea class="demo-input" id="demo-input" placeholder="Paste text, code, or any content containing sensitive data..."></textarea>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Decision semantics</div><h2>Three outcomes. No ambiguous fallback.</h2></div>
+          <p class="section-lead">The initial enterprise policy demonstrates a typed, auditable decision model. Thresholds are explicit and test-covered.</p>
+        </div>
+        <div class="decision-grid reveal">
+          <article class="card"><div class="decision allow">ALLOW</div><div class="score">≥ 0.90</div><p>Authorization is granted and the external executor may begin.</p></article>
+          <article class="card"><div class="decision review">REVIEW REQUIRED</div><div class="score">0.60–0.89</div><p>Execution pauses until an independent approval is provided.</p></article>
+          <article class="card"><div class="decision block">BLOCK</div><div class="score">&lt; 0.60</div><p>Authorization is denied. The executor is not started.</p></article>
+        </div>
       </div>
-      <button class="demo-btn" id="demo-btn" onclick="runDemo()">
-        → Anonymize
-      </button>
-      <div class="demo-privacy-note">Content is processed in memory and never stored · <a href="#" onclick="showLegal('privacy')" style="color:var(--cyan);text-decoration:none">Privacy Policy</a></div>
-      <div class="demo-output" id="demo-output">
-        <div class="demo-risk-label">Sanitized output</div>
-        <div class="demo-sanitized" id="demo-sanitized"></div>
-        <div class="demo-meta">
-          <div class="demo-risk-bar">
-            <div class="demo-risk-label">Risk score</div>
-            <div class="demo-risk-track">
-              <div class="demo-risk-fill" id="demo-risk-fill"></div>
-            </div>
-          </div>
-          <div>
-            <div class="demo-risk-label">Detections</div>
-            <div class="demo-detections" id="demo-detections"></div>
+    </section>
+
+    <section>
+      <div class="wrap pipeline-grid">
+        <div class="reveal">
+          <div class="section-kicker">Runtime pipeline</div>
+          <h2>Evaluation before delegation.</h2>
+          <p class="section-lead" style="margin:18px 0 26px">The authorization API returns a structured report. The runtime does not execute tools; consumers decide how to handle the result.</p>
+          <div class="steps">
+            <div class="step"><div class="step-n">01</div><div><strong>Collect context</strong><span>Normalize the request and available runtime evidence.</span></div></div>
+            <div class="step"><div class="step-n">02</div><div><strong>Load policy</strong><span>Select an explicit, versionable policy profile.</span></div></div>
+            <div class="step"><div class="step-n">03</div><div><strong>Evaluate trust</strong><span>Apply deterministic rules to the supplied evidence.</span></div></div>
+            <div class="step"><div class="step-n">04</div><div><strong>Generate report</strong><span>Return decision, reason, policy, score, and latency.</span></div></div>
+            <div class="step"><div class="step-n">05</div><div><strong>Delegate or stop</strong><span>Approved requests reach the executor; denied requests do not.</span></div></div>
           </div>
         </div>
-        <div class="demo-latency" id="demo-latency"></div>
-      </div>
-    </div>
-  </section>
-</div>
+        <div class="terminal reveal">
+          <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">vortex-runtime — audit summary</span></div>
+          <pre><span class="info">RUNTIME AUTHORIZATION</span>
 
-<!-- PRICING -->
-<div id="page-pricing" class="page">
-  <div class="pricing-hero container">
-    <div class="section-eyebrow">Okamoto Security Labs · Access</div>
-    <h2>Simple, transparent pricing.</h2>
-    <p>One SDK. Pay for the period that fits your deployment cycle. No seats, no per-request fees, no hidden costs.</p>
-    <div class="billing-toggle">
-      <button class="active" onclick="setBilling('weekly',this)">Weekly</button>
-      <button onclick="setBilling('monthly',this)">Monthly</button>
-      <button onclick="setBilling('annual',this)">Annual <span style="color:var(--cyan)">−30%</span></button>
-    </div>
-  </div>
+Collect Runtime Context ........ COMPLETE
+Load Policy Profile ............ COMPLETE
+Evaluate Trust Boundary ........ COMPLETE
+Generate Decision .............. COMPLETE
 
-  <!-- Sovereign Audit Showcase -->
-  <div style="max-width:960px;margin:0 auto 3rem;padding:0 2rem">
-    <div style="background:linear-gradient(135deg,rgba(14,165,233,0.06) 0%,rgba(0,255,65,0.04) 100%);border:1px solid rgba(14,165,233,0.2);border-radius:16px;padding:2.5rem;display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:center">
-      <div>
-        <div style="font-family:var(--mono);font-size:.68rem;color:var(--cyan);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem">Pro &amp; Enterprise · Exclusive Feature</div>
-        <h3 style="font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:.75rem">Sovereign Audit</h3>
-        <p style="color:var(--slate);font-size:.9rem;line-height:1.75;margin-bottom:1.25rem">Detects PII and prompt injection attempts before they reach your LLM. Returns an evidence hash, HLC timestamp, and full detection breakdown — in under 10ms.</p>
-        <div style="display:flex;flex-direction:column;gap:.4rem">
-          <div style="font-family:var(--mono);font-size:.75rem;color:var(--white)">✓ <span style="color:var(--cyan)">EMAIL ×1  PHONE ×1</span> — PII detections</div>
-          <div style="font-family:var(--mono);font-size:.75rem;color:var(--white)">✓ <span style="color:#EF4444">ignore previous  developer mode  act as</span> — injection blocked</div>
-          <div style="font-family:var(--mono);font-size:.75rem;color:var(--slate)">✓ Sun Tzu Gating — attacker sees decoy score 0.999</div>
+Decision ....................... <span class="ok">APPROVED</span>
+Input Trust Score ............... 0.94
+Policy Profile .................. Enterprise Default
+Authorization Latency ........... 0.411 µs
+
+Agent SDK Authorization ........ <span class="ok">SUCCESS</span>
+Agent Execution ................ <span class="ok">SUCCESS</span>
+Completed Execution Cycles ..... 1000
+Execution Failures .............. 0</pre>
         </div>
       </div>
-      <div style="background:#000;border:1px solid rgba(0,255,65,0.15);border-radius:12px;padding:1.5rem;font-family:var(--mono);font-size:.72rem">
-        <div style="color:#EF4444;font-weight:bold;margin-bottom:.75rem">>> STATUS: THREAT_NEUTRALIZED</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;color:var(--slate);margin-bottom:.75rem">
-          <div>SCORE: <span style="color:#EF4444">0.999</span></div>
-          <div>LATENCY: 8.2ms</div>
-          <div>MEM_AUDIT: 128MB_STABLE</div>
-          <div>HLC_GOV: 1782079500632</div>
+    </section>
+
+    <section id="benchmarks">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Measured locally</div><h2>Deterministic validation with visible cost.</h2></div>
+          <p class="section-lead">Results below come from the offline stub-provider integration benchmark. They demonstrate the current code path, not production capacity guarantees.</p>
         </div>
-        <div style="color:var(--slate);border-top:1px solid #111;padding-top:.75rem;margin-bottom:.4rem">PII DETECTIONS:</div>
-        <div style="margin-bottom:.4rem"><span style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);border-radius:3px;padding:1px 8px;color:var(--cyan)">EMAIL ×1</span> <span style="background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.2);border-radius:3px;padding:1px 8px;color:var(--cyan)">PHONE ×1</span></div>
-        <div style="color:var(--slate);margin-bottom:.4rem">INJECTION PATTERNS:</div>
-        <div><span style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:3px;padding:1px 8px;color:#EF4444">ignore previous</span> <span style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:3px;padding:1px 8px;color:#EF4444">act as</span></div>
-        <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid #111;color:#333">EVIDENCE_HASH: <span style="color:#EF4444">53B059C8377B21A1</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="plans-grid">
-
-    <!-- Starter -->
-    <div class="plan">
-      <div class="plan-name">Starter</div>
-      <div>
-        <div class="plan-price">
-          <span class="plan-price-currency">$</span>
-          <span class="plan-price-amount" id="price-starter">9</span>
-          <span class="plan-price-period" id="period-starter">/ week</span>
-        </div>
-        <div class="plan-price-note" id="note-starter">billed weekly · cancel anytime</div>
-      </div>
-      <p class="plan-desc">Ideal for solo engineers evaluating Vortex DFS in a staging environment.</p>
-      <ul class="plan-features">
-        <li>Vortex DFS SDK (Rust + Go)</li>
-        <li>Module 1: Trust &amp; Media</li>
-        <li>Module 2: Code &amp; SecOps</li>
-        <li>Community support (GitHub)</li>
-        <li class="dim">Shield Anonymize endpoint</li>
-        <li class="dim">Webhook integration</li>
-        <li class="dim">SLA &amp; priority support</li>
-      </ul>
-      <button class="plan-cta plan-cta-outline" onclick="checkout('starter')">Get started →</button>
-    </div>
-
-    <!-- Pro (featured) -->
-    <div class="plan featured">
-      <div class="plan-badge">Most popular</div>
-      <div class="plan-name">Pro</div>
-      <div>
-        <div class="plan-price">
-          <span class="plan-price-currency">$</span>
-          <span class="plan-price-amount" id="price-pro">29</span>
-          <span class="plan-price-period" id="period-pro">/ week</span>
-        </div>
-        <div class="plan-price-note" id="note-pro">billed weekly · cancel anytime</div>
-      </div>
-      <p class="plan-desc">For teams running Vortex DFS in production with full anonymization, injection detection, and webhook pipelines.</p>
-      <ul class="plan-features">
-        <li>Everything in Starter</li>
-        <li><strong style="color:var(--white)">/v1/shield/anonymize</strong> endpoint</li>
-        <li><strong style="color:var(--cyan)">⚡ Sovereign Audit</strong> — PII + Prompt Injection detection with evidence hash</li>
-        <li>Stripe webhook handler (pre-built)</li>
-        <li>Docker + K8s manifests</li>
-        <li>Email support · 48h response</li>
-        <li class="dim">Custom PII pattern registry</li>
-        <li class="dim">Dedicated Slack channel</li>
-      </ul>
-      <button class="plan-cta plan-cta-solid" onclick="checkout('pro')">Start Pro →</button>
-    </div>
-
-    <!-- Enterprise -->
-    <div class="plan">
-      <div class="plan-name">Enterprise</div>
-      <div>
-        <div class="plan-price">
-          <span class="plan-price-currency">$</span>
-          <span class="plan-price-amount" id="price-enterprise">79</span>
-          <span class="plan-price-period" id="period-enterprise">/ week</span>
-        </div>
-        <div class="plan-price-note" id="note-enterprise">billed weekly · cancel anytime</div>
-      </div>
-      <p class="plan-desc">For organizations with compliance requirements and custom detection rules at scale.</p>
-      <ul class="plan-features">
-        <li>Everything in Pro</li>
-        <li><strong style="color:var(--cyan)">⚡ Sovereign Audit</strong> — unlimited requests</li>
-        <li>Custom PII pattern registry</li>
-        <li>Dedicated Slack channel</li>
-        <li>99.9% uptime SLA</li>
-        <li>Priority support · 4h response</li>
-        <li>Security review &amp; onboarding call</li>
-        <li>Invoice billing available</li>
-      </ul>
-      <button class="plan-cta plan-cta-outline" onclick="checkout('enterprise')">Contact us →</button>
-    </div>
-
-  </div>
-
-  <!-- FAQ -->
-  <div class="pricing-faq">
-    <div class="pricing-faq-title">Common questions</div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="toggleFaq(this)">Can I switch billing periods? <span>+</span></div>
-      <div class="faq-a">Yes. Stripe handles proration automatically — if you upgrade from weekly to annual, you're charged only the difference from your current billing cycle.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="toggleFaq(this)">What currency do you charge in? <span>+</span></div>
-      <div class="faq-a">All prices are in USD. Stripe handles currency conversion at checkout for non-US cards. No FX surcharge from our side.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="toggleFaq(this)">Is the SDK open source? <span>+</span></div>
-      <div class="faq-a">The core Vortex DFS engine is open for audit on GitHub. The subscription unlocks the production modules (/v1/shield/anonymize, webhook handler), K8s manifests, and priority support.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="toggleFaq(this)">Can I cancel at any time? <span>+</span></div>
-      <div class="faq-a">Yes, any plan can be cancelled from your Stripe customer portal. Access continues until the end of the current billing period.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q" onclick="toggleFaq(this)">Do you offer refunds? <span>+</span></div>
-      <div class="faq-a">If Vortex DFS doesn't work for your use case within 7 days of purchase, contact us and we'll refund — no questions asked.</div>
-    </div>
-  </div>
-
-  <div class="pricing-guarantee">
-    <strong>7-day money-back guarantee</strong> · Payments secured by Stripe · No card stored on our servers
-  </div>
-</div>
-
-<!-- CONTACT -->
-<div id="page-contact" class="page">
-  <section class="section">
-    <div class="container">
-      <div class="contact-grid">
-        <div class="contact-info">
-          <div class="section-eyebrow">Get in touch</div>
-          <h2>Let's talk<br>about your stack.</h2>
-          <p>We work with engineering teams evaluating post-quantum migration, AI infrastructure security, and deterministic defense layers. If heuristics haven't solved your problem — reach out.</p>
-          <div class="contact-detail">
-            <div class="contact-item"><span>✉</span><span class="contact-item-text"><a href="mailto:gustavo@okamotosecurytlabs.com.br">gustavo@okamotosecurytlabs.com.br</a></span></div>
-            <div class="contact-item"><span>⌥</span><span class="contact-item-text"><a href="https://github.com/okamoto-security-labs" target="_blank">github.com/okamoto-security-labs</a></span></div>
-            <div class="contact-item"><span>◎</span><span class="contact-item-text">São Paulo, Brazil · Remote worldwide</span></div>
-          </div>
-        </div>
-        <div class="contact-form">
-          <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" placeholder="Your name" id="f-name"></div>
-          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" placeholder="you@company.com" id="f-email"></div>
-          <div class="form-group"><label class="form-label">What are you working on?</label><textarea class="form-textarea" placeholder="Tell us about your security challenge..." id="f-msg"></textarea></div>
-          <button class="form-submit" onclick="handleSubmit()">Send message</button>
+        <div class="metrics reveal">
+          <article class="metric"><div class="metric-value">24.9 µs</div><div class="metric-label">Average SDK latency</div><div class="metric-note">Latest representative local run</div></article>
+          <article class="metric"><div class="metric-value">42.6 µs</div><div class="metric-label">P99 latency</div><div class="metric-note">1,000 deterministic cycles</div></article>
+          <article class="metric"><div class="metric-value">37.7k</div><div class="metric-label">Requests / second</div><div class="metric-note">Offline stub-provider throughput</div></article>
+          <article class="metric"><div class="metric-value">0</div><div class="metric-label">Execution failures</div><div class="metric-note">1,000 / 1,000 successful runs</div></article>
         </div>
       </div>
+    </section>
+
+    <section id="quickstart">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Reusable API</div><h2>Integrate the decision boundary, not the demo.</h2></div>
+          <p class="section-lead">Vortex exposes a runtime authorization API that can be consumed by Agent SDKs, workflows, services, and future adapters.</p>
+        </div>
+        <div class="terminal code reveal">
+          <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">main.rs</span></div>
+          <pre><span class="info">use</span> vortex_dfs::runtime::{authorize, AuthorizationRequest};
+
+let report = authorize(AuthorizationRequest::new(
+    0.94,
+    "Enterprise Default",
+));
+
+if report.is_allowed() {
+    agent.run(...).await?;
+} else {
+    // Review or block without starting the executor.
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Engineering properties</div><h2>Infrastructure behavior, not a marketing wrapper.</h2></div>
+          <p class="section-lead">The current milestone focuses on explicit control flow and a reusable boundary. Dynamic evidence is the next engineering phase.</p>
+        </div>
+        <div class="features reveal">
+          <article class="card"><div class="feature-icon">01 / DETERMINISTIC</div><h3>Explicit policy behavior</h3><p>Identical input and policy produce the same typed decision and reason.</p></article>
+          <article class="card"><div class="feature-icon">02 / FAIL CLOSED</div><h3>No unauthorized delegation</h3><p>Blocked and review-required paths terminate before the Agent SDK starts.</p></article>
+          <article class="card"><div class="feature-icon">03 / AUDITABLE</div><h3>Structured authorization report</h3><p>Decision, trust score, policy profile, reason, and latency remain visible.</p></article>
+          <article class="card"><div class="feature-icon">04 / TESTED</div><h3>Core paths covered</h3><p>Unit tests verify allow, review, and block behavior across policy thresholds.</p></article>
+          <article class="card"><div class="feature-icon">05 / MODULAR</div><h3>Executor-independent runtime</h3><p>The authorization engine is a reusable library rather than Agent SDK logic.</p></article>
+          <article class="card"><div class="feature-icon">06 / GOVERNED</div><h3>Protected delivery pipeline</h3><p>Pull requests, required CI checks, and protected main-branch rules guard changes.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap quote reveal">
+        <p>Execution is never the first decision.<br><span>Authorization is.</span></p>
+        <div class="section-kicker">Trust. Authorize. Execute.</div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <div><div class="section-kicker">Roadmap</div><h2>From controlled input to runtime evidence.</h2></div>
+          <p class="section-lead">The current version proves the boundary and integration flow. The roadmap focuses on evidence quality, policy maturity, and production adapters.</p>
+        </div>
+        <div class="roadmap reveal">
+          <div><h3>Implemented</h3><ul><li class="done">Reusable authorization API</li><li class="done">ALLOW / REVIEW / BLOCK decisions</li><li class="done">Agent SDK execution gate</li><li class="done">Authorization audit summary</li><li class="done">Unit-tested core paths</li><li class="done">CI and protected main branch</li></ul></div>
+          <div><h3>Next milestones</h3><ul><li>Dynamic runtime evidence</li><li>Tool-permission validation</li><li>Versioned policy packs</li><li>Persistent decision traces</li><li>OpenTelemetry integration</li><li>REST and workflow adapters</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap reveal">
+        <div class="section-kicker">Okamoto Security Labs</div>
+        <h2>Build autonomous execution around an explicit decision boundary.</h2>
+        <p>Read the implementation, review the assumptions, run the tests, and challenge the runtime.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">View repository →</a>
+          <a class="btn btn-secondary" href="mailto:gugaokamoto1@gmail.com">Contact the lab</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <div><strong style="color:var(--text)">Vortex DFS</strong> · Runtime Trust & Authorization</div>
+      <div class="footer-links"><a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">GitHub</a><a href="https://www.linkedin.com/in/gustavo-okamoto-de-carvalho-ti" target="_blank" rel="noreferrer">LinkedIn</a><a href="mailto:gugaokamoto1@gmail.com">Email</a></div>
+      <div>Built in Rust · Okamoto Security Labs</div>
     </div>
-  </section>
-</div>
+  </footer>
 
-<footer>
-  <div class="footer-brand">Okamoto Security Labs</div>
-  <p>© 2026 · Okamoto Security Labs · São Paulo, Brazil</p>
-  <div class="footer-links">
-    <a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">GitHub</a>
-    <a onclick="showPage('docs')">Docs</a>
-    <a onclick="showPage('research')">Research</a>
-    <a onclick="showPage('pricing')">Pricing</a>
-    <a onclick="showPage('contact')">Contact</a>
-    <a onclick="showLegal('privacy')" style="color:var(--slate)">Privacy Policy</a>
-    <a onclick="showLegal('terms')" style="color:var(--slate)">Terms of Use</a>
-  </div>
-</footer>
-
-<!-- Legal Modal -->
-<div id="legal-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(4,8,15,0.92);backdrop-filter:blur(8px);overflow-y:auto;padding:2rem 1rem">
-  <div style="max-width:760px;margin:0 auto;background:var(--bg-card);border:1px solid var(--border-hi);border-radius:14px;padding:2.5rem 3rem;position:relative">
-    <button onclick="closeLegal()" style="position:absolute;top:1.25rem;right:1.25rem;background:transparent;border:none;color:var(--slate);font-size:1.5rem;cursor:pointer;line-height:1">×</button>
-    <div id="legal-content"></div>
-  </div>
-</div>
-
-<script>
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  document.getElementById('nav-' + name).classList.add('active');
-  window.scrollTo(0, 0);
-  return false;
-}
-// ── Pricing: billing toggle ───────────────────────────────────────────────
-// Price matrix: [weekly, monthly, annual]
-// Annual = ~30% off monthly rate
-const PRICES = {
-  starter:    { weekly: [9,   '$9/wk',  'billed weekly · cancel anytime'],
-                monthly:[29,  '$29/mo', 'billed monthly · cancel anytime'],
-                annual: [199, '$199/yr','billed annually · save $149 vs monthly'] },
-  pro:        { weekly: [29,  '$29/wk', 'billed weekly · cancel anytime'],
-                monthly:[89,  '$89/mo', 'billed monthly · cancel anytime'],
-                annual: [599, '$599/yr','billed annually · save $469 vs monthly'] },
-  enterprise: { weekly: [79,  '$79/wk', 'billed weekly · cancel anytime'],
-                monthly:[249, '$249/mo','billed monthly · cancel anytime'],
-                annual: [1699,'$1699/yr','billed annually · save $1289 vs monthly'] },
-};
-
-let currentBilling = 'weekly';
-
-function setBilling(period, btn) {
-  currentBilling = period;
-  document.querySelectorAll('.billing-toggle button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  ['starter','pro','enterprise'].forEach(plan => {
-    const [amount, , note] = PRICES[plan][period];
-    document.getElementById('price-' + plan).textContent = amount.toLocaleString();
-    document.getElementById('note-' + plan).textContent  = note;
-    const periods = { weekly: '/ week', monthly: '/ month', annual: '/ year' };
-    document.getElementById('period-' + plan).textContent = periods[period];
-  });
-}
-
-// ── Pricing: FAQ accordion ────────────────────────────────────────────────
-function toggleFaq(el) {
-  const answer = el.nextElementSibling;
-  const isOpen = answer.classList.contains('open');
-  // Close all first
-  document.querySelectorAll('.faq-a').forEach(a => a.classList.remove('open'));
-  document.querySelectorAll('.faq-q').forEach(q => q.classList.remove('open'));
-  if (!isOpen) {
-    answer.classList.add('open');
-    el.classList.add('open');
-  }
-}
-
-// ── Stripe Checkout ───────────────────────────────────────────────────────
-// WHY CLIENT-SIDE REDIRECT ONLY:
-// We never handle card data. The browser opens Stripe's hosted checkout page
-// where PCI-DSS compliance is fully on Stripe's side. Your server receives
-// only the post-payment webhook (see webhook_handler.rs).
-//
-// SETUP REQUIRED:
-//   1. Replace STRIPE_PRICE_IDs below with real Price IDs from your Stripe dashboard.
-//      Create Products → Prices for each plan/period combination.
-//   2. Replace STRIPE_PUBLISHABLE_KEY with your pk_live_... key.
-//   3. Point success_url and cancel_url to your domain.
-//
-// For enterprise, redirect to contact page instead of Stripe (custom quotes).
-
-const STRIPE_PUBLISHABLE_KEY = 'pk_live_51TkVkDHkQnONoSg0DkvxhJperBwcMtqgI6optDKVMGIjpSUNSvcxm61h6VYH0bZYOXUOPqOSYmKoIdn1DEIs9IdZ008vt97akn';
-
-// Map plan+billing → Stripe Price ID
-const STRIPE_PRICE_IDS = {
-  starter_weekly:     'price_1TkWGLHkQnONoSg0rpy3ETei',
-  starter_monthly:    'price_1TkWS3HkQnONoSg0ZhnLIioB',
-  starter_annual:     'price_1TkWS3HkQnONoSg0zvXxrMep',
-  pro_weekly:         'price_1TkWI5HkQnONoSg0cEwfu5Yw',
-  pro_monthly:        'price_1TkWI5HkQnONoSg0OCFxD8DL',
-  pro_annual:         'price_1TkWI5HkQnONoSg0wZYGCq6Y',
-  enterprise_weekly:  'price_1TkWIgHkQnONoSg0kg2lr30i',
-  enterprise_monthly: 'price_1TkWJaHkQnONoSg0KrSqRKbG',
-  enterprise_annual:  'price_1TkWJaHkQnONoSg0jtXBgax4',
-};
-
-
-// WHY PAYMENT LINKS:
-// Stripe deprecated redirectToCheckout (client-only mode) in 2023.
-// Payment Links are the current zero-backend solution — create one per
-// price in dashboard.stripe.com/payment-links, paste the URLs below.
-const STRIPE_PAYMENT_LINKS = {
-  starter_weekly:     "https://buy.stripe.com/cNifZh6ar5YB91o7W893y00",
-  starter_monthly:    "https://buy.stripe.com/cNidR90Q70EhelI1xK93y01",
-  starter_annual:     "https://buy.stripe.com/14A8wP0Q73QtcdAb8k93y02",
-  pro_weekly:         "https://buy.stripe.com/00w14n0Q75YBelIgsE93y04",
-  pro_monthly:        "https://buy.stripe.com/6oUcN5eGXfzb4L8cco93y03",
-  pro_annual:         "https://buy.stripe.com/5kQcN59mD9aN7Xk5O093y05",
-  enterprise_weekly:  "https://buy.stripe.com/aFa28r0Q75YBelIcco93y06",
-  enterprise_monthly: "https://buy.stripe.com/aFa3cvfL15YB0uS7W893y07",
-  enterprise_annual:  "https://buy.stripe.com/bJefZhfL172FgtQdgs93y08",
-};
-
-function checkout(plan) {
-  if (plan === "enterprise") { showPage("contact"); return; }
-  const link = STRIPE_PAYMENT_LINKS[plan + "_" + currentBilling];
-  if (!link || link.includes("REPLACE")) {
-    alert("Crie os Payment Links em:\ndashboard.stripe.com/payment-links\ne cole as URLs no index.html");
-    return;
-  }
-  window.location.href = link;
-}
-
-// Show success/cancel toast if returning from Stripe
-(function checkCheckoutReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const status = params.get('checkout');
-  if (!status) return;
-  const msg = status === 'success'
-    ? '✓ Subscription activated. Welcome to Okamoto Security Labs.'
-    : 'Checkout cancelled. Your plan was not changed.';
-  const toast = Object.assign(document.createElement('div'), {
-    textContent: msg,
-    style: `position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:${status==='success'?'#0EA5E9':'#374151'};color:#fff;padding:.75rem 1.5rem;border-radius:8px;font-size:.88rem;font-family:var(--mono);z-index:999;white-space:nowrap`
-  });
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 5000);
-  history.replaceState({}, '', window.location.pathname);
-})();
-
-
-// ── Live Demo ─────────────────────────────────────────────────────────────
-const SAMPLES = {
-  pii:    "Patient: John Smith\nSSN: 523-45-6789\nPhone: +1-555-234-5678\nEmail: john.smith@hospital.org\nCard: 4111 1111 1111 1111",
-  apikey: "AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE'\nAWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'\nGITHUB_TOKEN = 'ghp_16C7e42F292c6912E7710c838347Ae178B4a'",
-  code:   "const db = new Client({\n  host: '192.168.1.45',\n  password: 'Sup3rS3cr3t!',\n  token: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.SflKxwRJSMeKKF2QT4fw'\n})",
-  email:  "Hi team, contact Maria Santos at maria.santos@acme.com or +55 11 98765-4321.\nCC: carlos.lima@acme.com"
-};
-
-function loadSample(type) {
-  document.getElementById('demo-input').value = SAMPLES[type];
-  document.getElementById('demo-output').classList.remove('visible');
-}
-
-async function runDemo() {
-  const input = document.getElementById('demo-input').value.trim();
-  if (!input) return;
-  const btn = document.getElementById('demo-btn');
-  btn.disabled = true;
-  btn.textContent = '→ Analyzing...';
-  try {
-    const t0 = performance.now();
-    const resp = await fetch('https://vortex-dfs.onrender.com/v1/shield/anonymize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: input, content_type: 'text' })
-    });
-    const latency = (performance.now() - t0).toFixed(1);
-    if (!resp.ok) throw new Error('API error ' + resp.status);
-    const data = await resp.json();
-    const sanitized = (data.sanitized || input).replace(/\[REDACTED_\d+\]/g, m => '<span class="redacted">'+m+'</span>');
-    document.getElementById('demo-sanitized').innerHTML = sanitized;
-    const score = data.risk_score || 0;
-    const fill = document.getElementById('demo-risk-fill');
-    const color = score > 0.7 ? '#EF4444' : score > 0.4 ? '#F59E0B' : '#10B981';
-    fill.style.width = (score * 100) + '%';
-    fill.style.background = color;
-    fill.style.boxShadow = '0 0 8px ' + color;
-    const dets = document.getElementById('demo-detections');
-    if (data.detections && data.detections.length) {
-      dets.innerHTML = data.detections.map(d => '<span class="demo-det-tag">'+d.pattern+' x'+d.count+'</span>').join('');
-    } else {
-      dets.innerHTML = '<span style="color:var(--slate)">No sensitive data detected</span>';
-    }
-    document.getElementById('demo-latency').textContent = '⚡ ' + latency + 'ms · trace_id: ' + (data.trace_id || 'n/a');
-    document.getElementById('demo-output').classList.add('visible');
-  } catch(e) {
-    document.getElementById('demo-sanitized').innerHTML = '<span style="color:var(--slate)">Backend warming up (free tier). Retry in 30 seconds.</span>';
-    document.getElementById('demo-output').classList.add('visible');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '→ Anonymize';
-  }
-}
-
-// ── Legal Modal ───────────────────────────────────────────────────────────
-const LEGAL = {
-  privacy: {
-    title: 'Privacy Policy',
-    effective: 'Effective Date: June 21, 2026',
-    body: `
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">1. Introduction</h3>
-<p>Okamoto Security Labs ("we", "us") operates the Vortex DFS API. This Privacy Policy explains how we collect, use, and protect information in connection with your use of the Service.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">2. Zero Data Retention Policy</h3>
-<p>Vortex DFS is built on a zero data retention architecture:</p>
-<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
-  <li>Content submitted to <code style="font-family:var(--mono);font-size:.82rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .35rem;border-radius:3px">/v1/shield/anonymize</code> is processed in memory and never written to disk or any database.</li>
-  <li>Anonymized output is returned exclusively to the caller and not stored by us.</li>
-  <li>We do not retain, log, sell, or share the content of your API requests.</li>
-</ul>
-<p>This is a core architectural guarantee, not merely a policy commitment.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">3. Information We Collect</h3>
-<p><strong style="color:var(--white)">Account & Billing:</strong> When you purchase a subscription, Stripe collects and processes your payment details. We receive only your email address, subscription tier, and a Stripe customer ID. No card data is stored by us.</p>
-<p><strong style="color:var(--white)">Technical Logs:</strong> Server logs contain request trace IDs (random UUIDs), risk scores, detection counts, latency, and HTTP status codes. No PII. Retained for 30 days.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">4. Third-Party Services</h3>
-<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
-  <li><strong style="color:var(--white)">Stripe</strong> — payment processing</li>
-  <li><strong style="color:var(--white)">Resend</strong> — transactional email delivery</li>
-  <li><strong style="color:var(--white)">Render</strong> — cloud infrastructure (US-based)</li>
-</ul>
-<p>We do not sell your personal data to any third party.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">5. Your Rights (GDPR / LGPD)</h3>
-<p>You have the right to access, rectify, erase, or port your personal data. Contact us at <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a>. We respond within 30 days.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">6. Contact</h3>
-<p>Okamoto Security Labs · Brazil · <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a></p>`
-  },
-  terms: {
-    title: 'Terms of Use',
-    effective: 'Effective Date: June 21, 2026',
-    body: `
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">1. Acceptance</h3>
-<p>By accessing or using Vortex DFS ("Service") provided by Okamoto Security Labs, you agree to these Terms. If you do not agree, do not use the Service.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">2. API Keys & Security</h3>
-<p>Upon payment you receive a unique API key (<code style="font-family:var(--mono);font-size:.82rem;color:var(--cyan);background:var(--cyan-dim);padding:.1rem .35rem;border-radius:3px">vdfs_live_...</code>). You are responsible for keeping it confidential and for all activity under your key. Notify us immediately of unauthorized use.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">3. Acceptable Use</h3>
-<p>You may use the Service to anonymize data you are authorized to process and to integrate the API into your own products. You may not: process unauthorized data, reverse-engineer the Service infrastructure, resell API access without written consent, or circumvent rate limits or authentication.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">4. Subscription & Payment</h3>
-<p>Subscriptions are billed in advance (weekly, monthly, or annual) via Stripe and auto-renew until cancelled. We do not offer refunds for partial periods. A 7-day money-back guarantee applies to first-time purchases — contact us within 7 days.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">5. Rate Limits</h3>
-<ul style="color:var(--slate);font-size:.9rem;line-height:1.75;margin:.75rem 0 .75rem 1.25rem">
-  <li>Demo (unauthenticated): 10 requests / 60 seconds per IP</li>
-  <li>Authenticated (paid): 300 requests / 60 seconds per API key</li>
-</ul>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">6. Disclaimer of Warranties</h3>
-<p style="font-size:.85rem;color:var(--slate)">THE SERVICE IS PROVIDED "AS IS". WE DO NOT WARRANT THAT THE SERVICE WILL BE ERROR-FREE OR DETECT ALL PII IN ANY GIVEN CONTENT. YOU ARE RESPONSIBLE FOR VALIDATING OUTPUT FOR YOUR USE CASE.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">7. Limitation of Liability</h3>
-<p style="font-size:.85rem;color:var(--slate)">TO THE MAXIMUM EXTENT PERMITTED BY LAW, OUR LIABILITY IS LIMITED TO THE AMOUNT YOU PAID IN THE 3 MONTHS PRECEDING THE CLAIM.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">8. Governing Law</h3>
-<p>These Terms are governed by the laws of Brazil. Disputes shall be resolved in the courts of Brazil.</p>
-<h3 style="font-family:var(--serif);font-size:1.1rem;font-weight:400;margin:1.5rem 0 .5rem;color:var(--cyan)">9. Contact</h3>
-<p>Okamoto Security Labs · Brazil · <a href="mailto:gustavo@okamotosecurytlabs.com.br" style="color:var(--cyan)">gustavo@okamotosecurytlabs.com.br</a></p>`
-  }
-};
-
-function showLegal(type) {
-  const doc = LEGAL[type];
-  document.getElementById('legal-content').innerHTML = `
-    <div style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem">Okamoto Security Labs</div>
-    <h2 style="font-family:var(--serif);font-size:2rem;font-weight:400;margin-bottom:.25rem">${doc.title}</h2>
-    <p style="font-family:var(--mono);font-size:.72rem;color:var(--slate);margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)">${doc.effective}</p>
-    <div style="color:var(--slate);font-size:.92rem;line-height:1.75">${doc.body}</div>
-  `;
-  document.getElementById('legal-modal').style.display = 'block';
-  document.body.style.overflow = 'hidden';
-}
-
-function closeLegal() {
-  document.getElementById('legal-modal').style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-document.getElementById('legal-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeLegal();
-});
-
-
-function submitDiag() {
-  const email = document.getElementById('diag-email').value.trim();
-  const msg = document.getElementById('diag-msg');
-  if (!email || !email.includes('@')) {
-    msg.style.display = 'block';
-    msg.style.color = '#EF4444';
-    msg.textContent = 'Enter a valid company email.';
-    return;
-  }
-  msg.style.display = 'block';
-  msg.style.color = 'var(--cyan)';
-  msg.textContent = '✓ Received. Diagnosis delivered within 24 hours.';
-  document.getElementById('diag-email').value = '';
-  window.location.href = 'mailto:gustavo@okamotosecurytlabs.com.br?subject=AI Diagnosis Request&body=Diagnosis requested by: ' + email;
-}
-
-function handleSubmit() {
-  const name = document.getElementById('f-name').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  const msg = document.getElementById('f-msg').value.trim();
-  if (!name || !email || !msg) { alert('Please fill in all fields.'); return; }
-  window.location.href = `mailto:gustavo@okamotosecurytlabs.com.br?subject=Contact from ${encodeURIComponent(name)}&body=${encodeURIComponent(msg + '\n\nFrom: ' + email)}`;
-}
-</script>
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('on');
+          observer.unobserve(entry.target);
+        }
+      }
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+  </script>
 </body>
 </html>
