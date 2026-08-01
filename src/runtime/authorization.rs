@@ -51,3 +51,43 @@ pub fn authorize(request: AuthorizationRequest) -> AuthorizationReport {
         latency: started_at.elapsed(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::decision::DecisionAction;
+
+    #[test]
+    fn approves_request_above_allow_threshold() {
+        let report = authorize(AuthorizationRequest::new(0.94, "Enterprise Default"));
+
+        assert!(report.is_allowed());
+        assert!(!report.requires_review());
+        assert!(!report.is_blocked());
+        assert!(matches!(report.decision.action, DecisionAction::Allow));
+        assert_eq!(report.decision.trust_score, 0.94);
+        assert_eq!(report.policy_profile, "Enterprise Default");
+    }
+
+    #[test]
+    fn escalates_request_between_thresholds() {
+        let report = authorize(AuthorizationRequest::new(0.75, "Enterprise Default"));
+
+        assert!(!report.is_allowed());
+        assert!(report.requires_review());
+        assert!(!report.is_blocked());
+        assert!(matches!(report.decision.action, DecisionAction::Escalate));
+        assert_eq!(report.decision.trust_score, 0.75);
+    }
+
+    #[test]
+    fn blocks_request_below_escalate_threshold() {
+        let report = authorize(AuthorizationRequest::new(0.42, "Enterprise Default"));
+
+        assert!(!report.is_allowed());
+        assert!(!report.requires_review());
+        assert!(report.is_blocked());
+        assert!(matches!(report.decision.action, DecisionAction::Block));
+        assert_eq!(report.decision.trust_score, 0.42);
+    }
+}
