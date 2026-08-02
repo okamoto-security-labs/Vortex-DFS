@@ -17,29 +17,25 @@ jobs:
       - name: Checkout Vortex DFS
         uses: actions/checkout@v4
 
-      - name: Download Vortex Code
-        run: |
-          curl --fail --location --retry 3             "https://codeload.github.com/okamoto-security-labs/vortex-code/tar.gz/72beea8"             --output /tmp/vortex-code.tar.gz
-
-          mkdir -p /tmp/vortex-code
-
-          tar -xzf /tmp/vortex-code.tar.gz             --strip-components=1             --directory /tmp/vortex-code
-
-          test -f /tmp/vortex-code/Cargo.toml
-          test -f /tmp/vortex-code/src/main.rs
+      - name: Checkout Vortex Code
+        uses: actions/checkout@v4
+        with:
+          repository: okamoto-security-labs/vortex-code
+          ref: main
+          path: vortex-code
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Vortex Code
-        working-directory: /tmp/vortex-code
+        working-directory: vortex-code
         run: cargo build --release
 
       - name: Generate Vortex Code review
         id: vortex_scan
         continue-on-error: true
         run: |
-          /tmp/vortex-code/target/release/vortex-code \
+          ./vortex-code/target/release/vortex-code \
             scan review-fixtures \
             --format github \
             --output vortex-github-review.json
