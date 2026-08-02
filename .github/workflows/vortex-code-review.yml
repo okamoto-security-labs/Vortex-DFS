@@ -35,10 +35,11 @@ jobs:
         id: vortex_scan
         continue-on-error: true
         run: |
-          ./vortex-code/target/release/vortex-code \
-            scan review-fixtures \
-            --format github \
-            --output vortex-github-review.json
+          "$GITHUB_WORKSPACE/vortex-code/target/release/vortex-code"             scan "$GITHUB_WORKSPACE/vortex-dfs/review-fixtures"             --format github             --output "$GITHUB_WORKSPACE/vortex-github-review.json"
+
+          echo "Generated payload:"
+          ls -la "$GITHUB_WORKSPACE/vortex-github-review.json"
+          cat "$GITHUB_WORKSPACE/vortex-github-review.json"
 
       - name: Publish inline Vortex Code review
         if: always()
@@ -47,21 +48,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "Current directory:"
-          pwd
-
-          echo "Generated files:"
-          find "$GITHUB_WORKSPACE" -maxdepth 3 -name 'vortex-github-review.json' -print
-
           REVIEW_FILE="$GITHUB_WORKSPACE/vortex-github-review.json"
 
           if [ ! -s "$REVIEW_FILE" ]; then
             echo "Review payload not found or empty: $REVIEW_FILE"
+            find "$GITHUB_WORKSPACE" -name 'vortex-github-review.json' -print
             exit 1
           fi
-
-          echo "Publishing payload:"
-          cat "$REVIEW_FILE"
 
           gh api             --method POST             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "/repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews"             --input "$REVIEW_FILE"
 
