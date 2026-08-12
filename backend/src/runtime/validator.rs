@@ -773,6 +773,7 @@ mod tests {
                 "1.0.0",
             )
             .allow_operation(Operation::Verify)
+            .with_identity_requirement(false)
             .with_fail_closed(false);
 
         let context =
