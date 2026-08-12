@@ -291,6 +291,43 @@ pub struct DetectionSummary {
 pub struct AnonymizerEngine;
 
 impl AnonymizerEngine {
+    /// Detects whether the payload contains valid sensitive data without
+    /// producing a transformed payload or retaining raw matched values.
+    pub fn has_sensitive_data(input: &str) -> bool {
+        let clean_input = Self::normalize_input(input);
+        let matched_indices: Vec<usize> =
+            REGEX_SET.matches(&clean_input).into_iter().collect();
+
+        for idx in matched_indices {
+            let pattern = &PATTERNS[idx];
+            let regex = &REGEX_INDIVIDUALS[idx];
+
+            for matched in regex.find_iter(&clean_input) {
+                if pattern.label == "CREDIT_CARD_PAN"
+                    && !validate_luhn(matched.as_str())
+                {
+                    continue;
+                }
+
+                if pattern.label == "CPF_BR"
+                    && !validate_cpf(matched.as_str())
+                {
+                    continue;
+                }
+
+                if pattern.label == "CNPJ_BR"
+                    && !validate_cnpj(matched.as_str())
+                {
+                    continue;
+                }
+
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Entry point. Consumes raw input, returns sanitized payload + metadata.
     ///
     /// WHY WE PROCESS IN TWO PASSES:
@@ -551,6 +588,29 @@ fn validate_cnpj(s: &str) -> bool {
 // ---------------------------------------------------------------------------
 // Tests — run with `cargo test`
 // ---------------------------------------------------------------------------
+#[cfg(test)]
+mod runtime_evidence_tests {
+    use super::AnonymizerEngine;
+
+    #[test]
+    fn sensitive_email_is_detected_without_transformation() {
+        assert!(
+            AnonymizerEngine::has_sensitive_data(
+                "Contact: user@example.com"
+            )
+        );
+    }
+
+    #[test]
+    fn ordinary_text_has_no_sensitive_data() {
+        assert!(
+            !AnonymizerEngine::has_sensitive_data(
+                "Vortex runtime authorization benchmark"
+            )
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

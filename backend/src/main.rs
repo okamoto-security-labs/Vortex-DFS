@@ -6,7 +6,11 @@
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
+use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
+use vortex_dfs::runtime::{
+    evaluate_request, Operation, PayloadContext, RequestContext, RuntimePolicy,
+};
 use vortex_dfs::signer_lwe::verify;
 
 #[allow(dead_code)]
@@ -44,10 +48,51 @@ async fn health_check(_req: HttpRequest) -> HttpResponse {
 
 async fn benchmark_anonymize(req: web::Json<AnonymizeRequest>) -> HttpResponse {
     let start = Instant::now();
+
+    // Evidence collection is separate from the protected transformation.
+    let mut context = RequestContext::new(
+        Uuid::new_v4().to_string(),
+        Uuid::new_v4().to_string(),
+        Operation::Anonymize,
+        PayloadContext::new(req.content.len()),
+    )
+    .with_policy_id("benchmark.anonymize");
+
+    context
+        .evidence
+        .set_structural_validity(!req.content.trim().is_empty());
+
+    context
+        .evidence
+        .set_sensitive_data_detected(
+            AnonymizerEngine::has_sensitive_data(&req.content),
+        );
+
+    let evaluation = evaluate_request(
+        context,
+        &RuntimePolicy::anonymization_benchmark(),
+    );
+
+    if evaluation.decision.blocks_execution() {
+        return HttpResponse::UnprocessableEntity().json(serde_json::json!({
+            "outcome": evaluation.decision.outcome.as_str(),
+            "reason_code": evaluation.decision.reason_code.as_str(),
+            "policy_id": evaluation.decision.policy.id,
+            "policy_version": evaluation.decision.policy.version,
+            "trace_id": evaluation.context.trace_id,
+        }));
+    }
+
+    // The protected transformation happens only after runtime authorization.
     let result = AnonymizerEngine::anonymize(&req.content);
     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     HttpResponse::Ok().json(serde_json::json!({
+        "outcome": evaluation.decision.outcome.as_str(),
+        "reason_code": evaluation.decision.reason_code.as_str(),
+        "policy_id": evaluation.decision.policy.id,
+        "policy_version": evaluation.decision.policy.version,
+        "trace_id": evaluation.context.trace_id,
         "latency_ms": latency_ms,
         "sanitized_length": result.sanitized.len(),
         "detections": result.detections.len(),
@@ -89,6 +134,56 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[actix_web::test]
+    async fn empty_anonymize_request_is_rejected_before_execution() {
+        let req = web::Json(AnonymizeRequest {
+            content: "   ".to_string(),
+            content_type: "text/plain".to_string(),
+            locale: "en".to_string(),
+        });
+
+        let resp = benchmark_anonymize(req).await;
+
+        assert_eq!(
+            resp.status(),
+            actix_web::http::StatusCode::UNPROCESSABLE_ENTITY
+        );
+
+        let body = actix_web::body::to_bytes(resp.into_body())
+            .await
+            .expect("response body should be readable");
+
+        let response: serde_json::Value =
+            serde_json::from_slice(&body).expect("response should be JSON");
+
+        assert_eq!(response["outcome"], "REJECT");
+        assert_eq!(response["reason_code"], "STRUCTURE_INVALID");
+    }
+
+    #[actix_web::test]
+    async fn sensitive_anonymize_request_is_redacted_after_authorization() {
+        let req = web::Json(AnonymizeRequest {
+            content: "Contact: user@example.com".to_string(),
+            content_type: "text/plain".to_string(),
+            locale: "en".to_string(),
+        });
+
+        let resp = benchmark_anonymize(req).await;
+
+        assert!(resp.status().is_success());
+
+        let body = actix_web::body::to_bytes(resp.into_body())
+            .await
+            .expect("response body should be readable");
+
+        let response: serde_json::Value =
+            serde_json::from_slice(&body).expect("response should be JSON");
+
+        assert_eq!(response["outcome"], "REDACT");
+        assert_eq!(response["reason_code"], "SENSITIVE_DATA_REDACTED");
+        assert_eq!(response["detections"], 1);
+    }
 
     #[actix_web::test]
     async fn benchmark_handler_returns_latency_metrics() {
