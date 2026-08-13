@@ -23,6 +23,7 @@ use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
 type HmacSha256 = Hmac<Sha256>;
 
 const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
+#[cfg(test)]
 const TEST_API_KEY: &str = "test-vortex-runtime-api-key";
 
 #[allow(dead_code)]
