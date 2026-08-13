@@ -2,7 +2,10 @@
 
 use std::time::Instant;
 
-use crate::runtime::{RequestContext, RuntimeDecision, RuntimePolicy, RuntimeValidator};
+use crate::runtime::{
+    AuditStoreError, RequestContext, RuntimeAuditEvent, RuntimeAuditStore, RuntimeDecision,
+    RuntimePolicy, RuntimeValidator,
+};
 
 /// Result of one protected-request evaluation.
 #[derive(Debug, Clone, PartialEq)]
@@ -98,6 +101,33 @@ where
     }
 }
 
+/// Evaluates, persists a safe audit event, and then conditionally executes.
+///
+/// Audit persistence is intentionally attempted before the executor. If it
+/// fails, this function returns an error and the executor is never invoked.
+pub async fn evaluate_audit_and_execute<T, F>(
+    context: RequestContext,
+    policy: &RuntimePolicy,
+    audit_store: &dyn RuntimeAuditStore,
+    executor: F,
+) -> Result<GuardedExecution<T>, AuditStoreError>
+where
+    F: FnOnce(&RuntimeEvaluation) -> T,
+{
+    let evaluation = evaluate_request(context, policy);
+    let event =
+        RuntimeAuditEvent::from_context_and_decision(&evaluation.context, &evaluation.decision);
+
+    audit_store.append(event).await?;
+
+    if evaluation.permits_execution() {
+        let output = executor(&evaluation);
+        Ok(GuardedExecution::Executed { evaluation, output })
+    } else {
+        Ok(GuardedExecution::Blocked { evaluation })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,6 +183,72 @@ mod tests {
             execution.evaluation().decision.outcome,
             DecisionOutcome::Reject
         );
+    }
+
+    #[tokio::test]
+    async fn audit_is_persisted_before_permitted_execution() {
+        let mut request = context();
+        request.evidence.set_structural_validity(true);
+        request.evidence.set_sensitive_data_detected(true);
+
+        let audit_store = crate::runtime::InMemoryRuntimeAuditStore::new();
+
+        let execution = evaluate_audit_and_execute(
+            request,
+            &RuntimePolicy::anonymization_benchmark(),
+            &audit_store,
+            |_| {
+                assert_eq!(audit_store.len().unwrap(), 1);
+                "redacted"
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(execution.was_executed());
+    }
+
+    struct FailingAuditStore;
+
+    #[async_trait::async_trait]
+    impl crate::runtime::RuntimeAuditStore for FailingAuditStore {
+        async fn append(
+            &self,
+            _event: crate::runtime::RuntimeAuditEvent,
+        ) -> Result<(), crate::runtime::AuditStoreError> {
+            Err(crate::runtime::AuditStoreError::new(
+                "audit storage unavailable",
+            ))
+        }
+
+        async fn find_by_trace_id(
+            &self,
+            _trace_id: &str,
+        ) -> Result<Vec<crate::runtime::RuntimeAuditEvent>, crate::runtime::AuditStoreError>
+        {
+            Err(crate::runtime::AuditStoreError::new(
+                "audit storage unavailable",
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn audit_failure_prevents_executor_invocation() {
+        let mut invoked = false;
+
+        let result = evaluate_audit_and_execute(
+            context(),
+            &RuntimePolicy::anonymization_benchmark(),
+            &FailingAuditStore,
+            |_| {
+                invoked = true;
+                "must not run"
+            },
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(!invoked);
     }
 
     #[test]

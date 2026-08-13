@@ -82,7 +82,7 @@ pub async fn init_db() -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn get_pool() -> Result<&'static PgPool, String> {
+pub fn get_pool() -> Result<&'static PgPool, String> {
     DB_POOL
         .get()
         .ok_or_else(|| "Database not initialized".to_string())
