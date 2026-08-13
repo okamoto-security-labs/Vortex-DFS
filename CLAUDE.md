@@ -1,21 +1,28 @@
-# CLAUDE.md — Vortex DFS
+# CLAUDE.md â€” Vortex DFS
 
 Guia de onboarding para qualquer agente de IA (ou humano) trabalhando neste projeto.
-Leia isto por completo antes de fazer qualquer mudança — economiza retrabalho.
+Leia isto por completo antes de fazer qualquer mudanÃ§a â€” economiza retrabalho.
 
 ---
 
-## Visão geral
+## VisÃ£o geral
 
-Vortex DFS é uma API de defesa determinística: redação de PII (`/v1/shield/anonymize`),
-assinatura pós-quântica LWE (`/v1/pqc/sign`, `/v1/pqc/verify`), e um scanner de
-agilidade criptográfica (`/v1/pqc/audit`). Backend em Rust (`actix-web`), deploy no
+Vortex DFS Ã© uma API de defesa determinÃ­stica: redaÃ§Ã£o de PII (`/v1/shield/anonymize`),
+assinatura pÃ³s-quÃ¢ntica LWE (`/v1/pqc/sign`, `/v1/pqc/verify`), e um scanner de
+agilidade criptogrÃ¡fica (`/v1/pqc/audit`). Backend em Rust (`actix-web`), deploy no
 Render, banco Supabase, pagamento via Stripe.
 
-**Status real (não o do marketing do README):** a criptografia PQC era uma
-implementação de brinquedo com 4 vulnerabilidades críticas até a sessão de
-auditoria de 01/07/2026 — ver "Histórico de incidentes" abaixo antes de mexer
-em qualquer coisa relacionada a `signer_lwe.rs`.
+**Status real (nÃ£o o do marketing do README):** o fluxo de anonimizaÃ§Ã£o tem
+uma fronteira determinÃ­stica funcional: `RequestContext` â†’ evidÃªncias â†’
+`RuntimePolicy` â†’ `RuntimeDecision` â†’ executor protegido. O endpoint HTTP usa
+`evaluate_and_execute()`, portanto um `REJECT` nÃ£o alcanÃ§a o executor. Isso Ã©
+um protÃ³tipo funcional/POC, nÃ£o uma plataforma enterprise pronta: ainda nÃ£o hÃ¡
+audit log persistente, identidade real no fluxo HTTP, carregamento externo de
+polÃ­ticas ou adaptador de Tool Runner/Agent SDK de produÃ§Ã£o.
+
+`signer_lwe.rs` continua uma implementaÃ§Ã£o LWE toy-scale e experimental. Ela
+nÃ£o deve ser apresentada como PQC de produÃ§Ã£o; ver "HistÃ³rico de incidentes"
+antes de mexer nessa Ã¡rea.
 
 ---
 
@@ -25,97 +32,98 @@ em qualquer coisa relacionada a `signer_lwe.rs`.
 - **Framework HTTP:** actix-web 4.x
 - **Banco:** Supabase (via `provisioner::init_db()`)
 - **Pagamento:** Stripe (`stripe_webhook.rs`)
-- **Deploy:** Render (free tier — hiberna com inatividade, reinicia processo)
-- **CDN/proxy:** Cloudflare (por isso `X-Forwarded-For` é a fonte de IP real, não o socket)
+- **Deploy:** Render (free tier â€” hiberna com inatividade, reinicia processo)
+- **CDN/proxy:** Cloudflare (por isso `X-Forwarded-For` Ã© a fonte de IP real, nÃ£o o socket)
 
 ---
 
-## Ambientes — LEIA ISTO ANTES DE RODAR QUALQUER COMANDO
+## Ambientes â€” LEIA ISTO ANTES DE RODAR QUALQUER COMANDO
 
-Este projeto tem **dois ambientes que NÃO se sincronizam automaticamente**:
+Este projeto tem **dois ambientes que NÃƒO se sincronizam automaticamente**:
 
-1. **GitHub Codespaces** (`@usuario ➜ /workspaces/Vortex-DFS`) — onde o Rust
-   está instalado e onde `cargo build`/`cargo test` funcionam. É aqui que o
+1. **GitHub Codespaces** (`@usuario âžœ /workspaces/Vortex-DFS`) â€” onde o Rust
+   estÃ¡ instalado e onde `cargo build`/`cargo test` funcionam. Ã‰ aqui que o
    trabalho de verdade deve acontecer.
-2. **Windows local** (`PS C:\Users\...\Vortex-DFS>`) — não tem Rust instalado
-   nativamente. `cargo build` aqui falha com "não há aplicativos associados".
+2. **Windows local** (`PS C:\Users\...\Vortex-DFS>`) â€” nÃ£o tem Rust instalado
+   nativamente. `cargo build` aqui falha com "nÃ£o hÃ¡ aplicativos associados".
 
-**Codespaces e Windows local são filesystems separados.** Editar um arquivo
-localmente no Windows NÃO aparece no Codespace até você fazer `git push` de um
-lado e `git pull` do outro. Não são a mesma pasta montada — isso só seria
-verdade com um devcontainer local via Docker Desktop, que não é o setup atual.
+**Codespaces e Windows local sÃ£o filesystems separados.** Editar um arquivo
+localmente no Windows NÃƒO aparece no Codespace atÃ© vocÃª fazer `git push` de um
+lado e `git pull` do outro. NÃ£o sÃ£o a mesma pasta montada â€” isso sÃ³ seria
+verdade com um devcontainer local via Docker Desktop, que nÃ£o Ã© o setup atual.
 
-**Regra prática: prefira sempre trabalhar e commitar de dentro do Codespace.**
-Editar no Windows e tentar sincronizar depois já causou retrabalho significativo
-(commit perdido, arquivo duplicado na raiz do repo, confusão sobre qual versão
-é a "certa"). Se precisar usar o Windows, termine o ciclo completo
-(`add` → `commit` → `push`) antes de trocar de ambiente.
+**Regra prÃ¡tica: prefira sempre trabalhar e commitar de dentro do Codespace.**
+Editar no Windows e tentar sincronizar depois jÃ¡ causou retrabalho significativo
+(commit perdido, arquivo duplicado na raiz do repo, confusÃ£o sobre qual versÃ£o
+Ã© a "certa"). Se precisar usar o Windows, termine o ciclo completo
+(`add` â†’ `commit` â†’ `push`) antes de trocar de ambiente.
 
-No PowerShell, `grep` não existe — use `Select-String -Path arquivo -Pattern "regex"`.
+No PowerShell, `grep` nÃ£o existe â€” use `Select-String -Path arquivo -Pattern "regex"`.
 
 ---
 
-## Estrutura do diretório (`backend/src/`)
+## Estrutura do diretÃ³rio (`backend/src/`)
 
 | Arquivo | Responsabilidade |
 |---|---|
 | `main.rs` | Entrypoint HTTP, rotas, CORS, rate limiting, auth |
-| `signer_lwe.rs` | Assinatura Fiat-Shamir sobre LWE (pós-quântica, toy-scale) |
-| `key_store.rs` | Geração e persistência de chaves LWE — **não** derivar de string |
-| `pqc_core.rs` | `PqcVector`/`TrustBand` — avaliação de confiança física |
+| `signer_lwe.rs` | Assinatura Fiat-Shamir sobre LWE (pÃ³s-quÃ¢ntica, toy-scale) |
+| `key_store.rs` | GeraÃ§Ã£o e persistÃªncia de chaves LWE â€” **nÃ£o** derivar de string |
+| `pqc_core.rs` | `PqcVector`/`TrustBand` â€” avaliaÃ§Ã£o de confianÃ§a fÃ­sica |
 | `pqc_endpoints.rs` | Handlers HTTP de `/v1/pqc/*` |
-| `anonymizer_engine.rs` | Detecção e redação de PII (20 padrões, 4 tiers) |
-| `provisioner.rs` | Geração de API key, gestão de clientes (Supabase) |
-| `stripe_webhook.rs` | Verificação HMAC de webhook do Stripe |
+| `anonymizer_engine.rs` | DetecÃ§Ã£o e redaÃ§Ã£o de PII (20 padrÃµes, 4 tiers) |
+| `provisioner.rs` | GeraÃ§Ã£o de API key, gestÃ£o de clientes (Supabase) |
+| `stripe_webhook.rs` | VerificaÃ§Ã£o HMAC de webhook do Stripe |
+| `runtime/engine.rs` | AvaliaÃ§Ã£o determinÃ­stica e gate estrutural de executor (`evaluate_and_execute`) |
 
 ---
 
-## Common Hurdles (soluções já descobertas — não redescubra)
+## Common Hurdles (soluÃ§Ãµes jÃ¡ descobertas â€” nÃ£o redescubra)
 
-1. **`web::Data<dyn Trait>` não aceita `Data::new(ConcreteType)` com anotação de
-   trait object.** `Data<T>` não ganha `CoerceUnsized` de graça. O caminho que
+1. **`web::Data<dyn Trait>` nÃ£o aceita `Data::new(ConcreteType)` com anotaÃ§Ã£o de
+   trait object.** `Data<T>` nÃ£o ganha `CoerceUnsized` de graÃ§a. O caminho que
    compila:
    ```rust
    let arc: Arc<dyn KeyStore> = Arc::new(InMemoryKeyStore::new());
    let data: web::Data<dyn KeyStore> = web::Data::from(arc);
    ```
 
-2. **`actix-web` moderno não compila com Rust 1.75** (dependências transitivas
-   como `chacha20`/`time-core` exigem `edition2024`). Isso só afeta ambientes
-   com toolchain desatualizado — o Codespace já tem uma versão compatível.
-   Se aparecer erro de `edition2024`, o problema é o toolchain, não o código.
+2. **`actix-web` moderno nÃ£o compila com Rust 1.75** (dependÃªncias transitivas
+   como `chacha20`/`time-core` exigem `edition2024`). Isso sÃ³ afeta ambientes
+   com toolchain desatualizado â€” o Codespace jÃ¡ tem uma versÃ£o compatÃ­vel.
+   Se aparecer erro de `edition2024`, o problema Ã© o toolchain, nÃ£o o cÃ³digo.
 
 3. **Fiat-Shamir sobre LWE: o challenge PRECISA depender do commitment.**
-   `challenge_hash(data)` sozinho permite forjar qualquer assinatura com só a
-   chave pública. Tem que ser `challenge_hash(w, data)`. Ver changelog em
-   `signer_lwe.rs` para o histórico completo (Finding #1).
+   `challenge_hash(data)` sozinho permite forjar qualquer assinatura com sÃ³ a
+   chave pÃºblica. Tem que ser `challenge_hash(w, data)`. Ver changelog em
+   `signer_lwe.rs` para o histÃ³rico completo (Finding #1).
 
-4. **Tolerância de verificação LWE nunca pode ser derivada de um valor que o
+4. **TolerÃ¢ncia de verificaÃ§Ã£o LWE nunca pode ser derivada de um valor que o
    atacante/dado controla.** Precisa ser uma constante fixa em compile-time,
-   com folga confortável abaixo de `Q/2`. Ver `TOLERANCE`/`CHALLENGE_BOUND`
+   com folga confortÃ¡vel abaixo de `Q/2`. Ver `TOLERANCE`/`CHALLENGE_BOUND`
    em `signer_lwe.rs` (Finding #2).
 
 5. **Nonce de assinatura nunca pode vir do cliente.** Reuso de nonce (mesmo
-   client-controlled) permite recuperar a chave secreta inteira por álgebra
+   client-controlled) permite recuperar a chave secreta inteira por Ã¡lgebra
    linear simples (mesma classe de bug que vazou a chave do PS3 em 2010).
-   `sign()` não aceita mais parâmetro `nonce` — gera sempre via `OsRng`
+   `sign()` nÃ£o aceita mais parÃ¢metro `nonce` â€” gera sempre via `OsRng`
    internamente (Finding #4).
 
-6. **Nunca derivar chave secreta de uma string conhecível (API key, nome do
-   cliente).** Se o algoritmo é determinístico e o código é open source,
-   qualquer um recalcula a chave sabendo só a string. Chave tem que vir de
+6. **Nunca derivar chave secreta de uma string conhecÃ­vel (API key, nome do
+   cliente).** Se o algoritmo Ã© determinÃ­stico e o cÃ³digo Ã© open source,
+   qualquer um recalcula a chave sabendo sÃ³ a string. Chave tem que vir de
    `keygen_secure()` (usa `OsRng`), gerada uma vez, e persistida via
-   `KeyStore` — nunca recalculada por request (Finding #3).
+   `KeyStore` â€” nunca recalculada por request (Finding #3).
 
-7. **Parâmetros de brinquedo (N=16, Q=257) têm um teto de segurança que
+7. **ParÃ¢metros de brinquedo (N=16, Q=257) tÃªm um teto de seguranÃ§a que
    nenhum tuning resolve.** Mesmo com os 4 findings corrigidos, resta um
    risco residual de forjamento por tentativa-e-erro online (~1% por
-   tentativa com `CHALLENGE_BOUND=50`). Mitigação real: rate limiting
-   agressivo nos endpoints PQC (**ainda pendente**, ver Roadmap) e migração
-   futura para `pqcrypto-dilithium` (N≥512) em produção.
+   tentativa com `CHALLENGE_BOUND=50`). MitigaÃ§Ã£o real: rate limiting
+   agressivo nos endpoints PQC (**ainda pendente**, ver Roadmap) e migraÃ§Ã£o
+   futura para `pqcrypto-dilithium` (Nâ‰¥512) em produÃ§Ã£o.
 
-8. **`target/` não deve estar no `.gitignore`... espera, deve sim.** Foi
-   commitado por engano no início do projeto (artefatos de build do Cargo
+8. **`target/` nÃ£o deve estar no `.gitignore`... espera, deve sim.** Foi
+   commitado por engano no inÃ­cio do projeto (artefatos de build do Cargo
    inteiros no git). Se reaparecer em `git status`, adicionar/corrigir
    `.gitignore` antes de commitar.
 
@@ -123,66 +131,66 @@ No PowerShell, `grep` não existe — use `Select-String -Path arquivo -Pattern 
 
 ## Design Patterns do projeto
 
-- **`KeyStore` trait + `InMemoryKeyStore`:** abstração de armazenamento de
-  chaves. A implementação em memória é só para o estágio atual (sem tráfego
-  pagante) — perde tudo a cada restart/hibernação do Render. Trocar por
-  persistência real (Postgres/Supabase + criptografia em repouso, idealmente
+- **`KeyStore` trait + `InMemoryKeyStore`:** abstraÃ§Ã£o de armazenamento de
+  chaves. A implementaÃ§Ã£o em memÃ³ria Ã© sÃ³ para o estÃ¡gio atual (sem trÃ¡fego
+  pagante) â€” perde tudo a cada restart/hibernaÃ§Ã£o do Render. Trocar por
+  persistÃªncia real (Postgres/Supabase + criptografia em repouso, idealmente
   HSM/KMS) antes de ter clientes de verdade.
-- **`auth_and_rate()` combinado:** autenticação + rate limiting em uma função
-  só, retornando `(is_demo: bool, resolved_key: String)`. Endpoints devem
-  chamar essa função em vez de reimplementar extração de header — foi
-  justamente a duplicação que deixou `/v1/pqc/*` sem rate limit por um tempo.
-- **CORS manual** (sem crate `actix-cors`) — lista fixa de origins permitidos,
-  função `add_cors()` envolve toda resposta.
-- **Testes adversariais embutidos no próprio arquivo** (`#[cfg(test)] mod
-  adversarial_core`, `mod stress_tests` dentro de `signer_lwe.rs`) — não
+- **`auth_and_rate()` combinado:** autenticaÃ§Ã£o + rate limiting em uma funÃ§Ã£o
+  sÃ³, retornando `(is_demo: bool, resolved_key: String)`. Endpoints devem
+  chamar essa funÃ§Ã£o em vez de reimplementar extraÃ§Ã£o de header â€” foi
+  justamente a duplicaÃ§Ã£o que deixou `/v1/pqc/*` sem rate limit por um tempo.
+- **CORS manual** (sem crate `actix-cors`) â€” lista fixa de origins permitidos,
+  funÃ§Ã£o `add_cors()` envolve toda resposta.
+- **Testes adversariais embutidos no prÃ³prio arquivo** (`#[cfg(test)] mod
+  adversarial_core`, `mod stress_tests` dentro de `signer_lwe.rs`) â€” nÃ£o
   ficam em `tests/` separado. Rodam junto com `cargo test` normal.
 
 ---
 
-## Histórico de incidentes
+## HistÃ³rico de incidentes
 
-**01/07/2026 — Auditoria adversarial encontrou 4 vulnerabilidades críticas em
+**01/07/2026 â€” Auditoria adversarial encontrou 4 vulnerabilidades crÃ­ticas em
 `signer_lwe.rs`/`pqc_endpoints.rs`:**
-- Finding #1: forjamento total de assinatura sem chave secreta (challenge não
+- Finding #1: forjamento total de assinatura sem chave secreta (challenge nÃ£o
   amarrado ao commitment)
-- Finding #2: overflow de tolerância tornava a verificação vazia em ~75% dos casos
-- Finding #3: chave secreta 100% derivável só sabendo a API key
+- Finding #2: overflow de tolerÃ¢ncia tornava a verificaÃ§Ã£o vazia em ~75% dos casos
+- Finding #3: chave secreta 100% derivÃ¡vel sÃ³ sabendo a API key
 - Finding #4: reuso de nonce (client-controlled) recuperava a chave secreta inteira
 
-Todas corrigidas e travadas com 16 testes de regressão (`cargo test`). Ver
+Todas corrigidas e travadas com 16 testes de regressÃ£o (`cargo test`). Ver
 changelog no topo de `signer_lwe.rs`, `key_store.rs` e `main.rs` para detalhe
 de cada fix.
 
 ---
 
-## Checklist pós-implementação
+## Checklist pÃ³s-implementaÃ§Ã£o
 
-Antes de considerar qualquer mudança "pronta":
+Antes de considerar qualquer mudanÃ§a "pronta":
 
 - [ ] `cargo build` limpo (sem `error`, warnings ok mas revisar)
-- [ ] `cargo test` — todos os testes passando, incluindo os de
+- [ ] `cargo test` â€” todos os testes passando, incluindo os de
       `signer_lwe::adversarial_core` e `signer_lwe::stress_tests`
-- [ ] Commit feito **de dentro do Codespace**, não do Windows local
-- [ ] `git status` revisado antes do `git add` — checar se não sobrou arquivo
-      solto na raiz do repo (já aconteceu antes)
+- [ ] Commit feito **de dentro do Codespace**, nÃ£o do Windows local
+- [ ] `git status` revisado antes do `git add` â€” checar se nÃ£o sobrou arquivo
+      solto na raiz do repo (jÃ¡ aconteceu antes)
 - [ ] Deploy no Render confirmado verde (aba "Events" do dashboard)
-- [ ] Se a mudança tocar em `signer_lwe.rs`, `key_store.rs`, ou
-      `pqc_endpoints.rs`: os 16 testes de segurança são obrigatórios,
-      não opcionais
+- [ ] Se a mudanÃ§a tocar em `signer_lwe.rs`, `key_store.rs`, ou
+      `pqc_endpoints.rs`: os 16 testes de seguranÃ§a sÃ£o obrigatÃ³rios,
+      nÃ£o opcionais
 
 ---
 
-## Roadmap / dívida técnica conhecida
+## Roadmap / dÃ­vida tÃ©cnica conhecida
 
-- [ ] `/v1/pqc/sign` e `/v1/pqc/verify` ainda não chamam `auth_and_rate()` —
-      sem rate limit real nesses dois endpoints (`auth_and_rate()` já retorna
+- [ ] `/v1/pqc/sign` e `/v1/pqc/verify` ainda nÃ£o chamam `auth_and_rate()` â€”
+      sem rate limit real nesses dois endpoints (`auth_and_rate()` jÃ¡ retorna
       a chave resolvida, pronto pra ser conectado)
-- [ ] `InMemoryKeyStore` precisa virar persistência real antes de qualquer
+- [ ] `InMemoryKeyStore` precisa virar persistÃªncia real antes de qualquer
       cliente pagante
-- [ ] GitHub Actions / CI ainda não existe — testes só rodam manualmente
-- [ ] Produção real de `/pqc/*` deveria migrar para `pqcrypto-dilithium`
-      (N≥512) — os parâmetros atuais (N=16, Q=257) são só para demonstração
+- [ ] CI deve continuar verde; confirme o workflow em `.github/workflows/ci.yml`
+- [ ] ProduÃ§Ã£o real de `/pqc/*` deveria migrar para `pqcrypto-dilithium`
+      (Nâ‰¥512) â€” os parÃ¢metros atuais (N=16, Q=257) sÃ£o sÃ³ para demonstraÃ§Ã£o
 
 
 ---
@@ -204,12 +212,12 @@ Transform the Vortex backend from endpoint-driven execution into a deterministic
 Target pipeline:
 
 Request
-→ RequestContext
-→ RuntimePolicy
-→ RuntimeValidator
-→ RuntimeDecision
-→ Execution
-→ Audit
+â†’ RequestContext
+â†’ RuntimePolicy
+â†’ RuntimeValidator
+â†’ RuntimeDecision
+â†’ Execution
+â†’ Audit
 
 #### New Runtime Modules
 
@@ -407,13 +415,13 @@ Documentation now explains:
 The Vortex ecosystem responsibilities are now clearly separated.
 
 Vortex DFS
-→ Production Runtime Trust Layer.
+â†’ Production Runtime Trust Layer.
 
 Vortex Lab
-→ Research & Engineering Laboratory.
+â†’ Research & Engineering Laboratory.
 
 Future commercial platform
-→ Product built on top of Vortex technologies.
+â†’ Product built on top of Vortex technologies.
 
 ---
 
@@ -465,7 +473,7 @@ The project evolved from being described by **what it does** to being described 
 
 ---
 
-## Engineering Log — 2026-07-31
+## Engineering Log â€” 2026-07-31
 
 ### Vortex DFS + Agent SDK Runtime Integration
 
@@ -474,17 +482,17 @@ Completed the first working end-to-end integration between the Vortex DFS Runtim
 ### Architecture
 
 Application  
-↓  
+â†“  
 Vortex DFS Runtime  
-↓  
+â†“  
 Policy Evaluation  
-↓  
+â†“  
 Trust Boundary Evaluation  
-↓  
+â†“  
 Authorization Decision  
-↓  
+â†“  
 Agent SDK  
-↓  
+â†“  
 Execution  
 
 ### Current Implementation
@@ -506,9 +514,9 @@ Execution
 - Iterations: 1,000
 - Successful executions: 1,000
 - Failed executions: 0
-- Average Agent SDK latency: approximately 24–28 microseconds
-- P99 latency: approximately 42–57 microseconds
-- Throughput: approximately 33,000–39,000 requests per second
+- Average Agent SDK latency: approximately 24â€“28 microseconds
+- P99 latency: approximately 42â€“57 microseconds
+- Throughput: approximately 33,000â€“39,000 requests per second
 - Runtime authorization overhead: sub-microsecond in the local test
 
 ### Important Limitation
@@ -519,7 +527,7 @@ It is not yet calculated from live telemetry or production security signals.
 
 ### Next Milestones
 
-- Dynamic trust score calculation
+- Dynamic trust score calculation 
 - Runtime telemetry ingestion
 - Tool permission validation
 - Multiple policy profiles
@@ -536,3 +544,51 @@ The Agent SDK provides execution capability.
 Vortex DFS now provides an explicit authorization boundary before that execution.
 
 The current milestone proves the architecture and runtime flow, not production readiness.
+
+---
+
+## Engineering Log â€” 2026-08-12 to 2026-08-13
+
+### Runtime consolidation and anonymization enforcement
+
+Completed:
+
+- Consolidated the canonical runtime entry point in `runtime::engine`.
+- Integrated the anonymization HTTP path with `RequestContext`, evidence
+  collection, `RuntimePolicy`, and deterministic runtime evaluation.
+- Empty anonymization input deterministically returns `REJECT` before the
+  anonymizer is called.
+- Sensitive content returns `REDACT` and proceeds to the anonymizer only after
+  the runtime permits execution.
+- Added `GuardedExecution<T>` and `evaluate_and_execute()`. This makes the
+  verification boundary structural: `REJECT` returns `Blocked` and cannot
+  invoke the supplied executor closure.
+- Added regression tests for both invariants: rejected requests do not execute;
+  redaction decisions do execute.
+
+Validated in the Codespace:
+
+- Backend library: 83 tests passed, 0 failed.
+- HTTP handler tests: 3 passed, 0 failed.
+- `vortex-ebpf` built successfully in both development and release profiles
+  after installing the required nightly toolchain and `bpf-linker`.
+
+### eBPF/XDP boundary: scope clarified
+
+- The experimental XDP component is a narrow early network enforcement point,
+  not an agent authorization engine and not a complete runtime-security claim.
+- Do not claim fixed sub-microsecond latency, zero overhead, or zero-copy
+  security without a reproducible benchmark on the target NIC, driver, kernel,
+  packet shape, and policy.
+- Keep any XDP port-policy change in its own PR; do not mix kernel/toolchain
+  work with the runtime execution gate.
+
+### Current delivery state
+
+- Runtime execution gate: implemented and tested locally in branch
+  `feat/runtime-tool-execution-gate`.
+- Before opening/merging its PR: keep the diff limited to
+  `backend/src/runtime/engine.rs`, `backend/src/runtime/mod.rs`, and
+  `backend/src/main.rs`; run `git diff --check` and the full backend test suite.
+- Persistent audit, production identity/signature enforcement, external policy
+  loading, and a real Tool Runner/Agent SDK remain future work.
