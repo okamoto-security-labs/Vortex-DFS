@@ -3,20 +3,27 @@
 // Produção Determinística - Balanceamento Léxico Completo
 // =========================================================================
 
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{http::header, web, App, HttpRequest, HttpResponse, HttpServer};
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::sync::Arc;
 use std::time::Instant;
 use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::provisioner::{get_pool, init_db};
 use vortex_dfs::runtime::{
-    evaluate_audit_and_execute, GuardedExecution, Operation,
-    PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
+    evaluate_audit_and_execute, GuardedExecution, IdentityContext, Operation, PayloadContext,
+    PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
 #[cfg(test)]
 use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
+
+type HmacSha256 = Hmac<Sha256>;
+
+const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
+const TEST_API_KEY: &str = "test-vortex-runtime-api-key";
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
@@ -35,17 +42,79 @@ struct ErrorResponse {
 }
 
 #[derive(Clone)]
-struct AuditState {
-    store: Arc<dyn RuntimeAuditStore>,
+struct RuntimeState {
+    audit_store: Arc<dyn RuntimeAuditStore>,
+    api_key_proof: [u8; 32],
+    principal_id: Arc<str>,
 }
 
-impl AuditState {
+impl RuntimeState {
+    fn new(
+        audit_store: Arc<dyn RuntimeAuditStore>,
+        api_key: &str,
+        principal_id: impl Into<Arc<str>>,
+    ) -> Self {
+        Self {
+            audit_store,
+            api_key_proof: api_key_proof(api_key),
+            principal_id: principal_id.into(),
+        }
+    }
+
     #[cfg(test)]
     fn in_memory_for_test() -> web::Data<Self> {
-        web::Data::new(Self {
-            store: Arc::new(InMemoryRuntimeAuditStore::new()),
-        })
+        web::Data::new(Self::new(
+            Arc::new(InMemoryRuntimeAuditStore::new()),
+            TEST_API_KEY,
+            "test-http-client",
+        ))
     }
+}
+
+fn api_key_proof(api_key: &str) -> [u8; 32] {
+    let mut mac =
+        HmacSha256::new_from_slice(api_key.as_bytes()).expect("HMAC accepts API key material");
+    mac.update(API_KEY_PROOF_CONTEXT);
+    mac.finalize().into_bytes().into()
+}
+
+fn authenticate_bearer(
+    request: &HttpRequest,
+    state: &RuntimeState,
+) -> Result<IdentityContext, HttpResponse> {
+    let Some(value) = request.headers().get(header::AUTHORIZATION) else {
+        return Err(unauthorized_response());
+    };
+
+    let Ok(value) = value.to_str() else {
+        return Err(unauthorized_response());
+    };
+
+    let Some(api_key) = value.strip_prefix("Bearer ").filter(|key| !key.is_empty()) else {
+        return Err(unauthorized_response());
+    };
+
+    let mut verifier =
+        HmacSha256::new_from_slice(api_key.as_bytes()).expect("HMAC accepts API key material");
+    verifier.update(API_KEY_PROOF_CONTEXT);
+
+    if verifier.verify_slice(&state.api_key_proof).is_err() {
+        return Err(unauthorized_response());
+    }
+
+    Ok(IdentityContext::new(
+        state.principal_id.as_ref(),
+        "bearer_api_key",
+        true,
+    ))
+}
+
+fn unauthorized_response() -> HttpResponse {
+    HttpResponse::Unauthorized()
+        .insert_header((header::WWW_AUTHENTICATE, "Bearer"))
+        .json(serde_json::json!({
+            "error": "authentication required",
+        }))
 }
 
 async fn health_check(_req: HttpRequest) -> HttpResponse {
@@ -66,9 +135,15 @@ async fn health_check(_req: HttpRequest) -> HttpResponse {
 }
 
 async fn benchmark_anonymize(
+    request: HttpRequest,
     req: web::Json<AnonymizeRequest>,
-    audit_state: web::Data<AuditState>,
+    runtime_state: web::Data<RuntimeState>,
 ) -> HttpResponse {
+    let identity = match authenticate_bearer(&request, runtime_state.get_ref()) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
     let start = Instant::now();
 
     // Evidence collection is separate from the protected transformation.
@@ -78,7 +153,8 @@ async fn benchmark_anonymize(
         Operation::Anonymize,
         PayloadContext::new(req.content.len()),
     )
-    .with_policy_id("benchmark.anonymize");
+    .with_identity(identity)
+    .with_policy_id("runtime.anonymize");
 
     context
         .evidence
@@ -90,8 +166,8 @@ async fn benchmark_anonymize(
 
     let execution = match evaluate_audit_and_execute(
         context,
-        &RuntimePolicy::anonymization_benchmark(),
-        audit_state.store.as_ref(),
+        &RuntimePolicy::authenticated_anonymization(),
+        runtime_state.audit_store.as_ref(),
         |_| AnonymizerEngine::anonymize(&req.content),
     )
     .await
@@ -172,13 +248,32 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(std::io::Error::other)?;
 
-    let audit_state = web::Data::new(AuditState {
-        store: Arc::new(audit_store),
-    });
+    let api_key = std::env::var("VORTEX_API_KEY")
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "VORTEX_API_KEY must be configured",
+        ))?;
+
+    if api_key.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "VORTEX_API_KEY must not be empty",
+        ));
+    }
+
+    let principal_id = std::env::var("VORTEX_API_PRINCIPAL_ID")
+        .unwrap_or_else(|_| "http-api-client".to_string());
+
+    let audit_store: Arc<dyn RuntimeAuditStore> = Arc::new(audit_store);
+    let runtime_state = web::Data::new(RuntimeState::new(
+        audit_store,
+        &api_key,
+        principal_id,
+    ));
 
     HttpServer::new(move || {
         App::new()
-            .app_data(audit_state.clone())
+            .app_data(runtime_state.clone())
             .route("/health", web::get().to(health_check))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route("/benchmark/pqc/verify", web::get().to(benchmark_verify_pqc))
@@ -192,6 +287,49 @@ async fn main() -> std::io::Result<()> {
 mod tests {
     use super::*;
 
+    fn authorized_http_request() -> HttpRequest {
+        actix_web::test::TestRequest::default()
+            .insert_header((
+                header::AUTHORIZATION,
+                format!("Bearer {TEST_API_KEY}"),
+            ))
+            .to_http_request()
+    }
+
+    fn anonymize_request(content: &str) -> web::Json<AnonymizeRequest> {
+        web::Json(AnonymizeRequest {
+            content: content.to_string(),
+            content_type: "text/plain".to_string(),
+            locale: "en".to_string(),
+        })
+    }
+
+    #[actix_web::test]
+    async fn missing_bearer_token_is_rejected() {
+        let response = benchmark_anonymize(
+            actix_web::test::TestRequest::default().to_http_request(),
+            anonymize_request("Contact: user@example.com"),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn invalid_bearer_token_is_rejected() {
+        let response = benchmark_anonymize(
+            actix_web::test::TestRequest::default()
+                .insert_header((header::AUTHORIZATION, "Bearer invalid-token"))
+                .to_http_request(),
+            anonymize_request("Contact: user@example.com"),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
     #[actix_web::test]
     async fn empty_anonymize_request_is_rejected_before_execution() {
         let req = web::Json(AnonymizeRequest {
@@ -200,7 +338,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
 
         assert_eq!(
             resp.status(),
@@ -226,7 +364,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
 
         assert!(resp.status().is_success());
 
@@ -251,7 +389,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
         assert!(resp.status().is_success());
     }
 }

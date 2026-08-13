@@ -211,6 +211,23 @@ impl RuntimePolicy {
         .with_fail_closed(true)
     }
 
+    /// Authenticated policy for the protected anonymization adapter.
+    pub fn authenticated_anonymization() -> Self {
+        Self::new(
+            "runtime.anonymize",
+            "0.1.0",
+        )
+        .allow_operation(Operation::Anonymize)
+        .with_identity_requirement(true)
+        .with_payload_integrity_requirement(false)
+        .with_signature_requirement(false)
+        .with_anonymization_requirement(true)
+        .with_minimum_trust_band(None)
+        .with_replay_protection(false)
+        .with_audit_requirement(true)
+        .with_fail_closed(true)
+    }
+
     /// Benchmark policy for the current PQC verification endpoint.
     pub fn pqc_verification_benchmark() -> Self {
         Self::new(
