@@ -9,7 +9,8 @@ use std::time::Instant;
 use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::runtime::{
-    evaluate_request, Operation, PayloadContext, RequestContext, RuntimePolicy,
+    evaluate_and_execute, GuardedExecution, Operation, PayloadContext, RequestContext,
+    RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
 
@@ -64,40 +65,42 @@ async fn benchmark_anonymize(req: web::Json<AnonymizeRequest>) -> HttpResponse {
 
     context
         .evidence
-        .set_sensitive_data_detected(
-            AnonymizerEngine::has_sensitive_data(&req.content),
-        );
+        .set_sensitive_data_detected(AnonymizerEngine::has_sensitive_data(&req.content));
 
-    let evaluation = evaluate_request(
-        context,
-        &RuntimePolicy::anonymization_benchmark(),
-    );
+    let execution =
+        evaluate_and_execute(context, &RuntimePolicy::anonymization_benchmark(), |_| {
+            AnonymizerEngine::anonymize(&req.content)
+        });
 
-    if evaluation.decision.blocks_execution() {
-        return HttpResponse::UnprocessableEntity().json(serde_json::json!({
-            "outcome": evaluation.decision.outcome.as_str(),
-            "reason_code": evaluation.decision.reason_code.as_str(),
-            "policy_id": evaluation.decision.policy.id,
-            "policy_version": evaluation.decision.policy.version,
-            "trace_id": evaluation.context.trace_id,
-        }));
+    match execution {
+        GuardedExecution::Blocked { evaluation } => {
+            HttpResponse::UnprocessableEntity().json(serde_json::json!({
+                "outcome": evaluation.decision.outcome.as_str(),
+                "reason_code": evaluation.decision.reason_code.as_str(),
+                "policy_id": evaluation.decision.policy.id,
+                "policy_version": evaluation.decision.policy.version,
+                "trace_id": evaluation.context.trace_id,
+            }))
+        }
+        GuardedExecution::Executed {
+            evaluation,
+            output: result,
+        } => {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+            HttpResponse::Ok().json(serde_json::json!({
+                "outcome": evaluation.decision.outcome.as_str(),
+                "reason_code": evaluation.decision.reason_code.as_str(),
+                "policy_id": evaluation.decision.policy.id,
+                "policy_version": evaluation.decision.policy.version,
+                "trace_id": evaluation.context.trace_id,
+                "latency_ms": latency_ms,
+                "sanitized_length": result.sanitized.len(),
+                "detections": result.detections.len(),
+                "risk_score": result.risk_score,
+            }))
+        }
     }
-
-    // The protected transformation happens only after runtime authorization.
-    let result = AnonymizerEngine::anonymize(&req.content);
-    let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
-
-    HttpResponse::Ok().json(serde_json::json!({
-        "outcome": evaluation.decision.outcome.as_str(),
-        "reason_code": evaluation.decision.reason_code.as_str(),
-        "policy_id": evaluation.decision.policy.id,
-        "policy_version": evaluation.decision.policy.version,
-        "trace_id": evaluation.context.trace_id,
-        "latency_ms": latency_ms,
-        "sanitized_length": result.sanitized.len(),
-        "detections": result.detections.len(),
-        "risk_score": result.risk_score,
-    }))
 }
 
 async fn benchmark_verify_pqc() -> HttpResponse {
@@ -188,7 +191,8 @@ mod tests {
     #[actix_web::test]
     async fn benchmark_handler_returns_latency_metrics() {
         let req = web::Json(AnonymizeRequest {
-            content: "Contact: user@example.com\nKey: AKIAIOSFODNN7EXAMPLE\nSSN: 123-45-6789".to_string(),
+            content: "Contact: user@example.com\nKey: AKIAIOSFODNN7EXAMPLE\nSSN: 123-45-6789"
+                .to_string(),
             content_type: "text/plain".to_string(),
             locale: "en".to_string(),
         });
