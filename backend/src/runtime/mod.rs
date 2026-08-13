@@ -17,27 +17,14 @@ pub mod trust;
 pub mod validator;
 
 pub use context::{
-    current_timestamp_ms,
-    IdentityContext,
-    PayloadContext,
-    RequestContext,
-    ValidationFailure,
+    current_timestamp_ms, IdentityContext, PayloadContext, RequestContext, ValidationFailure,
 };
 
-pub use decision::{
-    DecisionOutcome,
-    DecisionPolicyReference,
-    DecisionReason,
-    RuntimeDecision,
-};
+pub use decision::{DecisionOutcome, DecisionPolicyReference, DecisionReason, RuntimeDecision};
 
-pub use engine::{evaluate_request, RuntimeEvaluation};
+pub use engine::{evaluate_and_execute, evaluate_request, GuardedExecution, RuntimeEvaluation};
 
-pub use evidence::{
-    EvidenceSummary,
-    EvidenceValue,
-    SecurityEvidence,
-};
+pub use evidence::{EvidenceSummary, EvidenceValue, SecurityEvidence};
 
 pub use operation::Operation;
 pub use policy::RuntimePolicy;

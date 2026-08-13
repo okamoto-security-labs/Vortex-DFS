@@ -18,6 +18,32 @@ impl RuntimeEvaluation {
     }
 }
 
+/// Result of attempting to run an external effect behind the runtime gate.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GuardedExecution<T> {
+    Executed {
+        evaluation: RuntimeEvaluation,
+        output: T,
+    },
+    Blocked {
+        evaluation: RuntimeEvaluation,
+    },
+}
+
+impl<T> GuardedExecution<T> {
+    /// Returns the decision evaluation whether execution ran or was blocked.
+    pub const fn evaluation(&self) -> &RuntimeEvaluation {
+        match self {
+            Self::Executed { evaluation, .. } | Self::Blocked { evaluation } => evaluation,
+        }
+    }
+
+    /// Returns whether the protected executor was invoked.
+    pub const fn was_executed(&self) -> bool {
+        matches!(self, Self::Executed { .. })
+    }
+}
+
 /// Evaluates evidence and policy before an adapter invokes an executor.
 ///
 /// Any validation failure deterministically produces `REJECT`.
@@ -49,6 +75,27 @@ pub fn evaluate_request(mut context: RequestContext, policy: &RuntimePolicy) -> 
     };
 
     RuntimeEvaluation { context, decision }
+}
+
+/// Evaluates a request and invokes an external effect only when policy permits.
+///
+/// A REJECT cannot reach the supplied executor.
+pub fn evaluate_and_execute<T, F>(
+    context: RequestContext,
+    policy: &RuntimePolicy,
+    executor: F,
+) -> GuardedExecution<T>
+where
+    F: FnOnce(&RuntimeEvaluation) -> T,
+{
+    let evaluation = evaluate_request(context, policy);
+
+    if evaluation.permits_execution() {
+        let output = executor(&evaluation);
+        GuardedExecution::Executed { evaluation, output }
+    } else {
+        GuardedExecution::Blocked { evaluation }
+    }
 }
 
 #[cfg(test)]
@@ -88,5 +135,49 @@ mod tests {
 
         assert_eq!(evaluation.decision.outcome, DecisionOutcome::Redact);
         assert!(evaluation.permits_execution());
+    }
+
+    #[test]
+    fn rejected_request_never_invokes_the_executor() {
+        let mut invoked = false;
+
+        let execution =
+            evaluate_and_execute(context(), &RuntimePolicy::anonymization_benchmark(), |_| {
+                invoked = true;
+                "must not run"
+            });
+
+        assert!(!invoked);
+        assert!(!execution.was_executed());
+        assert_eq!(
+            execution.evaluation().decision.outcome,
+            DecisionOutcome::Reject
+        );
+    }
+
+    #[test]
+    fn redaction_decision_invokes_the_executor() {
+        let mut request = context();
+        request.evidence.set_structural_validity(true);
+        request.evidence.set_sensitive_data_detected(true);
+
+        let execution = evaluate_and_execute(
+            request,
+            &RuntimePolicy::anonymization_benchmark(),
+            |evaluation| evaluation.decision.outcome.as_str(),
+        );
+
+        assert!(execution.was_executed());
+        assert_eq!(
+            execution.evaluation().decision.outcome,
+            DecisionOutcome::Redact
+        );
+        assert!(matches!(
+            execution,
+            GuardedExecution::Executed {
+                output: "REDACT",
+                ..
+            }
+        ));
     }
 }
