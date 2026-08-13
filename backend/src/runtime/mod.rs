@@ -7,6 +7,7 @@
 //! modules. The runtime orchestrates those features without absorbing
 //! their internal logic.
 
+pub mod audit;
 pub mod context;
 pub mod decision;
 pub mod engine;
@@ -15,6 +16,11 @@ pub mod operation;
 pub mod policy;
 pub mod trust;
 pub mod validator;
+
+pub use audit::{
+    AuditStoreError, InMemoryRuntimeAuditStore, PostgresRuntimeAuditStore, RuntimeAuditEvent,
+    RuntimeAuditStore,
+};
 
 pub use context::{
     current_timestamp_ms, IdentityContext, PayloadContext, RequestContext, ValidationFailure,
