@@ -76,11 +76,12 @@ impl RuntimeValidator {
     /// 1. operation support
     /// 2. structural validity
     /// 3. identity
-    /// 4. payload integrity
-    /// 5. signature
-    /// 6. replay protection
-    /// 7. trust threshold
-    /// 8. anonymization requirement
+    /// 4. identity scopes
+    /// 5. payload integrity
+    /// 6. signature
+    /// 7. replay protection
+    /// 8. trust threshold
+    /// 9. anonymization requirement
     pub fn validate(
         context: &RequestContext,
         policy: &RuntimePolicy,
@@ -100,6 +101,12 @@ impl RuntimeValidator {
         );
 
         Self::validate_identity(
+            context,
+            policy,
+            &mut report,
+        );
+
+        Self::validate_identity_scopes(
             context,
             policy,
             &mut report,
@@ -256,6 +263,40 @@ impl RuntimeValidator {
             }
 
             None => {}
+        }
+    }
+
+    fn validate_identity_scopes(
+        context: &RequestContext,
+        policy: &RuntimePolicy,
+        report: &mut ValidationReport,
+    ) {
+        if policy.required_scopes.is_empty() {
+            return;
+        }
+
+        let Some(identity) = context.identity.as_ref() else {
+            return;
+        };
+
+        let missing_scopes: Vec<&str> = policy
+            .required_scopes
+            .iter()
+            .filter(|scope| !identity.has_scope(scope))
+            .map(String::as_str)
+            .collect();
+
+        if !missing_scopes.is_empty() {
+            report.add_failure(
+                ValidationFailure::new(
+                    DecisionReason::ScopeDenied,
+                    Some("identity.scopes".to_string()),
+                    format!(
+                        "Identity is missing required scopes: {}",
+                        missing_scopes.join(", "),
+                    ),
+                ),
+            );
         }
     }
 
@@ -541,6 +582,29 @@ mod tests {
                 DecisionReason::UnsupportedOperation
             )
         );
+    }
+
+    #[test]
+    fn missing_required_scope_is_reported() {
+        let policy = RuntimePolicy::authenticated_anonymization();
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context = context.with_identity(
+            crate::runtime::IdentityContext::new(
+                "client-without-scope",
+                "bearer_api_key",
+                true,
+            ),
+        );
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(!report.is_valid());
+        assert!(report.failures.iter().any(|failure| {
+            failure.reason == DecisionReason::ScopeDenied
+                && failure.field.as_deref() == Some("identity.scopes")
+        }));
     }
 
     #[test]

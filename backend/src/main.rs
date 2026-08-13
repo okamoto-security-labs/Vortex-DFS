@@ -13,8 +13,8 @@ use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::provisioner::{get_pool, init_db};
 use vortex_dfs::runtime::{
-    evaluate_audit_and_execute, GuardedExecution, IdentityContext, Operation, PayloadContext,
-    PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
+    evaluate_audit_and_execute, DecisionReason, GuardedExecution, IdentityContext, Operation,
+    PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
 #[cfg(test)]
@@ -24,7 +24,9 @@ type HmacSha256 = Hmac<Sha256>;
 
 const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
 #[cfg(test)]
-const TEST_API_KEY: &str = "test-vortex-runtime-api-key";
+const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
+#[cfg(test)]
+const TEST_LIMITED_API_KEY: &str = "test-vortex-runtime-limited-api-key";
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
@@ -42,33 +44,86 @@ struct ErrorResponse {
     error: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ApiClientConfig {
+    api_key: String,
+    principal_id: String,
+    #[serde(default)]
+    scopes: Vec<String>,
+}
+
+#[derive(Clone)]
+struct AuthenticatedPrincipal {
+    api_key_proof: [u8; 32],
+    principal_id: Arc<str>,
+    scopes: Vec<String>,
+}
+
 #[derive(Clone)]
 struct RuntimeState {
     audit_store: Arc<dyn RuntimeAuditStore>,
-    api_key_proof: [u8; 32],
-    principal_id: Arc<str>,
+    principals: Arc<[AuthenticatedPrincipal]>,
 }
 
 impl RuntimeState {
-    fn new(
+    fn from_client_configs(
         audit_store: Arc<dyn RuntimeAuditStore>,
-        api_key: &str,
-        principal_id: impl Into<Arc<str>>,
-    ) -> Self {
-        Self {
-            audit_store,
-            api_key_proof: api_key_proof(api_key),
-            principal_id: principal_id.into(),
+        client_configs: Vec<ApiClientConfig>,
+    ) -> Result<Self, String> {
+        if client_configs.is_empty() {
+            return Err("at least one API client must be configured".to_string());
         }
+
+        let mut principals = Vec::with_capacity(client_configs.len());
+
+        for client in client_configs {
+            if client.api_key.is_empty() {
+                return Err("API client key must not be empty".to_string());
+            }
+
+            if client.principal_id.trim().is_empty() {
+                return Err("API client principal_id must not be empty".to_string());
+            }
+
+            if client.scopes.iter().any(|scope| scope.trim().is_empty()) {
+                return Err("API client scopes must not be empty".to_string());
+            }
+
+            principals.push(AuthenticatedPrincipal {
+                api_key_proof: api_key_proof(&client.api_key),
+                principal_id: Arc::from(client.principal_id),
+                scopes: client.scopes,
+            });
+        }
+
+        Ok(Self {
+            audit_store,
+            principals: Arc::from(principals),
+        })
     }
 
     #[cfg(test)]
     fn in_memory_for_test() -> web::Data<Self> {
-        web::Data::new(Self::new(
-            Arc::new(InMemoryRuntimeAuditStore::new()),
-            TEST_API_KEY,
-            "test-http-client",
-        ))
+        let client_configs = vec![
+            ApiClientConfig {
+                api_key: TEST_EXECUTION_API_KEY.to_string(),
+                principal_id: "test-execution-client".to_string(),
+                scopes: vec!["anonymize:execute".to_string()],
+            },
+            ApiClientConfig {
+                api_key: TEST_LIMITED_API_KEY.to_string(),
+                principal_id: "test-limited-client".to_string(),
+                scopes: Vec::new(),
+            },
+        ];
+
+        web::Data::new(
+            Self::from_client_configs(
+                Arc::new(InMemoryRuntimeAuditStore::new()),
+                client_configs,
+            )
+            .expect("test client configuration should be valid"),
+        )
     }
 }
 
@@ -95,19 +150,25 @@ fn authenticate_bearer(
         return Err(unauthorized_response());
     };
 
-    let mut verifier =
-        HmacSha256::new_from_slice(api_key.as_bytes()).expect("HMAC accepts API key material");
-    verifier.update(API_KEY_PROOF_CONTEXT);
-
-    if verifier.verify_slice(&state.api_key_proof).is_err() {
+    let Some(principal) = state.principals.iter().find(|principal| {
+        let mut verifier =
+            HmacSha256::new_from_slice(api_key.as_bytes()).expect("HMAC accepts API key material");
+        verifier.update(API_KEY_PROOF_CONTEXT);
+        verifier.verify_slice(&principal.api_key_proof).is_ok()
+    }) else {
         return Err(unauthorized_response());
-    }
+    };
 
-    Ok(IdentityContext::new(
-        state.principal_id.as_ref(),
-        "bearer_api_key",
-        true,
-    ))
+    let identity = principal.scopes.iter().cloned().fold(
+        IdentityContext::new(
+            principal.principal_id.as_ref(),
+            "bearer_api_key",
+            true,
+        ),
+        |identity, scope| identity.with_scope(scope),
+    );
+
+    Ok(identity)
 }
 
 fn unauthorized_response() -> HttpResponse {
@@ -185,7 +246,13 @@ async fn benchmark_anonymize(
 
     match execution {
         GuardedExecution::Blocked { evaluation } => {
-            HttpResponse::UnprocessableEntity().json(serde_json::json!({
+            let mut response = if evaluation.decision.reason_code == DecisionReason::ScopeDenied {
+                HttpResponse::Forbidden()
+            } else {
+                HttpResponse::UnprocessableEntity()
+            };
+
+            response.json(serde_json::json!({
                 "outcome": evaluation.decision.outcome.as_str(),
                 "reason_code": evaluation.decision.reason_code.as_str(),
                 "policy_id": evaluation.decision.policy.id,
@@ -249,28 +316,23 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(std::io::Error::other)?;
 
-    let api_key = std::env::var("VORTEX_API_KEY")
+    let client_config_json = std::env::var("VORTEX_API_CLIENTS_JSON")
         .map_err(|_| std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "VORTEX_API_KEY must be configured",
+            "VORTEX_API_CLIENTS_JSON must be configured",
         ))?;
 
-    if api_key.is_empty() {
-        return Err(std::io::Error::new(
+    let client_configs: Vec<ApiClientConfig> = serde_json::from_str(&client_config_json)
+        .map_err(|error| std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "VORTEX_API_KEY must not be empty",
-        ));
-    }
-
-    let principal_id = std::env::var("VORTEX_API_PRINCIPAL_ID")
-        .unwrap_or_else(|_| "http-api-client".to_string());
+            format!("VORTEX_API_CLIENTS_JSON is invalid: {error}"),
+        ))?;
 
     let audit_store: Arc<dyn RuntimeAuditStore> = Arc::new(audit_store);
-    let runtime_state = web::Data::new(RuntimeState::new(
-        audit_store,
-        &api_key,
-        principal_id,
-    ));
+    let runtime_state = RuntimeState::from_client_configs(audit_store, client_configs)
+        .map_err(std::io::Error::other)?;
+
+    let runtime_state = web::Data::new(runtime_state);
 
     HttpServer::new(move || {
         App::new()
@@ -292,7 +354,16 @@ mod tests {
         actix_web::test::TestRequest::default()
             .insert_header((
                 header::AUTHORIZATION,
-                format!("Bearer {TEST_API_KEY}"),
+                format!("Bearer {TEST_EXECUTION_API_KEY}"),
+            ))
+            .to_http_request()
+    }
+
+    fn limited_http_request() -> HttpRequest {
+        actix_web::test::TestRequest::default()
+            .insert_header((
+                header::AUTHORIZATION,
+                format!("Bearer {TEST_LIMITED_API_KEY}"),
             ))
             .to_http_request()
     }
@@ -329,6 +400,28 @@ mod tests {
         .await;
 
         assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn authorized_identity_without_scope_is_forbidden() {
+        let response = benchmark_anonymize(
+            limited_http_request(),
+            anonymize_request("Contact: user@example.com"),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::FORBIDDEN);
+
+        let body = actix_web::body::to_bytes(response.into_body())
+            .await
+            .expect("response body should be readable");
+
+        let response: serde_json::Value =
+            serde_json::from_slice(&body).expect("response should be JSON");
+
+        assert_eq!(response["outcome"], "REJECT");
+        assert_eq!(response["reason_code"], "SCOPE_DENIED");
     }
 
     #[actix_web::test]

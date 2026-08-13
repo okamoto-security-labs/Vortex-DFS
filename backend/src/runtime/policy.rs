@@ -32,6 +32,11 @@ pub struct RuntimePolicy {
     /// Whether a verified identity is required.
     pub require_identity: bool,
 
+    /// Explicit identity capabilities required for execution.
+    ///
+    /// `BTreeSet` preserves deterministic serialization order.
+    pub required_scopes: BTreeSet<String>,
+
     /// Whether payload-integrity evidence is required.
     pub require_payload_integrity: bool,
 
@@ -68,6 +73,7 @@ impl RuntimePolicy {
             version: version.into(),
             allowed_operations: BTreeSet::new(),
             require_identity: true,
+            required_scopes: BTreeSet::new(),
             require_payload_integrity: true,
             require_signature: true,
             require_anonymization: false,
@@ -95,6 +101,12 @@ impl RuntimePolicy {
         required: bool,
     ) -> Self {
         self.require_identity = required;
+        self
+    }
+
+    /// Requires one explicit identity capability.
+    pub fn with_required_scope(mut self, scope: impl Into<String>) -> Self {
+        self.required_scopes.insert(scope.into());
         self
     }
 
@@ -219,6 +231,7 @@ impl RuntimePolicy {
         )
         .allow_operation(Operation::Anonymize)
         .with_identity_requirement(true)
+        .with_required_scope("anonymize:execute")
         .with_payload_integrity_requirement(false)
         .with_signature_requirement(false)
         .with_anonymization_requirement(true)
