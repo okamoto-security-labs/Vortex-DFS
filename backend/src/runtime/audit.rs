@@ -112,6 +112,11 @@ impl InMemoryRuntimeAuditStore {
             .map(|events| events.len())
             .map_err(|error| AuditStoreError::new(error.to_string()))
     }
+
+    /// Returns whether the in-memory audit store has no events.
+    pub fn is_empty(&self) -> Result<bool, AuditStoreError> {
+        Ok(self.len()? == 0)
+    }
 }
 
 #[async_trait]

@@ -11,10 +11,12 @@ use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::provisioner::{get_pool, init_db};
 use vortex_dfs::runtime::{
-    evaluate_audit_and_execute, GuardedExecution, InMemoryRuntimeAuditStore, Operation,
+    evaluate_audit_and_execute, GuardedExecution, Operation,
     PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
+#[cfg(test)]
+use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
@@ -38,6 +40,7 @@ struct AuditState {
 }
 
 impl AuditState {
+    #[cfg(test)]
     fn in_memory_for_test() -> web::Data<Self> {
         web::Data::new(Self {
             store: Arc::new(InMemoryRuntimeAuditStore::new()),
@@ -156,10 +159,10 @@ async fn main() -> std::io::Result<()> {
 
     init_db()
         .await
-        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+        .map_err(std::io::Error::other)?;
 
     let pool = get_pool()
-        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?
+        .map_err(std::io::Error::other)?
         .clone();
 
     let audit_store = PostgresRuntimeAuditStore::new(pool);
@@ -167,7 +170,7 @@ async fn main() -> std::io::Result<()> {
     audit_store
         .ensure_schema()
         .await
-        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+        .map_err(std::io::Error::other)?;
 
     let audit_state = web::Data::new(AuditState {
         store: Arc::new(audit_store),
