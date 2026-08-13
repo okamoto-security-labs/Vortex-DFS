@@ -106,6 +106,9 @@ pub enum DecisionReason {
     /// The active policy explicitly denied the operation.
     PolicyDenied,
 
+    /// The verified identity did not have a required capability.
+    ScopeDenied,
+
     /// A required cryptographic signature was invalid.
     SignatureInvalid,
 
@@ -144,6 +147,7 @@ impl DecisionReason {
             Self::IdentityMissing => "IDENTITY_MISSING",
             Self::IdentityInvalid => "IDENTITY_INVALID",
             Self::PolicyDenied => "POLICY_DENIED",
+            Self::ScopeDenied => "SCOPE_DENIED",
             Self::SignatureInvalid => "SIGNATURE_INVALID",
             Self::KeyRevoked => "KEY_REVOKED",
             Self::PayloadIntegrityFailed => {
@@ -173,6 +177,7 @@ impl DecisionReason {
             self,
             Self::IdentityInvalid
                 | Self::PolicyDenied
+                | Self::ScopeDenied
                 | Self::SignatureInvalid
                 | Self::KeyRevoked
                 | Self::PayloadIntegrityFailed

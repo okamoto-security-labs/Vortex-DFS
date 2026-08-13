@@ -9,6 +9,7 @@ use crate::runtime::{
     SecurityEvidence,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Identity information associated with a runtime request.
@@ -22,6 +23,11 @@ pub struct IdentityContext {
 
     /// Whether authentication evidence was successfully verified.
     pub verified: bool,
+
+    /// Explicit capabilities granted to this identity.
+    ///
+    /// Scopes are deterministic and are never copied into audit events.
+    pub scopes: BTreeSet<String>,
 }
 
 impl IdentityContext {
@@ -34,7 +40,19 @@ impl IdentityContext {
             principal_id: principal_id.into(),
             authentication_method: authentication_method.into(),
             verified,
+            scopes: BTreeSet::new(),
         }
+    }
+
+    /// Grants one explicit capability to this identity.
+    pub fn with_scope(mut self, scope: impl Into<String>) -> Self {
+        self.scopes.insert(scope.into());
+        self
+    }
+
+    /// Returns whether the identity has one explicit capability.
+    pub fn has_scope(&self, scope: &str) -> bool {
+        self.scopes.contains(scope)
     }
 }
 
@@ -248,6 +266,19 @@ mod tests {
             context.evidence.identity_verified,
             Some(true)
         );
+    }
+
+    #[test]
+    fn identity_scopes_are_explicit() {
+        let identity = IdentityContext::new(
+            "client-001",
+            "bearer_api_key",
+            true,
+        )
+        .with_scope("anonymize:execute");
+
+        assert!(identity.has_scope("anonymize:execute"));
+        assert!(!identity.has_scope("audit:read"));
     }
 
     #[test]
