@@ -28,11 +28,17 @@ pub use context::{
 
 pub use decision::{DecisionOutcome, DecisionPolicyReference, DecisionReason, RuntimeDecision};
 
-pub use engine::{evaluate_and_execute, evaluate_request, GuardedExecution, RuntimeEvaluation};
-
 pub use evidence::{EvidenceSummary, EvidenceValue, SecurityEvidence};
 
 pub use operation::Operation;
 pub use policy::RuntimePolicy;
 pub use trust::RuntimeTrustBand;
 pub use validator::{RuntimeValidator, ValidationReport};
+
+pub use engine::{
+    evaluate_and_execute,
+    evaluate_audit_and_execute,
+    evaluate_request,
+    GuardedExecution,
+    RuntimeEvaluation,
+};

@@ -5,12 +5,14 @@
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::Instant;
 use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
+use vortex_dfs::provisioner::{get_pool, init_db};
 use vortex_dfs::runtime::{
-    evaluate_and_execute, GuardedExecution, Operation, PayloadContext, RequestContext,
-    RuntimePolicy,
+    evaluate_audit_and_execute, GuardedExecution, InMemoryRuntimeAuditStore, Operation,
+    PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
 
@@ -30,6 +32,19 @@ struct ErrorResponse {
     error: String,
 }
 
+#[derive(Clone)]
+struct AuditState {
+    store: Arc<dyn RuntimeAuditStore>,
+}
+
+impl AuditState {
+    fn in_memory_for_test() -> web::Data<Self> {
+        web::Data::new(Self {
+            store: Arc::new(InMemoryRuntimeAuditStore::new()),
+        })
+    }
+}
+
 async fn health_check(_req: HttpRequest) -> HttpResponse {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -47,7 +62,10 @@ async fn health_check(_req: HttpRequest) -> HttpResponse {
     }))
 }
 
-async fn benchmark_anonymize(req: web::Json<AnonymizeRequest>) -> HttpResponse {
+async fn benchmark_anonymize(
+    req: web::Json<AnonymizeRequest>,
+    audit_state: web::Data<AuditState>,
+) -> HttpResponse {
     let start = Instant::now();
 
     // Evidence collection is separate from the protected transformation.
@@ -67,10 +85,23 @@ async fn benchmark_anonymize(req: web::Json<AnonymizeRequest>) -> HttpResponse {
         .evidence
         .set_sensitive_data_detected(AnonymizerEngine::has_sensitive_data(&req.content));
 
-    let execution =
-        evaluate_and_execute(context, &RuntimePolicy::anonymization_benchmark(), |_| {
-            AnonymizerEngine::anonymize(&req.content)
-        });
+    let execution = match evaluate_audit_and_execute(
+        context,
+        &RuntimePolicy::anonymization_benchmark(),
+        audit_state.store.as_ref(),
+        |_| AnonymizerEngine::anonymize(&req.content),
+    )
+    .await
+    {
+        Ok(execution) => execution,
+        Err(error) => {
+            log::error!("runtime audit persistence failed: {error}");
+
+            return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "runtime audit persistence unavailable",
+            }));
+        }
+    };
 
     match execution {
         GuardedExecution::Blocked { evaluation } => {
@@ -123,8 +154,28 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     log::info!("[VORTEX-DFS] Inicializando servidor de alta performance...");
 
-    HttpServer::new(|| {
+    init_db()
+        .await
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+
+    let pool = get_pool()
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?
+        .clone();
+
+    let audit_store = PostgresRuntimeAuditStore::new(pool);
+
+    audit_store
+        .ensure_schema()
+        .await
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+
+    let audit_state = web::Data::new(AuditState {
+        store: Arc::new(audit_store),
+    });
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(audit_state.clone())
             .route("/health", web::get().to(health_check))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route("/benchmark/pqc/verify", web::get().to(benchmark_verify_pqc))
@@ -146,7 +197,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req).await;
+        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
 
         assert_eq!(
             resp.status(),
@@ -172,7 +223,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req).await;
+        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
 
         assert!(resp.status().is_success());
 
@@ -197,7 +248,7 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(req).await;
+        let resp = benchmark_anonymize(req, AuditState::in_memory_for_test()).await;
         assert!(resp.status().is_success());
     }
 }

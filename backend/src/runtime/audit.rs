@@ -154,6 +154,57 @@ impl PostgresRuntimeAuditStore {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// Creates the safe audit schema when it does not exist yet.
+    ///
+    /// The migration in `backend/migrations/` remains the canonical schema
+    /// record. This keeps startup explicit while migration automation is
+    /// introduced later.
+    pub async fn ensure_schema(&self) -> Result<(), AuditStoreError> {
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS runtime_audit_events (
+                event_id TEXT PRIMARY KEY,
+                request_id TEXT NOT NULL,
+                trace_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                reason_code TEXT NOT NULL,
+                policy_id TEXT NOT NULL,
+                policy_version TEXT NOT NULL,
+                evidence_summary JSONB NOT NULL,
+                trust_band TEXT NULL,
+                latency_us BIGINT NOT NULL CHECK (latency_us >= 0),
+                decided_at_ms BIGINT NOT NULL CHECK (decided_at_ms >= 0)
+            )
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|error| AuditStoreError::new(error.to_string()))?;
+
+        sqlx::query(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_runtime_audit_events_trace_id
+                ON runtime_audit_events (trace_id, decided_at_ms)
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|error| AuditStoreError::new(error.to_string()))?;
+
+        sqlx::query(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_runtime_audit_events_decided_at
+                ON runtime_audit_events (decided_at_ms)
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|error| AuditStoreError::new(error.to_string()))?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
