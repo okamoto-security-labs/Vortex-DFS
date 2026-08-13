@@ -1,1248 +1,231 @@
-Vortex DFS
+# Vortex DFS
 
+<p align="center">
 
+![Status](https://img.shields.io/badge/Status-Experimental%20Pre--alpha-orange)
+![Runtime](https://img.shields.io/badge/Runtime-Execution%20Gate-important)
+![Tests](https://img.shields.io/badge/Backend%20Tests-86%20passing-success)
+![Decision](https://img.shields.io/badge/Decision-Explicit-important)
 
+</p>
 
-Status
+> Verify before execution.
 
+**Vortex DFS** is an open-source deterministic runtime for evaluating policy and evidence before protected execution.
 
-Runtime
-
-
-Tests
-
-
-Decision
-
-
-
-
-Verify before execution.
-
-
-Every AI action must first cross an explicit trust boundary.
-
-
-The runtime decides.
-
-
+The runtime decides.  
 The adapter executes only when policy permits.
 
+---
 
+The backend currently implements four outcomes:
+Outcome
+Meaning
+ALLOW
+The operation satisfies policy and may proceed.
+REJECT
+A required condition failed; the executor is not invoked.
+REDACT
+Sensitive data requires transformation before execution or disclosure.
+AUDIT
+The operation may proceed with an explicit audit-required decision.
+The execution gate is tested: a REJECT cannot invoke the protected executor, while a permitted REDACT can invoke it.
+Latest local validation:
+83 backend library tests passed
+3 HTTP handler tests passed
+0 failures
+These tests validate runtime behavior. They are not a latency, throughput, or production-security certification.
+What Vortex does
+Vortex evaluates a request against explicit runtime policy before allowing an action to execute.
+Instead of asking:
+Is this probably safe?
+Vortex asks:
+Does this request satisfy the policy required for this operation?
+The goal is not to make AI systems more intelligent.
+The goal is to make automated execution more trustworthy.
+Where Vortex fits
+Technology
+Primary responsibility
+SIEM
+Collect, normalize, and correlate security events
+EDR
+Monitor and protect endpoints
+SOAR
+Execute automated playbooks
+AI agents
+Generate recommendations and proposed actions
+Policy engines
+Define organizational rules
+Vortex DFS
+Evaluate whether a protected action satisfies runtime policy before execution
+Vortex sits between intelligence and execution.
+AI agent / application / workflow
+                │
+                ▼
+        Vortex DFS Runtime
+                │
+                ▼
+ALLOW / REDACT / AUDIT ──────► Protected execution
+                │
+                └────────────► REJECT: execution blocked
+Implemented runtime flow
+Input
+  │
+  ▼
+Request normalization
+  │
+  ▼
+Evidence collection
+  │
+  ▼
+Runtime policy evaluation
+  │
+  ▼
+Validation and reason-code generation
+  │
+  ▼
+RuntimeDecision
+  │
+  ├── ALLOW
+  ├── REJECT
+  ├── REDACT
+  └── AUDIT
+  │
+  ▼
+Guarded execution
+The runtime returns structured decision data, including:
+outcome;
+stable reason code;
+policy identifier and version;
+evidence summary;
+trust band when applicable;
+decision latency;
+request and trace identifiers.
+Runtime guarantees implemented today
+Deterministic runtime evaluation
+Explicit policy enforcement
+Stable machine-readable reason codes
+Evidence-driven decisions
+Fail-closed rejection behavior
+Structured runtime decisions
+Policy identifiers and versions included in decisions
+Execution gate that prevents a rejected request from reaching its executor
+Current HTTP example
+The anonymization handler builds a RequestContext, records evidence, evaluates policy, and only then calls the anonymizer.
+Empty content
+  → structural evidence fails
+  → REJECT
+  → anonymizer is not called
 
+Sensitive content
+  → sensitive-data evidence detected
+  → REDACT
+  → anonymizer executes after authorization
+What is not implemented yet
 
-
-Deterministic Runtime Trust Layer for AI-Enabled Systems
-
-
-A deterministic authorization boundary for protected execution.
-
-
-
-
-
-Current Status
-
-Vortex DFS is an experimental, open-source pre-alpha. Its implemented
-vertical slice protects the anonymization endpoint:
-
-
-HTTP request → RequestContext → evidence → RuntimePolicy → RuntimeDecision
-             → execution gate → anonymizer (only when permitted)
-
-The backend currently implements four outcomes: ALLOW, REJECT, REDACT,
-and AUDIT. The execution gate is tested so a REJECT does not invoke the
-protected executor, while a permitted REDACT decision can invoke it.
-
-
-The latest local backend validation recorded 83 library tests and 3 HTTP
-handler tests passing. Those tests demonstrate runtime behavior; they are not
-a latency, throughput, or production-security certification.
-
-
-What is not delivered yet
-
-
+The following are roadmap items, not current production guarantees:
 Persistent or immutable audit storage
-
-Production identity/authentication enforcement in the HTTP path
-
-Externally loaded policy bundles and policy administration
-
-Production Tool Runner or Agent SDK adapters
-
+Production identity and authentication enforcement in the HTTP path
+External policy bundles and policy administration
+Production Tool Runner integration
+Production Agent SDK adapter
 End-to-end eBPF-to-runtime enforcement
-
+Reproducible hardware-level latency benchmarks
 Independently reviewed post-quantum cryptography
 
+## Experimental components
+--
+LWE signer
 
-signer_lwe.rs is a toy-scale experimental LWE demonstration, not a
-production PQC implementation. The eBPF/XDP component is also experimental and
-separate from the userspace runtime path.
+signer_lwe.rs is a toy-scale experimental LWE implementation used for research and testing.
+It is not production post-quantum cryptography.
+Do not rely on it for real cryptographic protection. Production use should migrate to a reviewed PQC implementation such as ML-DSA/Dilithium through an appropriate library.
 
+### eBPF/XDP
 
+The vortex-ebpf component is an experimental low-level network enforcement prototype.
+It is separate from the userspace runtime execution path.
 
-Every security decision starts with a question.
+It must not be described as:
+zero-overhead security;
+guaranteed sub-microsecond enforcement;
+end-to-end agent authorization;
+complete kernel-to-runtime integration.
 
+Those claims require reproducible benchmarking on the target kernel, NIC, driver, packet profile, and policy.
 
-Is this safe?
+### Auditability
 
+The runtime produces an audit-ready structured decision.
+Adapters can record:
+outcome;
+reason code;
+policy reference;
+evidence summary;
+trace identifier;
+latency.
+A durable audit sink, immutable retention, compliance exports, and governance dashboards are not included yet.
 
-Can we trust this decision?
+Development
 
+Run backend tests:
+´´´
+cargo test --manifest-path backend/Cargo.toml
+Check formatting:
+´´´
+´´´
+cargo fmt --manifest-path backend/Cargo.toml --check
+´´´
+Run static analysis:
+´´´
+cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+´´´
+The backend CI workflow validates Cargo checks, Clippy, and tests for pushes and pull requests to main.
 
-Can this action be executed automatically?
+eBPF builds require a separate nightly Rust toolchain and bpf-linker.
 
+### Project direction
 
-What evidence supports this outcome?
+Vortex DFS is building a deterministic authorization boundary for systems that need to act on data, policies, and automated decisions.
+Its core thesis is simple:
 
+Automation without trust is simply faster uncertainty.
+Vortex does not replace SIEM, EDR, SOAR, AI agents, or policy engines.
+It provides a place to verify whether a protected action should execute.
 
-Will the same input produce the same result tomorrow?
+### Contributing
 
+Contributions are welcome, especially for:
+runtime policies;
+test coverage;
+benchmarks;
+audit adapters;
+Tool Runner integrations;
+Agent SDK integrations;
+observability;
+security review;
+documentation.
+Before opening a pull request:
+keep behavior deterministic;
+add tests for security invariants;
+update documentation;
+avoid claiming roadmap features as implemented;
+run the backend test suite.
 
+### License
 
-These questions are no longer theoretical.
-
-
-Modern security increasingly depends on automated decisions made by AI systems, orchestration platforms, policy engines and autonomous workflows.
-
-
-The problem is no longer collecting more telemetry.
-
-
-Nor generating more alerts.
-
-
-The real challenge is determining whether an automated decision can be trusted before it is executed.
-
-
-Every unanswered question increases operational risk.
-
-
-Every uncertain decision reduces confidence.
-
-
-Every incident costs someone a night's sleep.
-
-
-Vortex exists to replace uncertainty with deterministic runtime validation.
-
-
-
+See LICENSE.
 Vortex doesn't guess. It computes.
-
-
-
-
-Why Vortex Exists
-
-Security has evolved.
-
-
-Organizations already have:
-
-
-
-SIEMs
-
-EDRs
-
-SOAR platforms
-
-Detection Rules
-
-Threat Intelligence
-
-AI Assistants
-
-AI Agents
-
-
-Yet one question remains unanswered:
-
-
-
-Can we trust the decision that follows?
-
-
-
-Modern AI systems optimize for intelligence.
-
-
-Security systems must optimize for trust.
-
-
-Trust cannot be inferred from probabilities alone.
-
-
-It must be engineered.
-
-
-Vortex introduces deterministic runtime validation, explicit policy evaluation and evidence-driven decision making to ensure that automated actions remain explainable, reproducible and auditable.
-
-
-Confidence is not a feature.
-
-
-It is an engineering outcome.
-
-
-
-What is Vortex?
-
-Vortex is a deterministic runtime trust layer for AI-enabled systems.
-
-
-It evaluates automated decisions against explicit runtime policies before those decisions are allowed to execute.
-
-
-Rather than asking:
-
-
-
-"Is this probably malicious?"
-
-
-
-Vortex asks:
-
-
-
-"Does this decision satisfy the runtime policy?"
-
-
-
-This distinction changes how automated security decisions are validated.
-
-
-Instead of relying solely on probabilistic confidence, Vortex produces deterministic outcomes backed by explicit evidence and stable decision logic.
-
-
-
-Where Vortex Fits
-
-Vortex does not replace existing security platforms.
-
-
-It complements them.
-
-
-Technology	Primary Responsibility
-SIEM	Collect, normalize and correlate security events
-EDR	Monitor and protect endpoints
-SOAR	Execute automated playbooks
-AI Agents	Generate recommendations and proposed actions
-Policy Engines	Define organizational rules
-Vortex DFS	Validate whether automated decisions satisfy runtime policy before execution
-
-Vortex operates between intelligence and execution.
-
-
-Logs
-EDR
-SIEM
-AI Agents
-Policy Engines
-
-        │
-
-        ▼
-
-+----------------------+
-|     VORTEX DFS       |
-| Runtime Trust Layer  |
-+----------------------+
-
-        │
-
-        ▼
-
-ALLOW / REJECT / REDACT / AUDIT
-
-
-Engineering Philosophy
-
-Security engineering should produce confidence, not uncertainty.
-
-
-Vortex is built around a small number of principles that influence every architectural decision.
-
-
-Deterministic Decisions
-
-The same input under the same policy should always produce the same result.
-
-
-
-Explicit Runtime Policies
-
-Security decisions must be governed by policies that are visible, reviewable and version controlled.
-
-
-
-Evidence Before Execution
-
-Actions should never execute without sufficient supporting evidence.
-
-
-
-Fail Closed
-
-When uncertainty exceeds policy tolerance, execution stops.
-
-
-Safe failure is preferable to unsafe automation.
-
-
-
-Explainability
-
-Every decision must explain itself.
-
-
-Every outcome should include sufficient context for investigation and auditing.
-
-
-
-Reproducibility
-
-A security decision should be reproducible days, weeks or months later using the same policy version and evidence.
-
-
-
-Auditability
-
-The runtime returns structured decision data — outcome, stable reason code,
-policy reference, evidence summary, and latency — so an adapter can record it.
-Persistent audit storage and immutable retention are not implemented yet.
-
-
-
-Current Runtime Guarantees
-
-Vortex is designed around engineering guarantees rather than feature lists.
-
-
-✔ Deterministic runtime evaluation
-
-
-✔ Explicit policy enforcement
-
-
-✔ Stable reason codes
-
-
-✔ Evidence-driven decisions
-
-
-✔ Fail-closed execution
-
-
-✔ Reproducible outcomes for the same in-memory input and policy
-
-
-✔ Structured runtime decisions for adapters to record
-
-
-✔ Policy identifiers and versions carried in decisions
-
-
-They describe the implemented runtime core. Production governance, audit
-retention, and organization-wide policy management remain future work.
-
-
-
-Core Runtime Flow
-
-Every runtime decision follows the same deterministic evaluation pipeline.
-
-
-Input
-
-      │
-
-      ▼
-
-Normalization
-
-      │
-
-      ▼
-
-Evidence Extraction
-
-      │
-
-      ▼
-
-Policy Evaluation
-
-      │
-
-      ▼
-
-Decision Validation
-
-      │
-
-      ▼
-
-Reason Code Generation
-
-      │
-
-      ▼
-
-ALLOW / REJECT / REDACT / AUDIT
-
-      │
-
-      ▼
-
-Structured RuntimeDecision
-Adapter-owned audit sink (optional)
-
-Within the current runtime evaluation, every stage is deterministic and every
-returned decision carries a stable outcome, reason code, policy reference, and
-evidence summary.
-
-
-Runtime Architecture
-
-Vortex is intentionally designed as a deterministic runtime layer.
-
-
-Its responsibility is not to generate intelligence.
-
-
-Its responsibility is to validate whether automated decisions satisfy explicit runtime policies before execution.
-
-
-                  ┌───────────────────────┐
-                  │   External Systems    │
-                  │───────────────────────│
-                  │ SIEM                  │
-                  │ EDR                   │
-                  │ SOAR                  │
-                  │ AI Agents             │
-                  │ LLM Applications      │
-                  │ Detection Engines     │
-                  └───────────┬───────────┘
-                              │
-                              ▼
-
-                 ┌────────────────────────────┐
-                 │        VORTEX DFS          │
-                 │────────────────────────────│
-                 │ Input Normalization        │
-                 │ Evidence Extraction        │
-                 │ Runtime Validation         │
-                 │ Policy Evaluation          │
-                 │ Decision Engine            │
-                 │ Reason Code Generator      │
-                 │ Runtime Decision Builder   │
-                 └───────────┬────────────────┘
-                             │
-                             ▼
-
-           ┌──────────────────────────────────┐
-           │ Runtime Decision                 │
-           │----------------------------------│
-           │ ALLOW                            │
-           │ REJECT                           │
-           │ REDACT                           │
-           │ AUDIT                            │
-           └──────────────────────────────────┘
-
-The runtime is intentionally small.
-
-
-Every additional component increases complexity.
-
-
-Every additional dependency expands the trusted computing base.
-
-
-Vortex favors deterministic simplicity over opaque automation.
-
-
-
-Runtime Decision Model
-
-Every request entering Vortex follows the same deterministic lifecycle.
-
-
-Receive Request
-        │
-        ▼
-Normalize Input
-        │
-        ▼
-Extract Evidence
-        │
-        ▼
-Select Active Runtime Policy
-        │
-        ▼
-Evaluate Constraints
-        │
-        ▼
-Generate Decision
-        │
-        ▼
-Generate Reason Codes
-        │
-Return Result
-
-This lifecycle never changes.
-
-
-Policies may evolve.
-
-
-Rules may evolve.
-
-
-Evidence may evolve.
-
-
-The evaluation model remains deterministic.
-
-
-
-Runtime Decisions
-
-Vortex produces explicit runtime outcomes.
-
-
-ALLOW
-
-The decision satisfies every required runtime policy.
-
-
-Execution may continue.
-
-
-
-REJECT
-
-The runtime policy was violated.
-
-
-Execution stops immediately.
-
-
-
-REDACT
-
-Sensitive information must be removed before execution or disclosure.
-
-
-
-AUDIT
-
-Execution may proceed with an explicit AUDIT decision. Persisting an audit
-event is the responsibility of the adapter; a durable audit sink is not yet
-included.
-
-
-
-Structured Decisions
-
-Every evaluation produces a structured RuntimeDecision.
-
-
-It exists to answer one question:
-
-
-
-Why was this decision made?
-
-
-
-Typical information includes:
-
-
-
-Runtime Decision
-
-Policy Version
-
-Reason Codes
-
-Evidence Summary
-
-Request and trace identifiers
-
-Runtime Metadata
-
-Validation Status
-
-
-An HTTP response currently exposes the outcome, reason code, policy reference,
-trace ID, and latency. Future adapters can persist or enrich that record.
-
-
-This is the audit-ready record emitted by the runtime. A durable Decision Card
-store is planned, not yet included.
-
-
-
-Policy Engine
-
-Policies define the boundaries of trusted execution.
-
-
-Policies are:
-
-
-
-Explicit
-
-Human readable
-
-Version controlled
-
-Reviewable
-
-Testable
-
-
-A runtime policy is not business logic.
-
-
-It is an engineering contract.
-
-
-Changing a policy changes system behavior.
-
-
-Therefore every policy should be versioned, reviewed and tested.
-
-
-
-Reason Codes
-
-Every runtime outcome includes stable Reason Codes.
-
-
-Reason Codes exist for machines and humans.
-
-
-Instead of ambiguous explanations like:
-
-
-
-Validation failed.
-
-
-
-Vortex produces explicit outcomes such as:
-
-
-POLICY_NOT_SATISFIED
-
-MISSING_REQUIRED_EVIDENCE
-
-INPUT_SCHEMA_INVALID
-
-RUNTIME_TIMEOUT
-
-REDACTION_REQUIRED
-
-POLICY_VERSION_MISMATCH
-
-Stable Reason Codes simplify:
-
-
-
-debugging
-
-incident response
-
-automation
-
-dashboards
-
-governance
-
-long-term maintenance
-
-
-
-Evidence Model
-
-Automation without evidence is trust without verification.
-
-
-Vortex evaluates decisions using evidence collected during runtime.
-
-
-Evidence may include:
-
-
-
-Request metadata
-
-Runtime context
-
-Identity information
-
-Security telemetry
-
-Detection results
-
-Policy inputs
-
-Validation artifacts
-
-
-Evidence is evaluated before execution.
-
-
-Never after.
-
-
-
-Security by Design
-
-Security is not implemented as a final validation step.
-
-
-Security influences every runtime stage.
-
-
-Design principles include:
-
-
-
-Least privilege
-
-Explicit trust boundaries
-
-Fail closed
-
-Audit-ready structured decisions; immutable storage is planned
-
-Deterministic evaluation
-
-Policy isolation
-
-Versioned governance
-
-Reproducible execution
-
-
-These principles are architectural decisions, not optional features.
-
-
-
-Engineering Over Automation
-
-Many systems optimize for automation.
-
-
-Vortex optimizes for trustworthy automation.
-
-
-Automation without accountability creates operational risk.
-
-
-Automation with deterministic validation creates confidence.
-
-
-The objective is not to automate more.
-
-
-The objective is to automate responsibly.
-
-
-Engineering
-
-Vortex is engineered as long-term infrastructure.
-
-
-Every architectural decision is expected to remain understandable months or years after it was introduced.
-
-
-Engineering discipline is treated as a core feature of the project.
-
-
-
-Architecture Decision Records (ADRs)
-
-Major architectural changes are documented using Architecture Decision Records (ADRs).
-
-
-ADRs capture:
-
-
-
-Context
-
-Decision
-
-Alternatives considered
-
-Consequences
-
-Implementation status
-
-
-This ensures architectural knowledge remains available even as the project evolves.
-
-
-
-Quality Gates
-
-Every contribution is expected to satisfy objective quality requirements before integration.
-
-
-Quality Gates include:
-
-
-
-Successful compilation
-
-Automated testing
-
-Static analysis
-
-Documentation updates
-
-API compatibility verification
-
-Policy validation
-
-Review approval
-
-
-The GitHub Actions workflow currently validates the Rust backend on pushes and
-pull requests to main. eBPF builds have separate nightly and linker
-requirements and are not yet part of the same production validation path.
-
-
-
-Code Review
-
-Every change is reviewed from two perspectives:
-
-
-Technical Correctness
-
-
-Does the implementation solve the intended problem?
-
-Does it preserve deterministic behavior?
-
-Does it introduce unnecessary complexity?
-
-
-Engineering Quality
-
-
-Readability
-
-Maintainability
-
-Backward compatibility
-
-Documentation
-
-Test coverage
-
-Long-term operational impact
-
-
-Good code is not enough.
-
-
-Good engineering is required.
-
-
-
-Testing Philosophy
-
-Testing exists to verify engineering guarantees.
-
-
-Tests validate:
-
-
-
-Deterministic evaluation
-
-Runtime policies
-
-Decision consistency
-
-Reason Code stability
-
-Error handling
-
-Fail-closed behavior
-
-Regression prevention
-
-
-Every bug fixed becomes a permanent test whenever possible.
-
-
-
-Documentation Philosophy
-
-Documentation is treated as part of the product.
-
-
-Every feature should answer three questions:
-
-
-
-Why does it exist?
-
-How does it work?
-
-Why was it designed this way?
-
-
-The goal is not merely to explain APIs.
-
-
-The goal is to preserve engineering intent.
-
-
-
-Versioning
-
-Vortex follows Semantic Versioning.
-
-
-Policy changes, runtime behavior and public APIs evolve through controlled, documented releases.
-
-
-Backward compatibility is preserved whenever practical.
-
-
-Breaking changes are intentional, documented and justified.
-
-
-
-Governance
-
-Engineering decisions are expected to be transparent.
-
-
-Project governance is based on:
-
-
-
-Public discussions
-
-Documented decisions
-
-Version-controlled policies
-
-Peer review
-
-Reproducible releases
-
-
-Transparency builds confidence.
-
-
-Confidence builds adoption.
-
-
-
-Security
-
-Security is foundational.
-
-
-Every contribution should preserve the project's core security guarantees:
-
-
-
-Deterministic runtime evaluation
-
-Explicit trust boundaries
-
-Fail-closed execution
-
-Stable decision semantics
-
-Auditability
-
-Evidence integrity
-
-
-Security is considered during design, implementation, testing and review.
-
-
-It is never treated as a final verification step.
-
-
-
-CI/CD
-
-The repository has a backend CI workflow for cargo check, strict Clippy, and
-tests on main pull requests and pushes.
-
-
-The CI pipeline verifies:
-
-
-
-Build integrity
-
-Test execution
-
-Static analysis through Clippy
-
-Backend unit and handler tests
-
-
-Automation accelerates engineering.
-
-
-It never replaces engineering judgment.
-
-
-
-Reliability
-
-Reliability is measured through predictability.
-
-
-A reliable runtime should:
-
-
-
-Produce deterministic outcomes
-
-Remain understandable
-
-Be observable
-
-Be debuggable
-
-Behave consistently across environments
-
-
-Predictability is more valuable than complexity.
-
-
-
-Project Structure
-
-docs/
-├── adr/
-├── architecture/
-├── benchmarks/
-├── engineering/
-├── history/
-├── research/
-
-src/
-
-examples/
-
-sdk/
-
-policies/
-
-tests/
-
-Every directory has a clear responsibility.
-
-
-Organization reduces long-term maintenance costs.
-
-
-
-Contributing
-
-We welcome contributions of every size.
-
-
-Examples include:
-
-
-
-Bug fixes
-
-Documentation improvements
-
-Runtime policies
-
-Benchmarks
-
-Architecture discussions
-
-Security research
-
-Performance improvements
-
-Test cases
-
-
-Large pull requests are appreciated.
-
-
-Thoughtful engineering discussions are equally valuable.
-
-
-
-Before Opening a Pull Request
-
-Please ensure that:
-
-
-
-Tests pass
-
-Documentation is updated
-
-Policies remain deterministic
-
-New behavior is explained
-
-Existing guarantees remain preserved
-
-
-Engineering consistency is more important than implementation speed.
-
-
-
-Closing Thoughts
-
-Security has spent decades improving detection.
-
-
-The next decade will focus on validating automated decisions.
-
-
-Organizations already know how to collect telemetry.
-
-
-They already know how to detect threats.
-
-
-The remaining challenge is trust.
-
-
-Can an automated decision be explained?
-
-
-Can it be reproduced?
-
-
-Can it be audited?
-
-
-Can it be executed safely?
-
-
-These are engineering questions.
-
-
-Vortex is one possible answer.
-
-
-Not by replacing existing security platforms.
-
-
-But by introducing deterministic runtime validation between intelligence and execution.
-
-
-Because automation without trust is simply faster uncertainty.
-
-
-Trust cannot be inferred.
-
-
-It must be engineered.
-
-
-
-Vortex doesn't guess.
-
-
-It computes.
-
-
-Runtime Placement
-
-For the boundary between low-latency network enforcement and application
-authorization, see Runtime Low-Latency Enforcement.
-
-
-Vortex sits at the boundary where reasoning becomes execution.
-
-
-Modern systems increasingly rely on autonomous components:
-
-
-
-AI Models
-
-AI Agents
-
-Workflow Engines
-
-Policy Engines
-
-Orchestrators
-
-
-These systems generate decisions.
-
-
-Vortex is designed to determine whether those decisions are trusted enough to
-become actions. Today, the shipped adapter demonstrates that boundary for the
-anonymization endpoint; the agent, OS, cloud, and tool integrations below are
-target adapters rather than completed integrations.
-
-
-Human
-    │
-    ▼
-Application
-    │
-    ▼
-LLM
-    │
-    ▼
-AI Agent
-    │
-    ▼
-Orchestrator
-    │
-    ▼
-+------------------------+
-|      VORTEX DFS        |
-| Runtime Trust Layer    |
-+------------------------+
-    │
-    ├──────────────┐
-    ▼              ▼
-ALLOW / REDACT / AUDIT         REJECT
-    │
-    ▼
-Trusted Execution
-    │
-    ▼
-Operating System
-Cloud APIs
-Databases
-Networks
-GitHub
-Kubernetes
-Email
-Filesystem
-
-Vortex does not attempt to make systems more intelligent.
-
-
-It ensures that intelligence becomes trustworthy execution.
+## Current status
+
+Vortex DFS is an **experimental pre-alpha** with a working protected execution path for anonymization:
+
+```text
+HTTP request
+  → RequestContext
+  → Evidence
+  → RuntimePolicy
+  → RuntimeDecision
+  → Execution Gate
+  → Anonymizer only when permitted
 
