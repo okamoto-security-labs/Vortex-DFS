@@ -224,6 +224,8 @@ mod tests {
         async fn find_by_trace_id(
             &self,
             _trace_id: &str,
+            _limit: usize,
+            _offset: usize,
         ) -> Result<Vec<crate::runtime::RuntimeAuditEvent>, crate::runtime::AuditStoreError>
         {
             Err(crate::runtime::AuditStoreError::new(

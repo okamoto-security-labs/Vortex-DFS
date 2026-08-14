@@ -23,12 +23,21 @@ use vortex_dfs::signer_lwe::verify;
 type HmacSha256 = Hmac<Sha256>;
 
 const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
+const DEFAULT_AUDIT_PAGE_LIMIT: usize = 50;
+const MAX_AUDIT_PAGE_LIMIT: usize = 100;
+const MAX_AUDIT_PAGE_OFFSET: usize = 10_000;
 #[cfg(test)]
 const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
 #[cfg(test)]
 const TEST_LIMITED_API_KEY: &str = "test-vortex-runtime-limited-api-key";
 #[cfg(test)]
 const TEST_AUDIT_READER_API_KEY: &str = "test-vortex-runtime-audit-reader-api-key";
+
+#[derive(Debug, Deserialize)]
+struct AuditPageQuery {
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
@@ -191,6 +200,7 @@ fn insufficient_scope_response() -> HttpResponse {
 async fn read_runtime_audit_events(
     request: HttpRequest,
     trace_id: web::Path<String>,
+    page: web::Query<AuditPageQuery>,
     runtime_state: web::Data<RuntimeState>,
 ) -> HttpResponse {
     let identity = match authenticate_bearer(&request, runtime_state.get_ref()) {
@@ -202,6 +212,22 @@ async fn read_runtime_audit_events(
         return insufficient_scope_response();
     }
 
+    let page = page.into_inner();
+    let limit = page.limit.unwrap_or(DEFAULT_AUDIT_PAGE_LIMIT);
+    let offset = page.offset.unwrap_or(0);
+
+    if limit == 0 || limit > MAX_AUDIT_PAGE_LIMIT {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "limit must be between 1 and 100",
+        }));
+    }
+
+    if offset > MAX_AUDIT_PAGE_OFFSET {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "offset must not exceed 10000",
+        }));
+    }
+
     let trace_id = trace_id.into_inner();
 
     if Uuid::parse_str(&trace_id).is_err() {
@@ -210,7 +236,7 @@ async fn read_runtime_audit_events(
         }));
     }
 
-    let events = match runtime_state.audit_store.find_by_trace_id(&trace_id).await {
+    let events = match runtime_state.audit_store.find_by_trace_id(&trace_id, limit, offset).await {
         Ok(events) => events,
         Err(error) => {
             log::error!("runtime audit lookup failed: {error}");
@@ -229,6 +255,8 @@ async fn read_runtime_audit_events(
 
     HttpResponse::Ok().json(serde_json::json!({
         "trace_id": trace_id,
+        "limit": limit,
+        "offset": offset,
         "events": events,
     }))
 }
@@ -495,6 +523,10 @@ mod tests {
         let response = read_runtime_audit_events(
             actix_web::test::TestRequest::default().to_http_request(),
             web::Path::from(Uuid::new_v4().to_string()),
+            web::Query(AuditPageQuery {
+                limit: None,
+                offset: None,
+            }),
             RuntimeState::in_memory_for_test(),
         )
         .await;
@@ -507,6 +539,10 @@ mod tests {
         let response = read_runtime_audit_events(
             authorized_http_request(),
             web::Path::from(Uuid::new_v4().to_string()),
+            web::Query(AuditPageQuery {
+                limit: None,
+                offset: None,
+            }),
             RuntimeState::in_memory_for_test(),
         )
         .await;
@@ -542,6 +578,10 @@ mod tests {
         let response = read_runtime_audit_events(
             audit_reader_http_request(),
             web::Path::from(trace_id.clone()),
+            web::Query(AuditPageQuery {
+                limit: None,
+                offset: None,
+            }),
             state,
         )
         .await;
@@ -560,6 +600,38 @@ mod tests {
         assert_eq!(audit["events"][0]["outcome"], "REDACT");
         assert!(audit["events"][0].get("payload").is_none());
         assert!(audit["events"][0].get("identity").is_none());
+    }
+
+    #[actix_web::test]
+    async fn audit_reader_rejects_zero_page_limit() {
+        let response = read_runtime_audit_events(
+            audit_reader_http_request(),
+            web::Path::from(Uuid::new_v4().to_string()),
+            web::Query(AuditPageQuery {
+                limit: Some(0),
+                offset: Some(0),
+            }),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_web::test]
+    async fn audit_reader_rejects_page_limit_above_server_maximum() {
+        let response = read_runtime_audit_events(
+            audit_reader_http_request(),
+            web::Path::from(Uuid::new_v4().to_string()),
+            web::Query(AuditPageQuery {
+                limit: Some(101),
+                offset: Some(0),
+            }),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::BAD_REQUEST);
     }
 
     #[actix_web::test]
