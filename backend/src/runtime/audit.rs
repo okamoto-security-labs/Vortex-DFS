@@ -89,6 +89,8 @@ pub trait RuntimeAuditStore: Send + Sync {
     async fn find_by_trace_id(
         &self,
         trace_id: &str,
+        limit: usize,
+        offset: usize,
     ) -> Result<Vec<RuntimeAuditEvent>, AuditStoreError>;
 }
 
@@ -133,6 +135,8 @@ impl RuntimeAuditStore for InMemoryRuntimeAuditStore {
     async fn find_by_trace_id(
         &self,
         trace_id: &str,
+        limit: usize,
+        offset: usize,
     ) -> Result<Vec<RuntimeAuditEvent>, AuditStoreError> {
         let events = self
             .events
@@ -142,6 +146,8 @@ impl RuntimeAuditStore for InMemoryRuntimeAuditStore {
         Ok(events
             .iter()
             .filter(|event| event.trace_id == trace_id)
+            .skip(offset)
+            .take(limit)
             .cloned()
             .collect())
     }
@@ -263,6 +269,8 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
     async fn find_by_trace_id(
         &self,
         trace_id: &str,
+        limit: usize,
+        offset: usize,
     ) -> Result<Vec<RuntimeAuditEvent>, AuditStoreError> {
         let rows = sqlx::query(
             r#"
@@ -282,9 +290,12 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
             FROM runtime_audit_events
             WHERE trace_id = $1
             ORDER BY decided_at_ms ASC, event_id ASC
+            LIMIT $2 OFFSET $3
             "#,
         )
         .bind(trace_id)
+        .bind(limit as i64)
+        .bind(offset as i64)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| AuditStoreError::new(error.to_string()))?;
@@ -423,6 +434,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn in_memory_store_returns_requested_page() {
+        let store = InMemoryRuntimeAuditStore::new();
+
+        let mut first = event();
+        first.event_id = "event-001".to_string();
+
+        let mut second = first.clone();
+        second.event_id = "event-002".to_string();
+
+        store.append(first).await.unwrap();
+        store.append(second).await.unwrap();
+
+        let page = store
+            .find_by_trace_id("trace-001", 1, 1)
+            .await
+            .unwrap();
+
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].event_id, "event-002");
+    }
+
+    #[tokio::test]
     async fn in_memory_store_returns_events_by_trace_id() {
         let store = InMemoryRuntimeAuditStore::new();
         let event = event();
@@ -436,7 +469,10 @@ mod tests {
             .await
             .unwrap();
 
-        let events = store.find_by_trace_id("trace-001").await.unwrap();
+        let events = store
+            .find_by_trace_id("trace-001", 50, 0)
+            .await
+            .unwrap();
 
         assert_eq!(store.len().unwrap(), 2);
         assert_eq!(events.len(), 1);
