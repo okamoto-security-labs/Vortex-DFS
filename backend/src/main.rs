@@ -12,13 +12,13 @@ use std::time::Instant;
 use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::provisioner::{get_pool, init_db};
+#[cfg(test)]
+use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
 use vortex_dfs::runtime::{
     evaluate_audit_and_execute, DecisionReason, GuardedExecution, IdentityContext, Operation,
     PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
-#[cfg(test)]
-use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -27,6 +27,8 @@ const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
 const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
 #[cfg(test)]
 const TEST_LIMITED_API_KEY: &str = "test-vortex-runtime-limited-api-key";
+#[cfg(test)]
+const TEST_AUDIT_READER_API_KEY: &str = "test-vortex-runtime-audit-reader-api-key";
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
@@ -115,14 +117,16 @@ impl RuntimeState {
                 principal_id: "test-limited-client".to_string(),
                 scopes: Vec::new(),
             },
+            ApiClientConfig {
+                api_key: TEST_AUDIT_READER_API_KEY.to_string(),
+                principal_id: "test-audit-reader".to_string(),
+                scopes: vec!["audit:read".to_string()],
+            },
         ];
 
         web::Data::new(
-            Self::from_client_configs(
-                Arc::new(InMemoryRuntimeAuditStore::new()),
-                client_configs,
-            )
-            .expect("test client configuration should be valid"),
+            Self::from_client_configs(Arc::new(InMemoryRuntimeAuditStore::new()), client_configs)
+                .expect("test client configuration should be valid"),
         )
     }
 }
@@ -160,11 +164,7 @@ fn authenticate_bearer(
     };
 
     let identity = principal.scopes.iter().cloned().fold(
-        IdentityContext::new(
-            principal.principal_id.as_ref(),
-            "bearer_api_key",
-            true,
-        ),
+        IdentityContext::new(principal.principal_id.as_ref(), "bearer_api_key", true),
         |identity, scope| identity.with_scope(scope),
     );
 
@@ -177,6 +177,60 @@ fn unauthorized_response() -> HttpResponse {
         .json(serde_json::json!({
             "error": "authentication required",
         }))
+}
+
+fn insufficient_scope_response() -> HttpResponse {
+    HttpResponse::Forbidden().json(serde_json::json!({
+        "error": "insufficient scope",
+    }))
+}
+
+/// Returns bounded audit metadata for a trace after explicit authorization.
+///
+/// Audit events never contain raw payloads, API keys, or identity data.
+async fn read_runtime_audit_events(
+    request: HttpRequest,
+    trace_id: web::Path<String>,
+    runtime_state: web::Data<RuntimeState>,
+) -> HttpResponse {
+    let identity = match authenticate_bearer(&request, runtime_state.get_ref()) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    if !identity.has_scope("audit:read") {
+        return insufficient_scope_response();
+    }
+
+    let trace_id = trace_id.into_inner();
+
+    if Uuid::parse_str(&trace_id).is_err() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "trace_id must be a UUID",
+        }));
+    }
+
+    let events = match runtime_state.audit_store.find_by_trace_id(&trace_id).await {
+        Ok(events) => events,
+        Err(error) => {
+            log::error!("runtime audit lookup failed: {error}");
+
+            return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "runtime audit storage unavailable",
+            }));
+        }
+    };
+
+    if events.is_empty() {
+        return HttpResponse::NotFound().json(serde_json::json!({
+            "error": "audit events not found",
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "trace_id": trace_id,
+        "events": events,
+    }))
 }
 
 async fn health_check(_req: HttpRequest) -> HttpResponse {
@@ -301,13 +355,9 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     log::info!("[VORTEX-DFS] Inicializando servidor de alta performance...");
 
-    init_db()
-        .await
-        .map_err(std::io::Error::other)?;
+    init_db().await.map_err(std::io::Error::other)?;
 
-    let pool = get_pool()
-        .map_err(std::io::Error::other)?
-        .clone();
+    let pool = get_pool().map_err(std::io::Error::other)?.clone();
 
     let audit_store = PostgresRuntimeAuditStore::new(pool);
 
@@ -316,17 +366,20 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(std::io::Error::other)?;
 
-    let client_config_json = std::env::var("VORTEX_API_CLIENTS_JSON")
-        .map_err(|_| std::io::Error::new(
+    let client_config_json = std::env::var("VORTEX_API_CLIENTS_JSON").map_err(|_| {
+        std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "VORTEX_API_CLIENTS_JSON must be configured",
-        ))?;
+        )
+    })?;
 
-    let client_configs: Vec<ApiClientConfig> = serde_json::from_str(&client_config_json)
-        .map_err(|error| std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("VORTEX_API_CLIENTS_JSON is invalid: {error}"),
-        ))?;
+    let client_configs: Vec<ApiClientConfig> =
+        serde_json::from_str(&client_config_json).map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("VORTEX_API_CLIENTS_JSON is invalid: {error}"),
+            )
+        })?;
 
     let audit_store: Arc<dyn RuntimeAuditStore> = Arc::new(audit_store);
     let runtime_state = RuntimeState::from_client_configs(audit_store, client_configs)
@@ -339,6 +392,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(runtime_state.clone())
             .route("/health", web::get().to(health_check))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
+            .route(
+                "/runtime/audit/{trace_id}",
+                web::get().to(read_runtime_audit_events),
+            )
             .route("/benchmark/pqc/verify", web::get().to(benchmark_verify_pqc))
     })
     .bind("127.0.0.1:8080")?
@@ -364,6 +421,15 @@ mod tests {
             .insert_header((
                 header::AUTHORIZATION,
                 format!("Bearer {TEST_LIMITED_API_KEY}"),
+            ))
+            .to_http_request()
+    }
+
+    fn audit_reader_http_request() -> HttpRequest {
+        actix_web::test::TestRequest::default()
+            .insert_header((
+                header::AUTHORIZATION,
+                format!("Bearer {TEST_AUDIT_READER_API_KEY}"),
             ))
             .to_http_request()
     }
@@ -425,6 +491,78 @@ mod tests {
     }
 
     #[actix_web::test]
+    async fn audit_read_requires_authentication() {
+        let response = read_runtime_audit_events(
+            actix_web::test::TestRequest::default().to_http_request(),
+            web::Path::from(Uuid::new_v4().to_string()),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn audit_read_requires_audit_scope() {
+        let response = read_runtime_audit_events(
+            authorized_http_request(),
+            web::Path::from(Uuid::new_v4().to_string()),
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::FORBIDDEN);
+    }
+
+    #[actix_web::test]
+    async fn audit_reader_can_fetch_safe_event_by_trace_id() {
+        let state = RuntimeState::in_memory_for_test();
+
+        let execution_response = benchmark_anonymize(
+            authorized_http_request(),
+            anonymize_request("Contact: user@example.com"),
+            state.clone(),
+        )
+        .await;
+
+        assert!(execution_response.status().is_success());
+
+        let body = actix_web::body::to_bytes(execution_response.into_body())
+            .await
+            .expect("execution response body should be readable");
+
+        let execution: serde_json::Value =
+            serde_json::from_slice(&body).expect("execution response should be JSON");
+
+        let trace_id = execution["trace_id"]
+            .as_str()
+            .expect("execution response should contain trace_id")
+            .to_string();
+
+        let response = read_runtime_audit_events(
+            audit_reader_http_request(),
+            web::Path::from(trace_id.clone()),
+            state,
+        )
+        .await;
+
+        assert!(response.status().is_success());
+
+        let body = actix_web::body::to_bytes(response.into_body())
+            .await
+            .expect("audit response body should be readable");
+
+        let audit: serde_json::Value =
+            serde_json::from_slice(&body).expect("audit response should be JSON");
+
+        assert_eq!(audit["trace_id"], trace_id);
+        assert_eq!(audit["events"].as_array().map(Vec::len), Some(1));
+        assert_eq!(audit["events"][0]["outcome"], "REDACT");
+        assert!(audit["events"][0].get("payload").is_none());
+        assert!(audit["events"][0].get("identity").is_none());
+    }
+
+    #[actix_web::test]
     async fn empty_anonymize_request_is_rejected_before_execution() {
         let req = web::Json(AnonymizeRequest {
             content: "   ".to_string(),
@@ -432,7 +570,12 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(
+            authorized_http_request(),
+            req,
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
 
         assert_eq!(
             resp.status(),
@@ -458,7 +601,12 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(
+            authorized_http_request(),
+            req,
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
 
         assert!(resp.status().is_success());
 
@@ -483,7 +631,12 @@ mod tests {
             locale: "en".to_string(),
         });
 
-        let resp = benchmark_anonymize(authorized_http_request(), req, RuntimeState::in_memory_for_test()).await;
+        let resp = benchmark_anonymize(
+            authorized_http_request(),
+            req,
+            RuntimeState::in_memory_for_test(),
+        )
+        .await;
         assert!(resp.status().is_success());
     }
 }
