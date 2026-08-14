@@ -592,3 +592,27 @@ Validated in the Codespace:
   `backend/src/main.rs`; run `git diff --check` and the full backend test suite.
 - Persistent audit, production identity/signature enforcement, external policy
   loading, and a real Tool Runner/Agent SDK remain future work.
+
+
+## Runtime Session Update — 2026-08-13 to 2026-08-14
+
+Vortex DFS now has a tested userspace runtime vertical slice for protected anonymization:
+HTTP Bearer authentication -> IdentityContext/scopes -> RequestContext/evidence -> RuntimePolicy/RuntimeValidator -> RuntimeDecision -> safe audit persistence -> executor only when permitted.
+
+Implemented:
+- Deterministic outcomes: ALLOW, REJECT, REDACT and AUDIT. REJECT never invokes the executor; REDACT permits the sanitized path.
+- `evaluate_audit_and_execute`: audit persistence happens before protected execution; audit-store failure blocks execution and maps to HTTP 503.
+- `RuntimeAuditEvent`, in-memory/Postgres audit stores, migration-backed storage and deterministic lookup by trace ID. Audit events exclude raw payloads, identity, API keys and unrestricted signals.
+- HTTP Bearer identity using HMAC proofs rather than retaining plaintext API keys in runtime state. Production clients use `VORTEX_API_CLIENTS_JSON`.
+- Deterministic scopes via `BTreeSet`: `anonymize:execute` protects anonymization and `audit:read` protects audit lookup. Valid identity without scope returns 403/SCOPE_DENIED.
+- Current audit-read slice: `GET /runtime/audit/{trace_id}` requires `audit:read`; 401 missing/invalid token, 403 missing scope, 400 invalid UUID, 404 missing events and 503 storage failure. It returns bounded audit metadata only.
+
+Before each PR run:
+```bash
+cargo fmt --manifest-path backend/Cargo.toml -- --check
+cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+cargo test --manifest-path backend/Cargo.toml
+git diff --check
+```
+
+Limitations remain: experimental/pre-alpha; toy LWE is not production PQC; eBPF is experimental and not integrated end-to-end; no production Tool Runner/Agent SDK or external policy-bundle administration.
