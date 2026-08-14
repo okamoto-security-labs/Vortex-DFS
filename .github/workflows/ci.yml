@@ -25,6 +25,12 @@ jobs:
     - name: Run Cargo Check
       run: cargo check --manifest-path backend/Cargo.toml
 
+    - name: Check Migration Runner
+      run: cargo check --manifest-path backend/Cargo.toml --bin vortex_migrate
+
+    - name: Lint Migration Runner
+      run: cargo clippy --manifest-path backend/Cargo.toml --bin vortex_migrate -- -D warnings
+
     - name: Run Clippy (Strict Zero-Warning Policy)
       run: cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
 
