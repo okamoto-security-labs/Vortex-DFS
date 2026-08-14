@@ -592,3 +592,20 @@ Validated in the Codespace:
   `backend/src/main.rs`; run `git diff --check` and the full backend test suite.
 - Persistent audit, production identity/signature enforcement, external policy
   loading, and a real Tool Runner/Agent SDK remain future work.
+
+## Runtime Update (2026-08-13 to 2026-08-14)
+
+Implemented a protected userspace runtime slice:
+HTTP Bearer authentication -> IdentityContext/scopes -> RequestContext/evidence -> RuntimePolicy/RuntimeValidator -> RuntimeDecision -> safe audit persistence -> protected executor.
+
+- REJECT never invokes the executor; REDACT executes the sanitized path.
+- evaluate_audit_and_execute persists the decision before permitted execution. Audit failure blocks execution and returns HTTP 503.
+- RuntimeAuditEvent excludes raw payloads, identity fields, API keys and unrestricted evidence signals.
+- Added InMemory and PostgreSQL audit stores plus trace-id lookup.
+- API keys are represented as HMAC proofs in runtime state; production clients use VORTEX_API_CLIENTS_JSON.
+- anonymize:execute protects anonymization; audit:read protects GET /runtime/audit/{trace_id}.
+- HTTP behavior: missing/invalid Bearer=401, missing scope=403, invalid trace UUID=400, missing events=404, audit failure=503.
+- Run before PR: cargo fmt --check, cargo clippy -- -D warnings, cargo test, git diff --check.
+
+Limitations: experimental/pre-alpha; toy LWE is not production PQC; eBPF is experimental and not integrated end-to-end; no production Tool Runner/Agent SDK or external policy administration yet.
+
