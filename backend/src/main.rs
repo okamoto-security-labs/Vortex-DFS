@@ -390,7 +390,7 @@ async fn main() -> std::io::Result<()> {
     let audit_store = PostgresRuntimeAuditStore::new(pool);
 
     audit_store
-        .ensure_schema()
+        .verify_schema()
         .await
         .map_err(std::io::Error::other)?;
 
