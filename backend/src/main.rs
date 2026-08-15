@@ -32,6 +32,9 @@ const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
 const TEST_LIMITED_API_KEY: &str = "test-vortex-runtime-limited-api-key";
 #[cfg(test)]
 const TEST_AUDIT_READER_API_KEY: &str = "test-vortex-runtime-audit-reader-api-key";
+#[cfg(test)]
+const TEST_OTHER_TENANT_AUDIT_READER_API_KEY: &str =
+    "test-vortex-runtime-other-tenant-audit-reader-api-key";
 
 #[derive(Debug, Deserialize)]
 struct AuditPageQuery {
@@ -59,6 +62,7 @@ struct ErrorResponse {
 struct ApiClientConfig {
     api_key: String,
     principal_id: String,
+    tenant_id: String,
     #[serde(default)]
     scopes: Vec<String>,
 }
@@ -67,6 +71,7 @@ struct ApiClientConfig {
 struct AuthenticatedPrincipal {
     api_key_proof: [u8; 32],
     principal_id: Arc<str>,
+    tenant_id: Arc<str>,
     scopes: Vec<String>,
 }
 
@@ -96,6 +101,10 @@ impl RuntimeState {
                 return Err("API client principal_id must not be empty".to_string());
             }
 
+            if client.tenant_id.trim().is_empty() {
+                return Err("API client tenant_id must not be empty".to_string());
+            }
+
             if client.scopes.iter().any(|scope| scope.trim().is_empty()) {
                 return Err("API client scopes must not be empty".to_string());
             }
@@ -103,6 +112,7 @@ impl RuntimeState {
             principals.push(AuthenticatedPrincipal {
                 api_key_proof: api_key_proof(&client.api_key),
                 principal_id: Arc::from(client.principal_id),
+                tenant_id: Arc::from(client.tenant_id),
                 scopes: client.scopes,
             });
         }
@@ -119,16 +129,25 @@ impl RuntimeState {
             ApiClientConfig {
                 api_key: TEST_EXECUTION_API_KEY.to_string(),
                 principal_id: "test-execution-client".to_string(),
+                tenant_id: "tenant-alpha".to_string(),
                 scopes: vec!["anonymize:execute".to_string()],
             },
             ApiClientConfig {
                 api_key: TEST_LIMITED_API_KEY.to_string(),
                 principal_id: "test-limited-client".to_string(),
+                tenant_id: "tenant-alpha".to_string(),
                 scopes: Vec::new(),
             },
             ApiClientConfig {
                 api_key: TEST_AUDIT_READER_API_KEY.to_string(),
                 principal_id: "test-audit-reader".to_string(),
+                tenant_id: "tenant-alpha".to_string(),
+                scopes: vec!["audit:read".to_string()],
+            },
+            ApiClientConfig {
+                api_key: TEST_OTHER_TENANT_AUDIT_READER_API_KEY.to_string(),
+                principal_id: "test-other-tenant-audit-reader".to_string(),
+                tenant_id: "tenant-beta".to_string(),
                 scopes: vec!["audit:read".to_string()],
             },
         ];
@@ -173,7 +192,8 @@ fn authenticate_bearer(
     };
 
     let identity = principal.scopes.iter().cloned().fold(
-        IdentityContext::new(principal.principal_id.as_ref(), "bearer_api_key", true),
+        IdentityContext::new(principal.principal_id.as_ref(), "bearer_api_key", true)
+            .with_tenant_id(principal.tenant_id.as_ref()),
         |identity, scope| identity.with_scope(scope),
     );
 
@@ -212,6 +232,14 @@ async fn read_runtime_audit_events(
         return insufficient_scope_response();
     }
 
+    let Some(tenant_id) = identity.tenant_id.as_deref() else {
+        log::error!("authenticated identity is missing tenant_id");
+
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "runtime identity is misconfigured",
+        }));
+    };
+
     let page = page.into_inner();
     let limit = page.limit.unwrap_or(DEFAULT_AUDIT_PAGE_LIMIT);
     let offset = page.offset.unwrap_or(0);
@@ -236,7 +264,11 @@ async fn read_runtime_audit_events(
         }));
     }
 
-    let events = match runtime_state.audit_store.find_by_trace_id(&trace_id, limit, offset).await {
+    let events = match runtime_state
+        .audit_store
+        .find_by_trace_id(tenant_id, &trace_id, limit, offset)
+        .await
+    {
         Ok(events) => events,
         Err(error) => {
             log::error!("runtime audit lookup failed: {error}");
@@ -453,6 +485,15 @@ mod tests {
             .to_http_request()
     }
 
+    fn other_tenant_audit_reader_http_request() -> HttpRequest {
+        actix_web::test::TestRequest::default()
+            .insert_header((
+                header::AUTHORIZATION,
+                format!("Bearer {TEST_OTHER_TENANT_AUDIT_READER_API_KEY}"),
+            ))
+            .to_http_request()
+    }
+
     fn audit_reader_http_request() -> HttpRequest {
         actix_web::test::TestRequest::default()
             .insert_header((
@@ -600,6 +641,43 @@ mod tests {
         assert_eq!(audit["events"][0]["outcome"], "REDACT");
         assert!(audit["events"][0].get("payload").is_none());
         assert!(audit["events"][0].get("identity").is_none());
+    }
+
+    #[actix_web::test]
+    async fn audit_reader_cannot_read_another_tenant_trace() {
+        let state = RuntimeState::in_memory_for_test();
+
+        let execution_response = benchmark_anonymize(
+            authorized_http_request(),
+            anonymize_request("Contact: user@example.com"),
+            state.clone(),
+        )
+        .await;
+
+        let body = actix_web::body::to_bytes(execution_response.into_body())
+            .await
+            .expect("execution response body should be readable");
+
+        let execution: serde_json::Value =
+            serde_json::from_slice(&body).expect("execution response should be JSON");
+
+        let trace_id = execution["trace_id"]
+            .as_str()
+            .expect("execution response should contain trace_id")
+            .to_string();
+
+        let response = read_runtime_audit_events(
+            other_tenant_audit_reader_http_request(),
+            web::Path::from(trace_id),
+            web::Query(AuditPageQuery {
+                limit: None,
+                offset: None,
+            }),
+            state,
+        )
+        .await;
+
+        assert_eq!(response.status(), actix_web::http::StatusCode::NOT_FOUND);
     }
 
     #[actix_web::test]
