@@ -79,6 +79,30 @@ impl std::fmt::Display for AuditStoreError {
 
 impl std::error::Error for AuditStoreError {}
 
+fn decision_reason_from_storage(value: &str) -> Result<DecisionReason, AuditStoreError> {
+    match value {
+        "OPERATION_ALLOWED" => Ok(DecisionReason::OperationAllowed),
+        "AUDIT_REQUIRED" => Ok(DecisionReason::AuditRequired),
+        "STRUCTURE_INVALID" => Ok(DecisionReason::StructureInvalid),
+        "IDENTITY_MISSING" => Ok(DecisionReason::IdentityMissing),
+        "IDENTITY_INVALID" => Ok(DecisionReason::IdentityInvalid),
+        "POLICY_DENIED" => Ok(DecisionReason::PolicyDenied),
+        "SCOPE_DENIED" => Ok(DecisionReason::ScopeDenied),
+        "SIGNATURE_INVALID" => Ok(DecisionReason::SignatureInvalid),
+        "KEY_REVOKED" => Ok(DecisionReason::KeyRevoked),
+        "PAYLOAD_INTEGRITY_FAILED" => Ok(DecisionReason::PayloadIntegrityFailed),
+        "SENSITIVE_DATA_DETECTED" => Ok(DecisionReason::SensitiveDataDetected),
+        "SENSITIVE_DATA_REDACTED" => Ok(DecisionReason::SensitiveDataRedacted),
+        "TRUST_BELOW_THRESHOLD" => Ok(DecisionReason::TrustBelowThreshold),
+        "REPLAY_DETECTED" => Ok(DecisionReason::ReplayDetected),
+        "UNSUPPORTED_OPERATION" => Ok(DecisionReason::UnsupportedOperation),
+        "RUNTIME_ERROR" => Ok(DecisionReason::RuntimeError),
+        _ => Err(AuditStoreError::new(format!(
+            "unknown audit reason: {value}"
+        ))),
+    }
+}
+
 /// Storage contract for safe runtime audit events.
 #[async_trait]
 pub trait RuntimeAuditStore: Send + Sync {
@@ -182,7 +206,6 @@ impl PostgresRuntimeAuditStore {
 
         Ok(())
     }
-
 }
 
 #[async_trait]
@@ -285,32 +308,10 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
                     }
                 };
 
-                let reason_code = match row
-                    .try_get::<String, _>("reason_code")
-                    .map_err(|error| AuditStoreError::new(error.to_string()))?
-                    .as_str()
-                {
-                    "OPERATION_ALLOWED" => DecisionReason::OperationAllowed,
-                    "AUDIT_REQUIRED" => DecisionReason::AuditRequired,
-                    "STRUCTURE_INVALID" => DecisionReason::StructureInvalid,
-                    "IDENTITY_MISSING" => DecisionReason::IdentityMissing,
-                    "IDENTITY_INVALID" => DecisionReason::IdentityInvalid,
-                    "POLICY_DENIED" => DecisionReason::PolicyDenied,
-                    "SIGNATURE_INVALID" => DecisionReason::SignatureInvalid,
-                    "KEY_REVOKED" => DecisionReason::KeyRevoked,
-                    "PAYLOAD_INTEGRITY_FAILED" => DecisionReason::PayloadIntegrityFailed,
-                    "SENSITIVE_DATA_DETECTED" => DecisionReason::SensitiveDataDetected,
-                    "SENSITIVE_DATA_REDACTED" => DecisionReason::SensitiveDataRedacted,
-                    "TRUST_BELOW_THRESHOLD" => DecisionReason::TrustBelowThreshold,
-                    "REPLAY_DETECTED" => DecisionReason::ReplayDetected,
-                    "UNSUPPORTED_OPERATION" => DecisionReason::UnsupportedOperation,
-                    "RUNTIME_ERROR" => DecisionReason::RuntimeError,
-                    value => {
-                        return Err(AuditStoreError::new(format!(
-                            "unknown audit reason: {value}"
-                        )))
-                    }
-                };
+                let reason_code = decision_reason_from_storage(
+                    &row.try_get::<String, _>("reason_code")
+                        .map_err(|error| AuditStoreError::new(error.to_string()))?,
+                )?;
 
                 let evidence_summary = row
                     .try_get("evidence_summary")
@@ -400,6 +401,19 @@ mod tests {
         assert!(serialized.get("signals").is_none());
     }
 
+    #[test]
+    fn scope_denied_reason_is_readable_from_audit_storage() {
+        assert_eq!(
+            decision_reason_from_storage("SCOPE_DENIED").unwrap(),
+            DecisionReason::ScopeDenied
+        );
+    }
+
+    #[test]
+    fn unknown_audit_reason_is_rejected() {
+        assert!(decision_reason_from_storage("NOT_A_REASON").is_err());
+    }
+
     #[tokio::test]
     async fn in_memory_store_returns_requested_page() {
         let store = InMemoryRuntimeAuditStore::new();
@@ -413,10 +427,7 @@ mod tests {
         store.append(first).await.unwrap();
         store.append(second).await.unwrap();
 
-        let page = store
-            .find_by_trace_id("trace-001", 1, 1)
-            .await
-            .unwrap();
+        let page = store.find_by_trace_id("trace-001", 1, 1).await.unwrap();
 
         assert_eq!(page.len(), 1);
         assert_eq!(page[0].event_id, "event-002");
@@ -436,10 +447,7 @@ mod tests {
             .await
             .unwrap();
 
-        let events = store
-            .find_by_trace_id("trace-001", 50, 0)
-            .await
-            .unwrap();
+        let events = store.find_by_trace_id("trace-001", 50, 0).await.unwrap();
 
         assert_eq!(store.len().unwrap(), 2);
         assert_eq!(events.len(), 1);
