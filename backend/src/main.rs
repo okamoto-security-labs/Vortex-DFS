@@ -26,6 +26,7 @@ const API_KEY_PROOF_CONTEXT: &[u8] = b"vortex-dfs/http-runtime-identity/v1";
 const DEFAULT_AUDIT_PAGE_LIMIT: usize = 50;
 const MAX_AUDIT_PAGE_LIMIT: usize = 100;
 const MAX_AUDIT_PAGE_OFFSET: usize = 10_000;
+const MAX_ANONYMIZE_BODY_BYTES: usize = 1024 * 1024;
 #[cfg(test)]
 const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
 #[cfg(test)]
@@ -40,6 +41,26 @@ const TEST_OTHER_TENANT_AUDIT_READER_API_KEY: &str =
 struct AuditPageQuery {
     limit: Option<usize>,
     offset: Option<usize>,
+}
+
+fn anonymize_json_config() -> web::JsonConfig {
+    web::JsonConfig::default()
+        .limit(MAX_ANONYMIZE_BODY_BYTES)
+        .error_handler(|error, _request| {
+            let response = match error {
+                actix_web::error::JsonPayloadError::OverflowKnownLength { .. }
+                | actix_web::error::JsonPayloadError::Overflow { .. } => {
+                    HttpResponse::PayloadTooLarge().json(serde_json::json!({
+                        "error": "anonymize request body exceeds the maximum allowed size",
+                    }))
+                }
+                _ => HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "invalid JSON request body",
+                })),
+            };
+
+            actix_web::error::InternalError::from_response("", response).into()
+        })
 }
 
 #[allow(dead_code)]
@@ -450,6 +471,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(runtime_state.clone())
+            .app_data(anonymize_json_config())
             .route("/health", web::get().to(health_check))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route(
@@ -509,6 +531,43 @@ mod tests {
             content_type: "text/plain".to_string(),
             locale: "en".to_string(),
         })
+    }
+
+    #[actix_web::test]
+    async fn oversized_anonymize_request_is_rejected_before_runtime_execution() {
+        let state = RuntimeState::in_memory_for_test();
+
+        let app = actix_web::test::init_service(
+            App::new()
+                .app_data(state)
+                .app_data(anonymize_json_config())
+                .route("/benchmark/anonymize", web::post().to(benchmark_anonymize)),
+        )
+        .await;
+
+        let payload = serde_json::json!({
+            "content": "a".repeat(MAX_ANONYMIZE_BODY_BYTES + 1),
+            "content_type": "text/plain",
+            "locale": "en",
+        })
+        .to_string();
+
+        let request = actix_web::test::TestRequest::post()
+            .uri("/benchmark/anonymize")
+            .insert_header((
+                header::AUTHORIZATION,
+                format!("Bearer {TEST_EXECUTION_API_KEY}"),
+            ))
+            .insert_header((header::CONTENT_TYPE, "application/json"))
+            .set_payload(payload)
+            .to_request();
+
+        let response = actix_web::test::call_service(&app, request).await;
+
+        assert_eq!(
+            response.status(),
+            actix_web::http::StatusCode::PAYLOAD_TOO_LARGE
+        );
     }
 
     #[actix_web::test]
