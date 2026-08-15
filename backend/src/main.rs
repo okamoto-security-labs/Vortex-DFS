@@ -8,7 +8,7 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 use vortex_dfs::anonymizer_engine::AnonymizerEngine;
 use vortex_dfs::provisioner::{get_pool, init_db};
@@ -27,6 +27,8 @@ const DEFAULT_AUDIT_PAGE_LIMIT: usize = 50;
 const MAX_AUDIT_PAGE_LIMIT: usize = 100;
 const MAX_AUDIT_PAGE_OFFSET: usize = 10_000;
 const MAX_ANONYMIZE_BODY_BYTES: usize = 1024 * 1024;
+const CLIENT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const CLIENT_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 #[cfg(test)]
 const TEST_EXECUTION_API_KEY: &str = "test-vortex-runtime-execution-api-key";
 #[cfg(test)]
@@ -480,6 +482,11 @@ async fn main() -> std::io::Result<()> {
             )
             .route("/benchmark/pqc/verify", web::get().to(benchmark_verify_pqc))
     })
+    // Bound incomplete or stalled HTTP requests before they consume server
+    // resources indefinitely. This is a connection-level timeout, not an
+    // execution timeout for the protected runtime operation.
+    .client_request_timeout(CLIENT_REQUEST_TIMEOUT)
+    .client_disconnect_timeout(CLIENT_DISCONNECT_TIMEOUT)
     .bind("127.0.0.1:8080")?
     .run()
     .await
