@@ -24,6 +24,12 @@ pub struct RuntimeAuditEvent {
     pub event_id: String,
     pub request_id: String,
     pub trace_id: String,
+
+    /// Internal authorization boundary. It is persisted but never returned
+    /// through the audit-reader JSON response.
+    #[serde(skip)]
+    pub tenant_id: Option<String>,
+
     pub operation: String,
     pub outcome: DecisionOutcome,
     pub reason_code: DecisionReason,
@@ -42,6 +48,10 @@ impl RuntimeAuditEvent {
             event_id: Uuid::new_v4().to_string(),
             request_id: context.request_id.clone(),
             trace_id: context.trace_id.clone(),
+            tenant_id: context
+                .identity
+                .as_ref()
+                .and_then(|identity| identity.tenant_id.clone()),
             operation: context.operation.as_str().to_string(),
             outcome: decision.outcome,
             reason_code: decision.reason_code,
@@ -112,6 +122,7 @@ pub trait RuntimeAuditStore: Send + Sync {
     /// Returns events associated with one trace identifier.
     async fn find_by_trace_id(
         &self,
+        tenant_id: &str,
         trace_id: &str,
         limit: usize,
         offset: usize,
@@ -158,6 +169,7 @@ impl RuntimeAuditStore for InMemoryRuntimeAuditStore {
 
     async fn find_by_trace_id(
         &self,
+        tenant_id: &str,
         trace_id: &str,
         limit: usize,
         offset: usize,
@@ -169,7 +181,9 @@ impl RuntimeAuditStore for InMemoryRuntimeAuditStore {
 
         Ok(events
             .iter()
-            .filter(|event| event.trace_id == trace_id)
+            .filter(|event| {
+                event.tenant_id.as_deref() == Some(tenant_id) && event.trace_id == trace_id
+            })
             .skip(offset)
             .take(limit)
             .cloned()
@@ -195,7 +209,7 @@ impl PostgresRuntimeAuditStore {
     /// Schema creation belongs to deployment migrations, not to the HTTP
     /// process startup path.
     pub async fn verify_schema(&self) -> Result<(), AuditStoreError> {
-        sqlx::query("SELECT 1 FROM runtime_audit_events LIMIT 1")
+        sqlx::query("SELECT tenant_id FROM runtime_audit_events LIMIT 1")
             .fetch_optional(&self.pool)
             .await
             .map_err(|error| {
@@ -220,6 +234,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
                 event_id,
                 request_id,
                 trace_id,
+                tenant_id,
                 operation,
                 outcome,
                 reason_code,
@@ -232,7 +247,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6,
-                $7, $8, $9, $10, $11, $12
+                $7, $8, $9, $10, $11, $12, $13
             )
             ON CONFLICT (event_id) DO NOTHING
             "#,
@@ -240,6 +255,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
         .bind(&event.event_id)
         .bind(&event.request_id)
         .bind(&event.trace_id)
+        .bind(&event.tenant_id)
         .bind(&event.operation)
         .bind(event.outcome.as_str())
         .bind(event.reason_code.as_str())
@@ -258,6 +274,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
 
     async fn find_by_trace_id(
         &self,
+        tenant_id: &str,
         trace_id: &str,
         limit: usize,
         offset: usize,
@@ -268,6 +285,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
                 event_id,
                 request_id,
                 trace_id,
+                tenant_id,
                 operation,
                 outcome,
                 reason_code,
@@ -278,11 +296,12 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
                 latency_us,
                 decided_at_ms
             FROM runtime_audit_events
-            WHERE trace_id = $1
+            WHERE tenant_id = $1 AND trace_id = $2
             ORDER BY decided_at_ms ASC, event_id ASC
-            LIMIT $2 OFFSET $3
+            LIMIT $3 OFFSET $4
             "#,
         )
+        .bind(tenant_id)
         .bind(trace_id)
         .bind(limit as i64)
         .bind(offset as i64)
@@ -331,6 +350,9 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
                     trace_id: row
                         .try_get("trace_id")
                         .map_err(|error| AuditStoreError::new(error.to_string()))?,
+                    tenant_id: row
+                        .try_get("tenant_id")
+                        .map_err(|error| AuditStoreError::new(error.to_string()))?,
                     operation: row
                         .try_get("operation")
                         .map_err(|error| AuditStoreError::new(error.to_string()))?,
@@ -363,7 +385,7 @@ impl RuntimeAuditStore for PostgresRuntimeAuditStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::{Operation, PayloadContext, RuntimePolicy};
+    use crate::runtime::{IdentityContext, Operation, PayloadContext, RuntimePolicy};
 
     fn event() -> RuntimeAuditEvent {
         let mut context = RequestContext::new(
@@ -373,6 +395,9 @@ mod tests {
             PayloadContext::new(512)
                 .with_content_type("text/plain")
                 .with_digest("sha256:example"),
+        )
+        .with_identity(
+            IdentityContext::new("audit-test-client", "test", true).with_tenant_id("tenant-001"),
         );
 
         context.evidence.set_structural_validity(true);
@@ -385,6 +410,32 @@ mod tests {
         );
 
         RuntimeAuditEvent::from_context_and_decision(&context, &decision)
+    }
+
+    #[test]
+    fn event_persists_tenant_boundary_without_serializing_it() {
+        let context = RequestContext::new(
+            "request-tenant",
+            "trace-tenant",
+            Operation::Anonymize,
+            PayloadContext::new(32),
+        )
+        .with_identity(
+            crate::runtime::IdentityContext::new("client-tenant", "bearer_api_key", true)
+                .with_tenant_id("tenant-001"),
+        );
+
+        let decision = RuntimeDecision::allow(
+            RuntimePolicy::anonymization_benchmark().decision_reference(),
+            &context.evidence,
+            1,
+        );
+
+        let event = RuntimeAuditEvent::from_context_and_decision(&context, &decision);
+        let serialized = serde_json::to_value(&event).unwrap();
+
+        assert_eq!(event.tenant_id.as_deref(), Some("tenant-001"));
+        assert!(serialized.get("tenant_id").is_none());
     }
 
     #[test]
@@ -427,7 +478,10 @@ mod tests {
         store.append(first).await.unwrap();
         store.append(second).await.unwrap();
 
-        let page = store.find_by_trace_id("trace-001", 1, 1).await.unwrap();
+        let page = store
+            .find_by_trace_id("tenant-001", "trace-001", 1, 1)
+            .await
+            .unwrap();
 
         assert_eq!(page.len(), 1);
         assert_eq!(page[0].event_id, "event-002");
@@ -447,7 +501,10 @@ mod tests {
             .await
             .unwrap();
 
-        let events = store.find_by_trace_id("trace-001", 50, 0).await.unwrap();
+        let events = store
+            .find_by_trace_id("tenant-001", "trace-001", 50, 0)
+            .await
+            .unwrap();
 
         assert_eq!(store.len().unwrap(), 2);
         assert_eq!(events.len(), 1);

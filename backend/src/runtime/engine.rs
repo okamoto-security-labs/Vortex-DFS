@@ -223,6 +223,7 @@ mod tests {
 
         async fn find_by_trace_id(
             &self,
+            _tenant_id: &str,
             _trace_id: &str,
             _limit: usize,
             _offset: usize,
