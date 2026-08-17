@@ -234,4 +234,4 @@ The code is open source. Read it, break it, tell us what you find.
 ---
 
 *Vortex DFS is built at Okamoto Security Labs. Apache 2.0.*  
-*Source: [github.com/your-org/vortex-dfs](https://github.com)*
+*Source: [okamoto-security-labs/Vortex-DFS](https://github.com/okamoto-security-labs/Vortex-DFS)*
