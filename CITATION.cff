@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use or reference Vortex, please cite this software and its associated architecture publication."
+title: "Vortex"
+type: software
+authors:
+  - family-names: "Okamoto"
+    given-names: "Gustavo"
+repository-code: "https://github.com/okamoto-security-labs/Vortex-DFS"
+url: "https://github.com/okamoto-security-labs/Vortex-DFS"
