@@ -470,11 +470,12 @@ async fn main() -> std::io::Result<()> {
 
     let runtime_state = web::Data::new(runtime_state);
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .app_data(runtime_state.clone())
             .app_data(anonymize_json_config())
             .route("/health", web::get().to(health_check))
+            .route("/v1/anonymize", web::post().to(benchmark_anonymize))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route(
                 "/runtime/audit/{trace_id}",
@@ -486,10 +487,18 @@ async fn main() -> std::io::Result<()> {
     // resources indefinitely. This is a connection-level timeout, not an
     // execution timeout for the protected runtime operation.
     .client_request_timeout(CLIENT_REQUEST_TIMEOUT)
-    .client_disconnect_timeout(CLIENT_DISCONNECT_TIMEOUT)
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
+    .client_disconnect_timeout(CLIENT_DISCONNECT_TIMEOUT);
+
+    let host = std::env::var("VORTEX_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(8080);
+
+    log::info!("[VORTEX-DFS] HTTP service listening on {host}:{port}");
+
+    server.bind((host.as_str(), port))?.run().await
 }
 
 #[cfg(test)]
