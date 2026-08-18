@@ -3,7 +3,7 @@
 //! Feature handlers should build one shared context instead of
 //! independently recreating identity, payload, evidence, and trace data.
 
-use crate::runtime::{DecisionReason, Operation, SecurityEvidence};
+use crate::runtime::{AuthorityContext, DecisionReason, Operation, SecurityEvidence};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -126,6 +126,7 @@ pub struct RequestContext {
     pub timestamp_ms: u64,
     pub operation: Operation,
     pub identity: Option<IdentityContext>,
+    pub authority: Option<AuthorityContext>,
     pub payload: PayloadContext,
     pub policy_id: Option<String>,
     pub evidence: SecurityEvidence,
@@ -145,6 +146,7 @@ impl RequestContext {
             timestamp_ms: current_timestamp_ms(),
             operation,
             identity: None,
+            authority: None,
             payload,
             policy_id: None,
             evidence: SecurityEvidence::new(),
@@ -156,6 +158,14 @@ impl RequestContext {
         self.evidence.set_identity_verified(identity.verified);
 
         self.identity = Some(identity);
+        self
+    }
+
+    /// Carries explicit delegated authority into runtime evaluation.
+    ///
+    /// Attaching authority does not verify or authorize execution.
+    pub fn with_authority(mut self, authority: AuthorityContext) -> Self {
+        self.authority = Some(authority);
         self
     }
 
@@ -238,6 +248,24 @@ mod tests {
 
         assert!(context.is_identity_verified());
         assert_eq!(context.evidence.identity_verified, Some(true));
+    }
+
+    #[test]
+    fn authority_is_preserved_without_implying_validation() {
+        let authority = AuthorityContext::new(
+            "control-plane",
+            "client-001",
+            Operation::AgentToolExecution,
+            1_000,
+            2_000,
+        )
+        .with_resource("tool:deploy");
+
+        let context = example_context().with_authority(authority.clone());
+
+        assert_eq!(context.authority.as_ref(), Some(&authority));
+        assert_eq!(context.operation, Operation::Anonymize);
+        assert!(!context.has_failures());
     }
 
     #[test]
