@@ -202,6 +202,17 @@ impl RuntimePolicy {
         )
     }
 
+    /// Policy for protected AI-agent tool execution.
+    ///
+    /// A capability scope is required, but capability alone is not treated
+    /// as complete derived authority. The runtime still requires its normal
+    /// integrity, signature, replay, trust and audit guarantees.
+    pub fn agent_tool_execution() -> Self {
+        Self::new("runtime.agent_tool_execution", "0.1.0")
+            .allow_operation(Operation::AgentToolExecution)
+            .with_required_scope("agent:tool:execute")
+    }
+
     /// Benchmark policy for the current anonymization endpoint.
     ///
     /// This policy intentionally avoids requiring identity,
@@ -381,6 +392,26 @@ mod tests {
                 RuntimeTrustBand::Critical
             )
         );
+    }
+
+    #[test]
+    fn agent_tool_execution_uses_conservative_security_requirements() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        assert!(policy.permits_operation(Operation::AgentToolExecution));
+        assert!(!policy.permits_operation(Operation::Anonymize));
+
+        assert!(policy.require_identity);
+        assert!(policy.required_scopes.contains("agent:tool:execute"));
+        assert!(policy.require_payload_integrity);
+        assert!(policy.require_signature);
+        assert!(policy.require_replay_protection);
+        assert_eq!(
+            policy.minimum_trust_band,
+            Some(RuntimeTrustBand::Operational)
+        );
+        assert!(policy.audit_required);
+        assert!(policy.fail_closed);
     }
 
     #[test]
