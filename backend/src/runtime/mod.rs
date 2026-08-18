@@ -8,6 +8,7 @@
 //! their internal logic.
 
 pub mod audit;
+pub mod authority;
 pub mod context;
 pub mod decision;
 pub mod engine;
@@ -16,6 +17,8 @@ pub mod operation;
 pub mod policy;
 pub mod trust;
 pub mod validator;
+
+pub use authority::AuthorityContext;
 
 pub use audit::{
     AuditStoreError, InMemoryRuntimeAuditStore, PostgresRuntimeAuditStore, RuntimeAuditEvent,
