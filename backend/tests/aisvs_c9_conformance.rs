@@ -97,3 +97,62 @@ fn c9_oversight_composition_uses_most_restrictive_requirement() {
         OversightRequirement::HardGate
     );
 }
+
+#[test]
+fn c9_chain_worst_case_reaches_execution_gate() {
+    use vortex_dfs::runtime::{
+        evaluate_request,
+        DecisionOutcome,
+        DecisionReason,
+        Operation,
+        PayloadContext,
+        RequestContext,
+        RuntimePolicy,
+    };
+
+    let effective = ReversibilityClass::worst_case([
+        ReversibilityClass::Reversible,
+        ReversibilityClass::Irreversible,
+        ReversibilityClass::Reversible,
+    ]);
+
+    assert_eq!(
+        effective,
+        ReversibilityClass::Irreversible
+    );
+
+    let mut request = RequestContext::new(
+        "c9-chain-001",
+        "c9-trace-001",
+        Operation::Anonymize,
+        PayloadContext::new(16),
+    )
+    .with_consequence(
+        ConsequenceContext::new(effective)
+    );
+
+    request
+        .evidence
+        .set_structural_validity(true);
+
+    request
+        .evidence
+        .set_sensitive_data_detected(false);
+
+    let evaluation = evaluate_request(
+        request,
+        &RuntimePolicy::anonymization_benchmark(),
+    );
+
+    assert_eq!(
+        evaluation.decision.outcome,
+        DecisionOutcome::Reject
+    );
+
+    assert_eq!(
+        evaluation.decision.reason_code,
+        DecisionReason::ConsequenceHardGate
+    );
+
+    assert!(!evaluation.permits_execution());
+}
