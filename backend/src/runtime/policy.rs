@@ -37,6 +37,9 @@ pub struct RuntimePolicy {
     /// `BTreeSet` preserves deterministic serialization order.
     pub required_scopes: BTreeSet<String>,
 
+    /// Whether explicit delegated authority is required.
+    pub require_authority: bool,
+
     /// Whether payload-integrity evidence is required.
     pub require_payload_integrity: bool,
 
@@ -74,6 +77,7 @@ impl RuntimePolicy {
             allowed_operations: BTreeSet::new(),
             require_identity: true,
             required_scopes: BTreeSet::new(),
+            require_authority: false,
             require_payload_integrity: true,
             require_signature: true,
             require_anonymization: false,
@@ -107,6 +111,15 @@ impl RuntimePolicy {
     /// Requires one explicit identity capability.
     pub fn with_required_scope(mut self, scope: impl Into<String>) -> Self {
         self.required_scopes.insert(scope.into());
+        self
+    }
+
+    /// Replaces the delegated-authority requirement.
+    pub const fn with_authority_requirement(
+        mut self,
+        required: bool,
+    ) -> Self {
+        self.require_authority = required;
         self
     }
 
@@ -211,6 +224,7 @@ impl RuntimePolicy {
         Self::new("runtime.agent_tool_execution", "0.1.0")
             .allow_operation(Operation::AgentToolExecution)
             .with_required_scope("agent:tool:execute")
+            .with_authority_requirement(true)
     }
 
     /// Benchmark policy for the current anonymization endpoint.
@@ -403,6 +417,7 @@ mod tests {
 
         assert!(policy.require_identity);
         assert!(policy.required_scopes.contains("agent:tool:execute"));
+        assert!(policy.require_authority);
         assert!(policy.require_payload_integrity);
         assert!(policy.require_signature);
         assert!(policy.require_replay_protection);
