@@ -112,6 +112,12 @@ impl RuntimeValidator {
             &mut report,
         );
 
+        Self::validate_authority(
+            context,
+            policy,
+            &mut report,
+        );
+
         Self::validate_payload_integrity(
             context,
             policy,
@@ -300,6 +306,62 @@ impl RuntimeValidator {
         }
     }
 
+    fn validate_authority(
+        context: &RequestContext,
+        policy: &RuntimePolicy,
+        report: &mut ValidationReport,
+    ) {
+        if !policy.require_authority {
+            return;
+        }
+
+        let Some(authority) = context.authority.as_ref() else {
+            report.add_failure(ValidationFailure::new(
+                DecisionReason::AuthorityMissing,
+                Some("authority".to_string()),
+                "Delegated authority is required by policy",
+            ));
+            return;
+        };
+
+        if !authority.has_valid_bounds() {
+            report.add_failure(ValidationFailure::new(
+                DecisionReason::AuthorityInvalid,
+                Some("authority".to_string()),
+                "Delegated authority is structurally invalid",
+            ));
+            return;
+        }
+
+        let Some(identity) = context.identity.as_ref() else {
+            return;
+        };
+
+        if authority.subject != identity.principal_id {
+            report.add_failure(ValidationFailure::new(
+                DecisionReason::AuthoritySubjectMismatch,
+                Some("authority.subject".to_string()),
+                "Delegated authority subject does not match the authenticated principal",
+            ));
+        }
+
+        if authority.operation != context.operation {
+            report.add_failure(ValidationFailure::new(
+                DecisionReason::AuthorityOperationMismatch,
+                Some("authority.operation".to_string()),
+                "Delegated authority does not permit the requested operation",
+            ));
+        }
+
+        if !authority.is_active_at(context.timestamp_ms) {
+            report.add_failure(ValidationFailure::new(
+                DecisionReason::AuthorityNotActive,
+                Some("authority".to_string()),
+                "Delegated authority is outside its validity interval",
+            ));
+        }
+    }
+
     fn validate_payload_integrity(
         context: &RequestContext,
         policy: &RuntimePolicy,
@@ -482,6 +544,7 @@ impl RuntimeValidator {
 mod tests {
     use super::*;
     use crate::runtime::{
+        AuthorityContext,
         IdentityContext,
         PayloadContext,
         RuntimeTrustBand,
@@ -532,6 +595,33 @@ mod tests {
             );
 
         context
+    }
+
+    fn authority_context() -> RequestContext {
+        let mut context = context_for(Operation::AgentToolExecution).with_identity(
+            IdentityContext::new("agent-001", "api_key", true).with_scope("agent:tool:execute"),
+        );
+
+        context.timestamp_ms = 1_500;
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_payload_integrity_valid(true);
+        context.evidence.set_signature_valid(true);
+        context.evidence.set_replay_detected(false);
+        context
+            .evidence
+            .set_trust_band(RuntimeTrustBand::Operational);
+
+        context
+    }
+
+    fn valid_authority() -> AuthorityContext {
+        AuthorityContext::new(
+            "authority-service",
+            "agent-001",
+            Operation::AgentToolExecution,
+            1_000,
+            2_000,
+        )
     }
 
     #[test]
@@ -827,6 +917,134 @@ mod tests {
                 }
             )
         );
+    }
+
+    #[test]
+    fn missing_required_authority_is_reported() {
+        let policy = RuntimePolicy::agent_tool_execution();
+        let context = authority_context();
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| failure.reason == DecisionReason::AuthorityMissing));
+    }
+
+    #[test]
+    fn malformed_authority_is_reported_before_temporal_failure() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        let authority = AuthorityContext::new(
+            "authority-service",
+            "agent-001",
+            Operation::AgentToolExecution,
+            2_000,
+            1_000,
+        );
+
+        let context = authority_context().with_authority(authority);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| failure.reason == DecisionReason::AuthorityInvalid));
+
+        assert!(!report
+            .failures
+            .iter()
+            .any(|failure| failure.reason == DecisionReason::AuthorityNotActive));
+    }
+
+    #[test]
+    fn authority_for_different_principal_is_reported() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        let authority = AuthorityContext::new(
+            "authority-service",
+            "other-agent",
+            Operation::AgentToolExecution,
+            1_000,
+            2_000,
+        );
+
+        let context = authority_context().with_authority(authority);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| { failure.reason == DecisionReason::AuthoritySubjectMismatch }));
+    }
+
+    #[test]
+    fn authority_for_different_operation_is_reported() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        let authority = AuthorityContext::new(
+            "authority-service",
+            "agent-001",
+            Operation::Verify,
+            1_000,
+            2_000,
+        );
+
+        let context = authority_context().with_authority(authority);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| { failure.reason == DecisionReason::AuthorityOperationMismatch }));
+    }
+
+    #[test]
+    fn inactive_authority_is_reported() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        let authority = AuthorityContext::new(
+            "authority-service",
+            "agent-001",
+            Operation::AgentToolExecution,
+            2_000,
+            3_000,
+        );
+
+        let context = authority_context().with_authority(authority);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| failure.reason == DecisionReason::AuthorityNotActive));
+    }
+
+    #[test]
+    fn valid_authority_satisfies_authority_validation() {
+        let policy = RuntimePolicy::agent_tool_execution();
+
+        let context = authority_context().with_authority(valid_authority());
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(!report.failures.iter().any(|failure| {
+            matches!(
+                failure.reason,
+                DecisionReason::AuthorityMissing
+                    | DecisionReason::AuthorityInvalid
+                    | DecisionReason::AuthoritySubjectMismatch
+                    | DecisionReason::AuthorityOperationMismatch
+                    | DecisionReason::AuthorityNotActive
+            )
+        }));
+
+        assert!(report.is_valid());
     }
 
     #[test]
