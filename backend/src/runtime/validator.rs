@@ -10,6 +10,7 @@
 use crate::runtime::{
     DecisionReason,
     Operation,
+    OversightRequirement,
     RequestContext,
     RuntimePolicy,
     ValidationFailure,
@@ -139,6 +140,11 @@ impl RuntimeValidator {
         Self::validate_anonymization_requirement(
             context,
             policy,
+            &mut report,
+        );
+
+        Self::validate_consequence(
+            context,
             &mut report,
         );
 
@@ -448,6 +454,27 @@ impl RuntimeValidator {
             }
 
             None => {}
+        }
+    }
+
+    fn validate_consequence(
+        context: &RequestContext,
+        report: &mut ValidationReport,
+    ) {
+        let Some(consequence) = context.consequence else {
+            return;
+        };
+
+        if consequence.required_oversight()
+            == OversightRequirement::HardGate
+        {
+            report.add_failure(
+                ValidationFailure::new(
+                    DecisionReason::ConsequenceHardGate,
+                    Some("consequence.reversibility".to_string()),
+                    "Action consequence requires a hard execution gate",
+                ),
+            );
         }
     }
 

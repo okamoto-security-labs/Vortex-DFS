@@ -127,6 +127,9 @@ pub enum DecisionReason {
     /// The evaluated trust band did not satisfy policy.
     TrustBelowThreshold,
 
+    /// The action consequence requires a hard execution gate.
+    ConsequenceHardGate,
+
     /// Replay behavior was detected.
     ReplayDetected,
 
@@ -162,6 +165,9 @@ impl DecisionReason {
             Self::TrustBelowThreshold => {
                 "TRUST_BELOW_THRESHOLD"
             }
+            Self::ConsequenceHardGate => {
+                "CONSEQUENCE_HARD_GATE"
+            }
             Self::ReplayDetected => "REPLAY_DETECTED",
             Self::UnsupportedOperation => {
                 "UNSUPPORTED_OPERATION"
@@ -182,6 +188,7 @@ impl DecisionReason {
                 | Self::KeyRevoked
                 | Self::PayloadIntegrityFailed
                 | Self::TrustBelowThreshold
+                | Self::ConsequenceHardGate
                 | Self::ReplayDetected
         )
     }
