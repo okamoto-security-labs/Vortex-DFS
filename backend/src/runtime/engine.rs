@@ -131,6 +131,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::IdentityContext;
     use crate::runtime::{DecisionOutcome, DecisionReason, Operation, PayloadContext};
 
     fn context() -> RequestContext {
@@ -165,6 +166,50 @@ mod tests {
 
         assert_eq!(evaluation.decision.outcome, DecisionOutcome::Redact);
         assert!(evaluation.permits_execution());
+    }
+
+    #[test]
+    fn missing_agent_authority_never_reaches_external_executor() {
+        let mut request = RequestContext::new(
+            "request-agent-001",
+            "trace-agent-001",
+            Operation::AgentToolExecution,
+            PayloadContext::new(32),
+        )
+        .with_identity(
+            IdentityContext::new(
+                "agent-001",
+                "api_key",
+                true,
+            )
+            .with_scope("agent:tool:execute"),
+        );
+
+        request.evidence.set_structural_validity(true);
+
+        let policy = RuntimePolicy::agent_tool_execution()
+            .with_payload_integrity_requirement(false)
+            .with_signature_requirement(false)
+            .with_replay_protection(false)
+            .with_minimum_trust_band(None);
+
+        let mut invoked = 0usize;
+
+        let execution = evaluate_and_execute(request, &policy, |_| {
+            invoked += 1;
+            "external effect"
+        });
+
+        assert_eq!(invoked, 0);
+        assert!(!execution.was_executed());
+        assert_eq!(
+            execution.evaluation().decision.outcome,
+            DecisionOutcome::Reject
+        );
+        assert_eq!(
+            execution.evaluation().decision.reason_code,
+            DecisionReason::AuthorityMissing
+        );
     }
 
     #[test]
