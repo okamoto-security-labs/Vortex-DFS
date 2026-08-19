@@ -15,8 +15,9 @@ use vortex_dfs::provisioner::{get_pool, init_db};
 #[cfg(test)]
 use vortex_dfs::runtime::InMemoryRuntimeAuditStore;
 use vortex_dfs::runtime::{
-    evaluate_audit_and_execute, DecisionReason, GuardedExecution, IdentityContext, Operation,
-    PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
+    evaluate_audit_and_execute, evaluate_request, AuthorityContext, DecisionReason,
+    GuardedExecution, IdentityContext, Operation, PayloadContext, PostgresRuntimeAuditStore,
+    RequestContext, RuntimeAuditStore, RuntimePolicy, SecurityEvidence,
 };
 use vortex_dfs::signer_lwe::verify;
 
@@ -73,6 +74,20 @@ struct AnonymizeRequest {
     content_type: String,
     #[serde(default)]
     locale: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvaluateRequest {
+    operation: Operation,
+
+    #[serde(default)]
+    authority: Option<AuthorityContext>,
+
+    #[serde(default)]
+    evidence: SecurityEvidence,
+
+    #[serde(default)]
+    payload_size: usize,
 }
 
 #[allow(dead_code)]
@@ -316,6 +331,61 @@ async fn read_runtime_audit_events(
     }))
 }
 
+/// Evaluates a protected operation without performing the external effect.
+///
+/// Identity is derived from Bearer authentication and cannot be supplied by
+/// the request body. Authority and normalized evidence are evaluated by the
+/// runtime policy before a decision is returned.
+async fn evaluate_runtime(
+    request: HttpRequest,
+    req: web::Json<EvaluateRequest>,
+    runtime_state: web::Data<RuntimeState>,
+) -> HttpResponse {
+    let identity = match authenticate_bearer(&request, runtime_state.get_ref()) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    let policy = match req.operation {
+        Operation::AgentToolExecution => RuntimePolicy::agent_tool_execution(),
+        _ => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "unsupported operation for /v1/evaluate",
+            }));
+        }
+    };
+
+    let mut context = RequestContext::new(
+        Uuid::new_v4().to_string(),
+        Uuid::new_v4().to_string(),
+        req.operation,
+        PayloadContext::new(req.payload_size),
+    );
+
+    context.evidence = req.evidence.clone();
+
+    context = context
+        .with_identity(identity)
+        .with_policy_id(policy.id.clone());
+
+    if let Some(authority) = req.authority.clone() {
+        context = context.with_authority(authority);
+    }
+
+    let evaluation = evaluate_request(context, &policy);
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "outcome": evaluation.decision.outcome.as_str(),
+        "reason_code": evaluation.decision.reason_code.as_str(),
+        "policy_id": evaluation.decision.policy.id,
+        "policy_version": evaluation.decision.policy.version,
+        "trust_band": evaluation.decision.trust_band,
+        "latency_us": evaluation.decision.latency_us,
+        "trace_id": evaluation.context.trace_id,
+        "request_id": evaluation.context.request_id,
+    }))
+}
+
 async fn health_check(_req: HttpRequest) -> HttpResponse {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -475,6 +545,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(runtime_state.clone())
             .app_data(anonymize_json_config())
             .route("/health", web::get().to(health_check))
+            .route("/v1/evaluate", web::post().to(evaluate_runtime))
             .route("/v1/anonymize", web::post().to(benchmark_anonymize))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route(
