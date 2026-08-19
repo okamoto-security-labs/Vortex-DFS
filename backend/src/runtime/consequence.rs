@@ -10,18 +10,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Ordering is intentional: higher values represent effects requiring
 /// at least as much oversight as lower values.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum ReversibilityClass {
     Reversible,
     ExternallyReversible,
@@ -64,53 +53,27 @@ impl ReversibilityClass {
     }
 }
 
-
 /// Potential impact / blast radius of an action.
 ///
 /// This is independent from reversibility. A reversible action may still
 /// carry high consequence, while an irreversible action may have narrow
 /// impact.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
 )]
 pub enum ConsequenceTier {
+    #[default]
     Low,
     Medium,
     High,
     Critical,
 }
 
-impl Default for ConsequenceTier {
-    fn default() -> Self {
-        Self::Low
-    }
-}
-
 /// Minimum runtime oversight required by consequence.
 ///
 /// Ordering is intentional. A more restrictive requirement must never
 /// be reduced by combining it with a less restrictive property.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum OversightRequirement {
     None,
     Elevated,
@@ -167,10 +130,7 @@ impl ConsequenceContext {
         }
     }
 
-    pub const fn with_tier(
-        reversibility: ReversibilityClass,
-        tier: ConsequenceTier,
-    ) -> Self {
+    pub const fn with_tier(reversibility: ReversibilityClass, tier: ConsequenceTier) -> Self {
         Self {
             reversibility,
             tier,
@@ -191,10 +151,7 @@ mod tests {
 
     #[test]
     fn externally_reversible_is_distinct_from_reversible() {
-        assert!(
-            ReversibilityClass::ExternallyReversible
-                > ReversibilityClass::Reversible
-        );
+        assert!(ReversibilityClass::ExternallyReversible > ReversibilityClass::Reversible);
     }
 
     #[test]
@@ -221,8 +178,7 @@ mod tests {
 
     #[test]
     fn irreversible_effect_requires_hard_gate() {
-        let consequence =
-            ConsequenceContext::new(ReversibilityClass::Irreversible);
+        let consequence = ConsequenceContext::new(ReversibilityClass::Irreversible);
 
         assert_eq!(
             consequence.required_oversight(),
@@ -232,8 +188,7 @@ mod tests {
 
     #[test]
     fn externally_reversible_effect_requires_elevated_oversight() {
-        let consequence =
-            ConsequenceContext::new(ReversibilityClass::ExternallyReversible);
+        let consequence = ConsequenceContext::new(ReversibilityClass::ExternallyReversible);
 
         assert_eq!(
             consequence.required_oversight(),
@@ -254,18 +209,15 @@ mod tests {
 
     #[test]
     fn empty_oversight_composition_fails_closed() {
-        let result =
-            OversightRequirement::worst_case(std::iter::empty());
+        let result = OversightRequirement::worst_case(std::iter::empty());
 
         assert_eq!(result, OversightRequirement::HardGate);
     }
 
     #[test]
     fn high_consequence_reversible_action_is_elevated() {
-        let consequence = ConsequenceContext::with_tier(
-            ReversibilityClass::Reversible,
-            ConsequenceTier::High,
-        );
+        let consequence =
+            ConsequenceContext::with_tier(ReversibilityClass::Reversible, ConsequenceTier::High);
 
         assert_eq!(
             consequence.required_oversight(),
@@ -275,10 +227,8 @@ mod tests {
 
     #[test]
     fn low_consequence_irreversible_action_remains_hard_gated() {
-        let consequence = ConsequenceContext::with_tier(
-            ReversibilityClass::Irreversible,
-            ConsequenceTier::Low,
-        );
+        let consequence =
+            ConsequenceContext::with_tier(ReversibilityClass::Irreversible, ConsequenceTier::Low);
 
         assert_eq!(
             consequence.required_oversight(),
@@ -301,8 +251,7 @@ mod tests {
 
     #[test]
     fn empty_chain_fails_closed() {
-        let result =
-            ReversibilityClass::worst_case(std::iter::empty());
+        let result = ReversibilityClass::worst_case(std::iter::empty());
 
         assert_eq!(result, ReversibilityClass::Unclassified);
     }
