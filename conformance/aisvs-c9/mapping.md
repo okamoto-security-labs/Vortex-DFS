@@ -11,7 +11,8 @@
 | Irreversible + low consequence remains hard gated | Hard gate cannot be reduced | PARTIALLY_ALIGNED |
 | High consequence + reversible elevates oversight | Consequence tier not yet implemented | ARCHITECTURAL_GAP |
 | Worst property wins | `worst_case()` | ALIGNED |
-| Chain gated by worst reachable reversibility | `ReversibilityClass::worst_case()` | PARTIALLY_ALIGNED |
+| Worst-case chain consequence reaches enforcement | `ReversibilityClass::worst_case()` → `ConsequenceHardGate` → rejection | ALIGNED |
+| Chain known and gated from commencement | Runtime currently receives the already-reduced effective consequence | ARCHITECTURAL_GAP |
 | Bound / stale / unobserved declaration states | No equivalent binding model | INTENTIONAL_DIFFERENCE |
 | Observation aging | No equivalent clock model | OUT_OF_SCOPE |
 | Chain binding uses stalest link | No binding axis | INTENTIONAL_DIFFERENCE |
