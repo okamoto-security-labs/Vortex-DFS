@@ -98,6 +98,11 @@ fn decision_reason_from_storage(value: &str) -> Result<DecisionReason, AuditStor
         "IDENTITY_INVALID" => Ok(DecisionReason::IdentityInvalid),
         "POLICY_DENIED" => Ok(DecisionReason::PolicyDenied),
         "SCOPE_DENIED" => Ok(DecisionReason::ScopeDenied),
+        "AUTHORITY_MISSING" => Ok(DecisionReason::AuthorityMissing),
+        "AUTHORITY_INVALID" => Ok(DecisionReason::AuthorityInvalid),
+        "AUTHORITY_SUBJECT_MISMATCH" => Ok(DecisionReason::AuthoritySubjectMismatch),
+        "AUTHORITY_OPERATION_MISMATCH" => Ok(DecisionReason::AuthorityOperationMismatch),
+        "AUTHORITY_NOT_ACTIVE" => Ok(DecisionReason::AuthorityNotActive),
         "SIGNATURE_INVALID" => Ok(DecisionReason::SignatureInvalid),
         "KEY_REVOKED" => Ok(DecisionReason::KeyRevoked),
         "PAYLOAD_INTEGRITY_FAILED" => Ok(DecisionReason::PayloadIntegrityFailed),
@@ -458,6 +463,27 @@ mod tests {
             decision_reason_from_storage("SCOPE_DENIED").unwrap(),
             DecisionReason::ScopeDenied
         );
+    }
+
+    #[test]
+    fn authority_reasons_are_readable_from_audit_storage() {
+        let cases = [
+            ("AUTHORITY_MISSING", DecisionReason::AuthorityMissing),
+            ("AUTHORITY_INVALID", DecisionReason::AuthorityInvalid),
+            (
+                "AUTHORITY_SUBJECT_MISMATCH",
+                DecisionReason::AuthoritySubjectMismatch,
+            ),
+            (
+                "AUTHORITY_OPERATION_MISMATCH",
+                DecisionReason::AuthorityOperationMismatch,
+            ),
+            ("AUTHORITY_NOT_ACTIVE", DecisionReason::AuthorityNotActive),
+        ];
+
+        for (stored, expected) in cases {
+            assert_eq!(decision_reason_from_storage(stored).unwrap(), expected);
+        }
     }
 
     #[test]
