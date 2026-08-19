@@ -8,8 +8,8 @@
 | Empty chain fails closed | `worst_case(empty) -> Unclassified` | ALIGNED |
 | Class derived independently from agent assertion | Not yet implemented as registry binding | ARCHITECTURAL_GAP |
 | Oversight monotonic in reversibility | `OversightRequirement` | ALIGNED |
-| Irreversible + low consequence remains hard gated | Hard gate cannot be reduced | PARTIALLY_ALIGNED |
-| High consequence + reversible elevates oversight | Consequence tier not yet implemented | ARCHITECTURAL_GAP |
+| Irreversible + low consequence remains hard gated | Independent consequence and reversibility axes; most restrictive requirement wins | ALIGNED |
+| High consequence + reversible elevates oversight | `ConsequenceTier::High` + reversible action → `Elevated` | ALIGNED |
 | Worst property wins | `worst_case()` | ALIGNED |
 | Worst-case chain consequence reaches enforcement | `ReversibilityClass::worst_case()` → `ConsequenceHardGate` → rejection | ALIGNED |
 | Chain known and gated from commencement | Runtime currently receives the already-reduced effective consequence | ARCHITECTURAL_GAP |
