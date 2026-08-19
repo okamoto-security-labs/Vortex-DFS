@@ -23,7 +23,7 @@ pub use audit::{
     RuntimeAuditStore,
 };
 
-pub use consequence::{ConsequenceContext, ReversibilityClass};
+pub use consequence::{ConsequenceContext, OversightRequirement, ReversibilityClass};
 
 pub use context::{
     current_timestamp_ms, IdentityContext, PayloadContext, RequestContext, ValidationFailure,

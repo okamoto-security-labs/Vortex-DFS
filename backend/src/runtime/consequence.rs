@@ -65,6 +65,45 @@ impl ReversibilityClass {
 }
 
 
+/// Minimum runtime oversight required by consequence.
+///
+/// Ordering is intentional. A more restrictive requirement must never
+/// be reduced by combining it with a less restrictive property.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub enum OversightRequirement {
+    None,
+    Elevated,
+    HardGate,
+}
+
+impl OversightRequirement {
+    pub const fn from_reversibility(class: ReversibilityClass) -> Self {
+        match class {
+            ReversibilityClass::Reversible => Self::None,
+            ReversibilityClass::ExternallyReversible => Self::Elevated,
+            ReversibilityClass::Irreversible | ReversibilityClass::Unclassified => Self::HardGate,
+        }
+    }
+
+    pub fn worst_case<I>(requirements: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        requirements.into_iter().max().unwrap_or(Self::HardGate)
+    }
+}
+
 /// Consequence information attached to one runtime request.
 ///
 /// Absence of this context means the current request/runtime has not
@@ -78,6 +117,10 @@ pub struct ConsequenceContext {
 impl ConsequenceContext {
     pub const fn new(reversibility: ReversibilityClass) -> Self {
         Self { reversibility }
+    }
+
+    pub const fn required_oversight(self) -> OversightRequirement {
+        OversightRequirement::from_reversibility(self.reversibility)
     }
 }
 
@@ -113,6 +156,47 @@ mod tests {
 
         assert_eq!(result, ReversibilityClass::Unclassified);
         assert!(result.requires_hard_gate());
+    }
+
+    #[test]
+    fn irreversible_effect_requires_hard_gate() {
+        let consequence =
+            ConsequenceContext::new(ReversibilityClass::Irreversible);
+
+        assert_eq!(
+            consequence.required_oversight(),
+            OversightRequirement::HardGate
+        );
+    }
+
+    #[test]
+    fn externally_reversible_effect_requires_elevated_oversight() {
+        let consequence =
+            ConsequenceContext::new(ReversibilityClass::ExternallyReversible);
+
+        assert_eq!(
+            consequence.required_oversight(),
+            OversightRequirement::Elevated
+        );
+    }
+
+    #[test]
+    fn oversight_composition_uses_most_restrictive_requirement() {
+        let result = OversightRequirement::worst_case([
+            OversightRequirement::None,
+            OversightRequirement::HardGate,
+            OversightRequirement::Elevated,
+        ]);
+
+        assert_eq!(result, OversightRequirement::HardGate);
+    }
+
+    #[test]
+    fn empty_oversight_composition_fails_closed() {
+        let result =
+            OversightRequirement::worst_case(std::iter::empty());
+
+        assert_eq!(result, OversightRequirement::HardGate);
     }
 
     #[test]
