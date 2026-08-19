@@ -9,6 +9,7 @@
 
 pub mod audit;
 pub mod context;
+pub mod consequence;
 pub mod decision;
 pub mod engine;
 pub mod evidence;
@@ -21,6 +22,8 @@ pub use audit::{
     AuditStoreError, InMemoryRuntimeAuditStore, PostgresRuntimeAuditStore, RuntimeAuditEvent,
     RuntimeAuditStore,
 };
+
+pub use consequence::ReversibilityClass;
 
 pub use context::{
     current_timestamp_ms, IdentityContext, PayloadContext, RequestContext, ValidationFailure,
