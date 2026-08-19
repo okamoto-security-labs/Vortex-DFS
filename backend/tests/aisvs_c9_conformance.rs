@@ -156,3 +156,58 @@ fn c9_chain_worst_case_reaches_execution_gate() {
 
     assert!(!evaluation.permits_execution());
 }
+
+#[test]
+fn c9_high_consequence_reversible_is_elevated() {
+    use vortex_dfs::runtime::ConsequenceTier;
+
+    let consequence = ConsequenceContext::with_tier(
+        ReversibilityClass::Reversible,
+        ConsequenceTier::High,
+    );
+
+    assert_eq!(
+        consequence.required_oversight(),
+        OversightRequirement::Elevated
+    );
+}
+
+#[test]
+fn c9_low_consequence_irreversible_remains_hard_gated() {
+    use vortex_dfs::runtime::ConsequenceTier;
+
+    let consequence = ConsequenceContext::with_tier(
+        ReversibilityClass::Irreversible,
+        ConsequenceTier::Low,
+    );
+
+    assert_eq!(
+        consequence.required_oversight(),
+        OversightRequirement::HardGate
+    );
+}
+
+#[test]
+fn c9_consequence_and_reversibility_compose_non_compensatorily() {
+    use vortex_dfs::runtime::ConsequenceTier;
+
+    let high_but_reversible = ConsequenceContext::with_tier(
+        ReversibilityClass::Reversible,
+        ConsequenceTier::High,
+    );
+
+    let low_but_irreversible = ConsequenceContext::with_tier(
+        ReversibilityClass::Irreversible,
+        ConsequenceTier::Low,
+    );
+
+    assert_eq!(
+        high_but_reversible.required_oversight(),
+        OversightRequirement::Elevated
+    );
+
+    assert_eq!(
+        low_but_irreversible.required_oversight(),
+        OversightRequirement::HardGate
+    );
+}

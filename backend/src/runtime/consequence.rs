@@ -65,6 +65,36 @@ impl ReversibilityClass {
 }
 
 
+/// Potential impact / blast radius of an action.
+///
+/// This is independent from reversibility. A reversible action may still
+/// carry high consequence, while an irreversible action may have narrow
+/// impact.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub enum ConsequenceTier {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl Default for ConsequenceTier {
+    fn default() -> Self {
+        Self::Low
+    }
+}
+
 /// Minimum runtime oversight required by consequence.
 ///
 /// Ordering is intentional. A more restrictive requirement must never
@@ -96,6 +126,14 @@ impl OversightRequirement {
         }
     }
 
+    pub const fn from_consequence(tier: ConsequenceTier) -> Self {
+        match tier {
+            ConsequenceTier::Low => Self::None,
+            ConsequenceTier::Medium | ConsequenceTier::High => Self::Elevated,
+            ConsequenceTier::Critical => Self::HardGate,
+        }
+    }
+
     pub fn worst_case<I>(requirements: I) -> Self
     where
         I: IntoIterator<Item = Self>,
@@ -112,15 +150,38 @@ impl OversightRequirement {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsequenceContext {
     pub reversibility: ReversibilityClass,
+
+    #[serde(default)]
+    pub tier: ConsequenceTier,
 }
 
 impl ConsequenceContext {
+    /// Backward-compatible constructor.
+    ///
+    /// Existing callers that provide only reversibility receive a Low
+    /// consequence tier until a stronger tier is explicitly supplied.
     pub const fn new(reversibility: ReversibilityClass) -> Self {
-        Self { reversibility }
+        Self {
+            reversibility,
+            tier: ConsequenceTier::Low,
+        }
     }
 
-    pub const fn required_oversight(self) -> OversightRequirement {
-        OversightRequirement::from_reversibility(self.reversibility)
+    pub const fn with_tier(
+        reversibility: ReversibilityClass,
+        tier: ConsequenceTier,
+    ) -> Self {
+        Self {
+            reversibility,
+            tier,
+        }
+    }
+
+    pub fn required_oversight(self) -> OversightRequirement {
+        OversightRequirement::worst_case([
+            OversightRequirement::from_reversibility(self.reversibility),
+            OversightRequirement::from_consequence(self.tier),
+        ])
     }
 }
 
@@ -197,6 +258,45 @@ mod tests {
             OversightRequirement::worst_case(std::iter::empty());
 
         assert_eq!(result, OversightRequirement::HardGate);
+    }
+
+    #[test]
+    fn high_consequence_reversible_action_is_elevated() {
+        let consequence = ConsequenceContext::with_tier(
+            ReversibilityClass::Reversible,
+            ConsequenceTier::High,
+        );
+
+        assert_eq!(
+            consequence.required_oversight(),
+            OversightRequirement::Elevated
+        );
+    }
+
+    #[test]
+    fn low_consequence_irreversible_action_remains_hard_gated() {
+        let consequence = ConsequenceContext::with_tier(
+            ReversibilityClass::Irreversible,
+            ConsequenceTier::Low,
+        );
+
+        assert_eq!(
+            consequence.required_oversight(),
+            OversightRequirement::HardGate
+        );
+    }
+
+    #[test]
+    fn critical_consequence_hard_gates_reversible_action() {
+        let consequence = ConsequenceContext::with_tier(
+            ReversibilityClass::Reversible,
+            ConsequenceTier::Critical,
+        );
+
+        assert_eq!(
+            consequence.required_oversight(),
+            OversightRequirement::HardGate
+        );
     }
 
     #[test]
