@@ -109,6 +109,21 @@ pub enum DecisionReason {
     /// The verified identity did not have a required capability.
     ScopeDenied,
 
+    /// Required delegated authority was absent.
+    AuthorityMissing,
+
+    /// Delegated authority was structurally invalid.
+    AuthorityInvalid,
+
+    /// Delegated authority was issued to a different principal.
+    AuthoritySubjectMismatch,
+
+    /// Delegated authority does not permit the requested operation.
+    AuthorityOperationMismatch,
+
+    /// Delegated authority is outside its validity interval.
+    AuthorityNotActive,
+
     /// A required cryptographic signature was invalid.
     SignatureInvalid,
 
@@ -148,6 +163,11 @@ impl DecisionReason {
             Self::IdentityInvalid => "IDENTITY_INVALID",
             Self::PolicyDenied => "POLICY_DENIED",
             Self::ScopeDenied => "SCOPE_DENIED",
+            Self::AuthorityMissing => "AUTHORITY_MISSING",
+            Self::AuthorityInvalid => "AUTHORITY_INVALID",
+            Self::AuthoritySubjectMismatch => "AUTHORITY_SUBJECT_MISMATCH",
+            Self::AuthorityOperationMismatch => "AUTHORITY_OPERATION_MISMATCH",
+            Self::AuthorityNotActive => "AUTHORITY_NOT_ACTIVE",
             Self::SignatureInvalid => "SIGNATURE_INVALID",
             Self::KeyRevoked => "KEY_REVOKED",
             Self::PayloadIntegrityFailed => {
@@ -178,6 +198,11 @@ impl DecisionReason {
             Self::IdentityInvalid
                 | Self::PolicyDenied
                 | Self::ScopeDenied
+                | Self::AuthorityMissing
+                | Self::AuthorityInvalid
+                | Self::AuthoritySubjectMismatch
+                | Self::AuthorityOperationMismatch
+                | Self::AuthorityNotActive
                 | Self::SignatureInvalid
                 | Self::KeyRevoked
                 | Self::PayloadIntegrityFailed
@@ -443,6 +468,27 @@ mod tests {
             DecisionReason::PayloadIntegrityFailed.as_str(),
             "PAYLOAD_INTEGRITY_FAILED"
         );
+
+        assert_eq!(
+            DecisionReason::AuthorityMissing.as_str(),
+            "AUTHORITY_MISSING"
+        );
+        assert_eq!(
+            DecisionReason::AuthorityInvalid.as_str(),
+            "AUTHORITY_INVALID"
+        );
+        assert_eq!(
+            DecisionReason::AuthoritySubjectMismatch.as_str(),
+            "AUTHORITY_SUBJECT_MISMATCH"
+        );
+        assert_eq!(
+            DecisionReason::AuthorityOperationMismatch.as_str(),
+            "AUTHORITY_OPERATION_MISMATCH"
+        );
+        assert_eq!(
+            DecisionReason::AuthorityNotActive.as_str(),
+            "AUTHORITY_NOT_ACTIVE"
+        );
     }
 
     #[test]
@@ -466,5 +512,11 @@ mod tests {
             !DecisionReason::RuntimeError
                 .is_security_failure()
         );
+
+        assert!(DecisionReason::AuthorityMissing.is_security_failure());
+        assert!(DecisionReason::AuthorityInvalid.is_security_failure());
+        assert!(DecisionReason::AuthoritySubjectMismatch.is_security_failure());
+        assert!(DecisionReason::AuthorityOperationMismatch.is_security_failure());
+        assert!(DecisionReason::AuthorityNotActive.is_security_failure());
     }
 }
