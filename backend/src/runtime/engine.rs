@@ -131,7 +131,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::{DecisionOutcome, DecisionReason, Operation, PayloadContext};
+    use crate::runtime::{
+        ConsequenceContext,
+        DecisionOutcome,
+        DecisionReason,
+        Operation,
+        PayloadContext,
+        ReversibilityClass,
+    };
 
     fn context() -> RequestContext {
         RequestContext::new(
@@ -165,6 +172,35 @@ mod tests {
 
         assert_eq!(evaluation.decision.outcome, DecisionOutcome::Redact);
         assert!(evaluation.permits_execution());
+    }
+
+    #[test]
+    fn irreversible_consequence_blocks_otherwise_valid_request() {
+        let mut request = context();
+
+        request.evidence.set_structural_validity(true);
+        request.evidence.set_sensitive_data_detected(false);
+
+        request = request.with_consequence(
+            ConsequenceContext::new(
+                ReversibilityClass::Irreversible,
+            ),
+        );
+
+        let evaluation = evaluate_request(
+            request,
+            &RuntimePolicy::anonymization_benchmark(),
+        );
+
+        assert_eq!(
+            evaluation.decision.outcome,
+            DecisionOutcome::Reject
+        );
+        assert_eq!(
+            evaluation.decision.reason_code,
+            DecisionReason::ConsequenceHardGate
+        );
+        assert!(!evaluation.permits_execution());
     }
 
     #[test]

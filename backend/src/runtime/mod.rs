@@ -8,6 +8,7 @@
 //! their internal logic.
 
 pub mod audit;
+pub mod consequence;
 pub mod context;
 pub mod decision;
 pub mod engine;
@@ -20,6 +21,10 @@ pub mod validator;
 pub use audit::{
     AuditStoreError, InMemoryRuntimeAuditStore, PostgresRuntimeAuditStore, RuntimeAuditEvent,
     RuntimeAuditStore,
+};
+
+pub use consequence::{
+    ConsequenceContext, ConsequenceTier, OversightRequirement, ReversibilityClass,
 };
 
 pub use context::{
@@ -36,9 +41,6 @@ pub use trust::RuntimeTrustBand;
 pub use validator::{RuntimeValidator, ValidationReport};
 
 pub use engine::{
-    evaluate_and_execute,
-    evaluate_audit_and_execute,
-    evaluate_request,
-    GuardedExecution,
+    evaluate_and_execute, evaluate_audit_and_execute, evaluate_request, GuardedExecution,
     RuntimeEvaluation,
 };
