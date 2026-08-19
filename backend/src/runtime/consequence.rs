@@ -64,6 +64,23 @@ impl ReversibilityClass {
     }
 }
 
+
+/// Consequence information attached to one runtime request.
+///
+/// Absence of this context means the current request/runtime has not
+/// supplied Consequence Plane input. `Unclassified` means the plane was
+/// supplied but reversibility could not be established.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConsequenceContext {
+    pub reversibility: ReversibilityClass,
+}
+
+impl ConsequenceContext {
+    pub const fn new(reversibility: ReversibilityClass) -> Self {
+        Self { reversibility }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

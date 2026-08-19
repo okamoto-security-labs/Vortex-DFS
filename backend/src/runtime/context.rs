@@ -3,7 +3,7 @@
 //! Feature handlers should build one shared context instead of
 //! independently recreating identity, payload, evidence, and trace data.
 
-use crate::runtime::{DecisionReason, Operation, SecurityEvidence};
+use crate::runtime::{ConsequenceContext, DecisionReason, Operation, SecurityEvidence};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -128,6 +128,7 @@ pub struct RequestContext {
     pub identity: Option<IdentityContext>,
     pub payload: PayloadContext,
     pub policy_id: Option<String>,
+    pub consequence: Option<ConsequenceContext>,
     pub evidence: SecurityEvidence,
     pub failures: Vec<ValidationFailure>,
 }
@@ -147,6 +148,7 @@ impl RequestContext {
             identity: None,
             payload,
             policy_id: None,
+            consequence: None,
             evidence: SecurityEvidence::new(),
             failures: Vec::new(),
         }
@@ -161,6 +163,11 @@ impl RequestContext {
 
     pub fn with_policy_id(mut self, policy_id: impl Into<String>) -> Self {
         self.policy_id = Some(policy_id.into());
+        self
+    }
+
+    pub fn with_consequence(mut self, consequence: ConsequenceContext) -> Self {
+        self.consequence = Some(consequence);
         self
     }
 
@@ -197,6 +204,7 @@ pub fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::ReversibilityClass;
 
     fn example_context() -> RequestContext {
         RequestContext::new(
@@ -281,4 +289,27 @@ mod tests {
             0
         );
     }
+
+    #[test]
+    fn consequence_is_absent_by_default() {
+        let context = example_context();
+
+        assert!(context.consequence.is_none());
+    }
+
+    #[test]
+    fn consequence_context_is_preserved() {
+        let context = example_context().with_consequence(
+            ConsequenceContext::new(ReversibilityClass::ExternallyReversible),
+        );
+
+        assert_eq!(
+            context
+                .consequence
+                .expect("consequence should be present")
+                .reversibility,
+            ReversibilityClass::ExternallyReversible
+        );
+    }
+
 }
