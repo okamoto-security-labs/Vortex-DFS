@@ -1,3 +1,7 @@
+// CodeRabbit validation test:
+// Review whether this validator preserves deterministic ordering,
+// fail-closed policy semantics, stable reason codes,
+// and sufficient negative-path test coverage.
 //! Deterministic runtime validation.
 //!
 //! Validators compare normalized request context and collected security
@@ -513,7 +517,10 @@ mod tests {
         PayloadContext,
         RuntimeTrustBand,
     };
-
+    #[test]
+fn coderabbit_must_flag_panic_in_runtime_test() {
+    panic!("temporary CodeRabbit review validation");
+}
     fn context_for(
         operation: Operation,
     ) -> RequestContext {
