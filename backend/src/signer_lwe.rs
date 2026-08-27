@@ -26,22 +26,22 @@ use serde::{Deserialize, Serialize};
 pub const N: usize = 16; // dimensão do lattice (produção: ≥512)
 pub const Q: i64 = 257; // módulo primo      (produção: ~2^23)
 pub const ETA: i64 = 2; // amplitude do erro
-// NOVO: o challenge agora é limitado a um pequeno intervalo, igual aos
-// esquemas reais de assinatura em lattice (Dilithium usa polinômios de
-// challenge de norma pequena, não um elemento arbitrário do corpo).
-// Isso é o que torna a tolerância de verificação matematicamente segura
-// de se fixar como constante.
+                        // NOVO: o challenge agora é limitado a um pequeno intervalo, igual aos
+                        // esquemas reais de assinatura em lattice (Dilithium usa polinômios de
+                        // challenge de norma pequena, não um elemento arbitrário do corpo).
+                        // Isso é o que torna a tolerância de verificação matematicamente segura
+                        // de se fixar como constante.
 pub const CHALLENGE_BOUND: i64 = 50;
 // NOVO: tolerância fixa, calculada uma vez, nunca influenciada por
 // dado externo. Pior caso possível: CHALLENGE_BOUND * ETA = 10.
 // Deixamos uma margem de segurança e travamos bem abaixo de Q/2 (=128).
 pub const TOLERANCE: i64 = CHALLENGE_BOUND * ETA + 2; // = 12, << 128
-// FIX Finding #3, parte 2 (KeyStore persistente): derives de serde
-// adicionados pra permitir serializar a chave (secreta, criptografada
-// antes de persistir; pública, em texto claro) no Postgres via
-// PostgresKeyStore em key_store.rs. `s` continua privado — o derive
-// macro gera código dentro deste módulo, então tem acesso ao campo
-// mesmo sendo privado pra código externo.
+                                                      // FIX Finding #3, parte 2 (KeyStore persistente): derives de serde
+                                                      // adicionados pra permitir serializar a chave (secreta, criptografada
+                                                      // antes de persistir; pública, em texto claro) no Postgres via
+                                                      // PostgresKeyStore em key_store.rs. `s` continua privado — o derive
+                                                      // macro gera código dentro deste módulo, então tem acesso ao campo
+                                                      // mesmo sendo privado pra código externo.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SecretKey {
     s: Vec<i64>,

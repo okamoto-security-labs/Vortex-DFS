@@ -156,7 +156,10 @@ pub async fn update_status(sub_id: &str, status: &str) -> Result<(), String> {
 }
 
 pub fn expiry_timestamp(billing_period: &str) -> u64 {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let seconds = match billing_period {
         "weekly" => 7 * 24 * 3600,
         "monthly" => 30 * 24 * 3600,
@@ -192,8 +195,8 @@ fn mask_api_key(api_key: &str) -> String {
 }
 
 pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
-    let resend_key = std::env::var("RESEND_API_KEY")
-        .map_err(|_| "RESEND_API_KEY not set".to_string())?;
+    let resend_key =
+        std::env::var("RESEND_API_KEY").map_err(|_| "RESEND_API_KEY not set".to_string())?;
     let from_email = std::env::var("FROM_EMAIL")
         .unwrap_or_else(|_| "gustavo@okamotosecurytlabs.com.br".to_string());
 
@@ -214,7 +217,10 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("Resend error: {}", resp.text().await.unwrap_or_default()))
+        Err(format!(
+            "Resend error: {}",
+            resp.text().await.unwrap_or_default()
+        ))
     }
 }
 
@@ -233,13 +239,14 @@ mod tests {
 }
 
 pub async fn send_cancellation_email(customer: &Customer) -> Result<(), String> {
-    let resend_key = std::env::var("RESEND_API_KEY")
-        .map_err(|_| "RESEND_API_KEY not set".to_string())?;
+    let resend_key =
+        std::env::var("RESEND_API_KEY").map_err(|_| "RESEND_API_KEY not set".to_string())?;
     let from_email = std::env::var("FROM_EMAIL")
         .unwrap_or_else(|_| "gustavo@okamotosecurytlabs.com.br".to_string());
 
     let client = reqwest::Client::new();
-    let resp = client.post("https://api.resend.com/emails")
+    let resp = client
+        .post("https://api.resend.com/emails")
         .header("Authorization", format!("Bearer {}", resend_key))
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
@@ -255,6 +262,9 @@ pub async fn send_cancellation_email(customer: &Customer) -> Result<(), String> 
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("Resend error: {}", resp.text().await.unwrap_or_default()))
+        Err(format!(
+            "Resend error: {}",
+            resp.text().await.unwrap_or_default()
+        ))
     }
 }
