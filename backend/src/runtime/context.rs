@@ -299,9 +299,9 @@ mod tests {
 
     #[test]
     fn consequence_context_is_preserved() {
-        let context = example_context().with_consequence(
-            ConsequenceContext::new(ReversibilityClass::ExternallyReversible),
-        );
+        let context = example_context().with_consequence(ConsequenceContext::new(
+            ReversibilityClass::ExternallyReversible,
+        ));
 
         assert_eq!(
             context
@@ -311,5 +311,4 @@ mod tests {
             ReversibilityClass::ExternallyReversible
         );
     }
-
 }

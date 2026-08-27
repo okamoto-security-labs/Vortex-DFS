@@ -186,20 +186,10 @@ mod tests {
     fn signals_are_serialized_in_deterministic_order() {
         let mut evidence = SecurityEvidence::new();
 
-        evidence.add_signal(
-            "z_signal",
-            EvidenceValue::Boolean(true),
-        );
-        evidence.add_signal(
-            "a_signal",
-            EvidenceValue::UnsignedInteger(10),
-        );
+        evidence.add_signal("z_signal", EvidenceValue::Boolean(true));
+        evidence.add_signal("a_signal", EvidenceValue::UnsignedInteger(10));
 
-        let names: Vec<&str> = evidence
-            .signals
-            .keys()
-            .map(String::as_str)
-            .collect();
+        let names: Vec<&str> = evidence.signals.keys().map(String::as_str).collect();
 
         assert_eq!(names, vec!["a_signal", "z_signal"]);
     }
@@ -208,20 +198,11 @@ mod tests {
     fn adding_duplicate_signal_returns_previous_value() {
         let mut evidence = SecurityEvidence::new();
 
-        evidence.add_signal(
-            "latency_us",
-            EvidenceValue::UnsignedInteger(100),
-        );
+        evidence.add_signal("latency_us", EvidenceValue::UnsignedInteger(100));
 
-        let previous = evidence.add_signal(
-            "latency_us",
-            EvidenceValue::UnsignedInteger(200),
-        );
+        let previous = evidence.add_signal("latency_us", EvidenceValue::UnsignedInteger(200));
 
-        assert_eq!(
-            previous,
-            Some(EvidenceValue::UnsignedInteger(100))
-        );
+        assert_eq!(previous, Some(EvidenceValue::UnsignedInteger(100)));
     }
 
     #[test]

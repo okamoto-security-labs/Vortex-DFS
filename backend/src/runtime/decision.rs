@@ -4,24 +4,11 @@
 //! tests, telemetry, and audit systems do not depend on mutable
 //! human-readable messages.
 
-use crate::runtime::{
-    EvidenceSummary,
-    RuntimeTrustBand,
-    SecurityEvidence,
-};
+use crate::runtime::{EvidenceSummary, RuntimeTrustBand, SecurityEvidence};
 use serde::{Deserialize, Serialize};
 
 /// Final enforcement outcomes produced by the Vortex runtime.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DecisionOutcome {
     /// Permit the requested operation without transformation.
@@ -50,10 +37,7 @@ impl DecisionOutcome {
 
     /// Returns whether execution is permitted in some form.
     pub const fn permits_execution(self) -> bool {
-        matches!(
-            self,
-            Self::Allow | Self::Redact | Self::Audit
-        )
+        matches!(self, Self::Allow | Self::Redact | Self::Audit)
     }
 
     /// Returns whether execution must stop.
@@ -63,10 +47,7 @@ impl DecisionOutcome {
 }
 
 impl std::fmt::Display for DecisionOutcome {
-    fn fmt(
-        &self,
-        formatter: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
@@ -76,16 +57,7 @@ impl std::fmt::Display for DecisionOutcome {
 /// These values form part of the runtime contract. Existing values
 /// should not be renamed casually because external telemetry, clients,
 /// and audit pipelines may depend on them.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DecisionReason {
     /// The operation satisfied the active runtime policy.
@@ -153,25 +125,13 @@ impl DecisionReason {
             Self::ScopeDenied => "SCOPE_DENIED",
             Self::SignatureInvalid => "SIGNATURE_INVALID",
             Self::KeyRevoked => "KEY_REVOKED",
-            Self::PayloadIntegrityFailed => {
-                "PAYLOAD_INTEGRITY_FAILED"
-            }
-            Self::SensitiveDataDetected => {
-                "SENSITIVE_DATA_DETECTED"
-            }
-            Self::SensitiveDataRedacted => {
-                "SENSITIVE_DATA_REDACTED"
-            }
-            Self::TrustBelowThreshold => {
-                "TRUST_BELOW_THRESHOLD"
-            }
-            Self::ConsequenceHardGate => {
-                "CONSEQUENCE_HARD_GATE"
-            }
+            Self::PayloadIntegrityFailed => "PAYLOAD_INTEGRITY_FAILED",
+            Self::SensitiveDataDetected => "SENSITIVE_DATA_DETECTED",
+            Self::SensitiveDataRedacted => "SENSITIVE_DATA_REDACTED",
+            Self::TrustBelowThreshold => "TRUST_BELOW_THRESHOLD",
+            Self::ConsequenceHardGate => "CONSEQUENCE_HARD_GATE",
             Self::ReplayDetected => "REPLAY_DETECTED",
-            Self::UnsupportedOperation => {
-                "UNSUPPORTED_OPERATION"
-            }
+            Self::UnsupportedOperation => "UNSUPPORTED_OPERATION",
             Self::RuntimeError => "RUNTIME_ERROR",
         }
     }
@@ -195,10 +155,7 @@ impl DecisionReason {
 }
 
 impl std::fmt::Display for DecisionReason {
-    fn fmt(
-        &self,
-        formatter: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
@@ -214,10 +171,7 @@ pub struct DecisionPolicyReference {
 }
 
 impl DecisionPolicyReference {
-    pub fn new(
-        id: impl Into<String>,
-        version: impl Into<String>,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, version: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             version: version.into(),
@@ -343,10 +297,7 @@ mod tests {
     use super::*;
 
     fn policy_reference() -> DecisionPolicyReference {
-        DecisionPolicyReference::new(
-            "benchmark.anonymize",
-            "0.1.0",
-        )
+        DecisionPolicyReference::new("benchmark.anonymize", "0.1.0")
     }
 
     #[test]
@@ -356,26 +307,13 @@ mod tests {
         evidence.set_structural_validity(true);
         evidence.set_trust_band(RuntimeTrustBand::Operational);
 
-        let decision = RuntimeDecision::allow(
-            policy_reference(),
-            &evidence,
-            125,
-        );
+        let decision = RuntimeDecision::allow(policy_reference(), &evidence, 125);
 
         assert_eq!(decision.outcome, DecisionOutcome::Allow);
-        assert_eq!(
-            decision.reason_code,
-            DecisionReason::OperationAllowed
-        );
-        assert_eq!(
-            decision.policy.id,
-            "benchmark.anonymize"
-        );
+        assert_eq!(decision.reason_code, DecisionReason::OperationAllowed);
+        assert_eq!(decision.policy.id, "benchmark.anonymize");
         assert_eq!(decision.policy.version, "0.1.0");
-        assert_eq!(
-            decision.trust_band,
-            Some(RuntimeTrustBand::Operational)
-        );
+        assert_eq!(decision.trust_band, Some(RuntimeTrustBand::Operational));
         assert!(decision.permits_execution());
     }
 
@@ -393,10 +331,7 @@ mod tests {
         );
 
         assert_eq!(decision.outcome, DecisionOutcome::Reject);
-        assert_eq!(
-            decision.reason_code,
-            DecisionReason::SignatureInvalid
-        );
+        assert_eq!(decision.reason_code, DecisionReason::SignatureInvalid);
         assert!(decision.blocks_execution());
         assert!(!decision.permits_execution());
     }
@@ -407,17 +342,10 @@ mod tests {
 
         evidence.set_sensitive_data_detected(true);
 
-        let decision = RuntimeDecision::redact(
-            policy_reference(),
-            &evidence,
-            240,
-        );
+        let decision = RuntimeDecision::redact(policy_reference(), &evidence, 240);
 
         assert_eq!(decision.outcome, DecisionOutcome::Redact);
-        assert_eq!(
-            decision.reason_code,
-            DecisionReason::SensitiveDataRedacted
-        );
+        assert_eq!(decision.reason_code, DecisionReason::SensitiveDataRedacted);
         assert!(decision.permits_execution());
     }
 
@@ -425,17 +353,10 @@ mod tests {
     fn audit_decision_permits_execution() {
         let evidence = SecurityEvidence::new();
 
-        let decision = RuntimeDecision::audit(
-            policy_reference(),
-            &evidence,
-            50,
-        );
+        let decision = RuntimeDecision::audit(policy_reference(), &evidence, 50);
 
         assert_eq!(decision.outcome, DecisionOutcome::Audit);
-        assert_eq!(
-            decision.reason_code,
-            DecisionReason::AuditRequired
-        );
+        assert_eq!(decision.reason_code, DecisionReason::AuditRequired);
         assert!(decision.permits_execution());
     }
 
@@ -454,24 +375,12 @@ mod tests {
 
     #[test]
     fn security_failures_are_classified_explicitly() {
-        assert!(
-            DecisionReason::SignatureInvalid
-                .is_security_failure()
-        );
+        assert!(DecisionReason::SignatureInvalid.is_security_failure());
 
-        assert!(
-            DecisionReason::ReplayDetected
-                .is_security_failure()
-        );
+        assert!(DecisionReason::ReplayDetected.is_security_failure());
 
-        assert!(
-            !DecisionReason::StructureInvalid
-                .is_security_failure()
-        );
+        assert!(!DecisionReason::StructureInvalid.is_security_failure());
 
-        assert!(
-            !DecisionReason::RuntimeError
-                .is_security_failure()
-        );
+        assert!(!DecisionReason::RuntimeError.is_security_failure());
     }
 }

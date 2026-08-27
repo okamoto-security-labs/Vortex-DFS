@@ -132,11 +132,7 @@ where
 mod tests {
     use super::*;
     use crate::runtime::{
-        ConsequenceContext,
-        DecisionOutcome,
-        DecisionReason,
-        Operation,
-        PayloadContext,
+        ConsequenceContext, DecisionOutcome, DecisionReason, Operation, PayloadContext,
         ReversibilityClass,
     };
 
@@ -181,21 +177,12 @@ mod tests {
         request.evidence.set_structural_validity(true);
         request.evidence.set_sensitive_data_detected(false);
 
-        request = request.with_consequence(
-            ConsequenceContext::new(
-                ReversibilityClass::Irreversible,
-            ),
-        );
+        request =
+            request.with_consequence(ConsequenceContext::new(ReversibilityClass::Irreversible));
 
-        let evaluation = evaluate_request(
-            request,
-            &RuntimePolicy::anonymization_benchmark(),
-        );
+        let evaluation = evaluate_request(request, &RuntimePolicy::anonymization_benchmark());
 
-        assert_eq!(
-            evaluation.decision.outcome,
-            DecisionOutcome::Reject
-        );
+        assert_eq!(evaluation.decision.outcome, DecisionOutcome::Reject);
         assert_eq!(
             evaluation.decision.reason_code,
             DecisionReason::ConsequenceHardGate

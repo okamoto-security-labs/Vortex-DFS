@@ -15,17 +15,7 @@ use serde::{Deserialize, Serialize};
 /// Critical < Fragile < Operational < HighTrust
 /// ```
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Default,
-    Serialize,
-    Deserialize,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeTrustBand {
@@ -80,7 +70,6 @@ impl RuntimeTrustBand {
     }
 }
 
-
 impl std::fmt::Display for RuntimeTrustBand {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
@@ -94,28 +83,18 @@ mod tests {
     #[test]
     fn trust_bands_have_deterministic_order() {
         assert!(RuntimeTrustBand::Fragile > RuntimeTrustBand::Critical);
-        assert!(
-            RuntimeTrustBand::Operational > RuntimeTrustBand::Fragile
-        );
-        assert!(
-            RuntimeTrustBand::HighTrust > RuntimeTrustBand::Operational
-        );
+        assert!(RuntimeTrustBand::Operational > RuntimeTrustBand::Fragile);
+        assert!(RuntimeTrustBand::HighTrust > RuntimeTrustBand::Operational);
     }
 
     #[test]
     fn high_trust_satisfies_operational_requirement() {
-        assert!(
-            RuntimeTrustBand::HighTrust
-                .satisfies(RuntimeTrustBand::Operational)
-        );
+        assert!(RuntimeTrustBand::HighTrust.satisfies(RuntimeTrustBand::Operational));
     }
 
     #[test]
     fn fragile_does_not_satisfy_operational_requirement() {
-        assert!(
-            !RuntimeTrustBand::Fragile
-                .satisfies(RuntimeTrustBand::Operational)
-        );
+        assert!(!RuntimeTrustBand::Fragile.satisfies(RuntimeTrustBand::Operational));
     }
 
     #[test]
@@ -128,22 +107,13 @@ mod tests {
 
     #[test]
     fn degraded_bands_are_rejection_candidates() {
-        assert!(
-            RuntimeTrustBand::Critical.is_rejection_candidate()
-        );
-        assert!(
-            RuntimeTrustBand::Fragile.is_rejection_candidate()
-        );
-        assert!(
-            !RuntimeTrustBand::Operational.is_rejection_candidate()
-        );
+        assert!(RuntimeTrustBand::Critical.is_rejection_candidate());
+        assert!(RuntimeTrustBand::Fragile.is_rejection_candidate());
+        assert!(!RuntimeTrustBand::Operational.is_rejection_candidate());
     }
 
     #[test]
     fn critical_is_the_safe_default() {
-        assert_eq!(
-            RuntimeTrustBand::default(),
-            RuntimeTrustBand::Critical
-        );
+        assert_eq!(RuntimeTrustBand::default(), RuntimeTrustBand::Critical);
     }
 }

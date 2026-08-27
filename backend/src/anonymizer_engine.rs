@@ -295,29 +295,22 @@ impl AnonymizerEngine {
     /// producing a transformed payload or retaining raw matched values.
     pub fn has_sensitive_data(input: &str) -> bool {
         let clean_input = Self::normalize_input(input);
-        let matched_indices: Vec<usize> =
-            REGEX_SET.matches(&clean_input).into_iter().collect();
+        let matched_indices: Vec<usize> = REGEX_SET.matches(&clean_input).into_iter().collect();
 
         for idx in matched_indices {
             let pattern = &PATTERNS[idx];
             let regex = &REGEX_INDIVIDUALS[idx];
 
             for matched in regex.find_iter(&clean_input) {
-                if pattern.label == "CREDIT_CARD_PAN"
-                    && !validate_luhn(matched.as_str())
-                {
+                if pattern.label == "CREDIT_CARD_PAN" && !validate_luhn(matched.as_str()) {
                     continue;
                 }
 
-                if pattern.label == "CPF_BR"
-                    && !validate_cpf(matched.as_str())
-                {
+                if pattern.label == "CPF_BR" && !validate_cpf(matched.as_str()) {
                     continue;
                 }
 
-                if pattern.label == "CNPJ_BR"
-                    && !validate_cnpj(matched.as_str())
-                {
+                if pattern.label == "CNPJ_BR" && !validate_cnpj(matched.as_str()) {
                     continue;
                 }
 
@@ -594,20 +587,16 @@ mod runtime_evidence_tests {
 
     #[test]
     fn sensitive_email_is_detected_without_transformation() {
-        assert!(
-            AnonymizerEngine::has_sensitive_data(
-                "Contact: user@example.com"
-            )
-        );
+        assert!(AnonymizerEngine::has_sensitive_data(
+            "Contact: user@example.com"
+        ));
     }
 
     #[test]
     fn ordinary_text_has_no_sensitive_data() {
-        assert!(
-            !AnonymizerEngine::has_sensitive_data(
-                "Vortex runtime authorization benchmark"
-            )
-        );
+        assert!(!AnonymizerEngine::has_sensitive_data(
+            "Vortex runtime authorization benchmark"
+        ));
     }
 }
 
