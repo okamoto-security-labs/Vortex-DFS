@@ -238,7 +238,8 @@ mod tests {
 
     #[test]
     fn fixture_bundle_parses_and_validates() {
-        let fixture = include_str!("../../../registry/policies/agents/tool-execution/policy.json");
+        let fixture =
+            include_str!("../../../registry/policies/agents/tool-execution/0.1.0/policy.json");
 
         let bundle: VortexPolicyBundle =
             serde_json::from_str(fixture).expect("fixture should parse");

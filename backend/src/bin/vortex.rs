@@ -19,7 +19,7 @@ USAGE:
     vortex policy inspect  <FILE|POLICY@VERSION>
     vortex policy seal     <FILE>
     vortex policy install  <FILE|POLICY@VERSION>
-    vortex policy pull     <URL>
+    vortex policy pull     <URL|REGISTRY_REF>
     vortex policy list
 
 COMMANDS:
@@ -27,7 +27,7 @@ COMMANDS:
     policy inspect     Inspect bundle metadata and policy requirements
     policy seal        Compute and persist SHA-256 integrity metadata
     policy install     Install a validated bundle into the local Vortex cache
-    policy pull        Fetch, validate, and install a remote policy bundle
+    policy pull        Fetch, validate, and install a remote policy bundle or registry reference
     policy list        List locally installed policy bundles"
     );
 
@@ -213,6 +213,46 @@ fn install_policy(reference: &str) {
 const MAX_REMOTE_POLICY_BYTES: usize = 1024 * 1024;
 const REMOTE_POLICY_TIMEOUT_SECS: u64 = 10;
 
+fn registry_base() -> String {
+    env::var("VORTEX_REGISTRY_BASE")
+        .unwrap_or_else(|_| "https://registry.vortexdfs.com".to_string())
+}
+
+fn resolve_pull_source(source: &str) -> Result<String, String> {
+    if source.starts_with("https://") || source.starts_with("http://") {
+        return Ok(source.to_string());
+    }
+
+    let (path, version) = source.rsplit_once('@').ok_or_else(|| {
+        format!("invalid registry reference '{source}': expected namespace/name@version")
+    })?;
+
+    let (namespace, name) = path.split_once('/').ok_or_else(|| {
+        format!("invalid registry reference '{source}': expected namespace/name@version")
+    })?;
+
+    for (field, value) in [
+        ("namespace", namespace),
+        ("policy name", name),
+        ("version", version),
+    ] {
+        let safe = !value.is_empty()
+            && value
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+
+        if !safe {
+            return Err(format!(
+                "invalid {field} '{value}' in registry reference '{source}'"
+            ));
+        }
+    }
+
+    let base = registry_base().trim_end_matches('/').to_string();
+
+    Ok(format!("{base}/{namespace}/{name}/{version}/policy.json"))
+}
+
 fn validate_remote_source(url: &str) -> Result<reqwest::Url, String> {
     let parsed = reqwest::Url::parse(url)
         .map_err(|error| format!("invalid policy source '{url}': {error}"))?;
@@ -295,8 +335,10 @@ async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
     Ok(bundle)
 }
 
-async fn pull_policy(url: &str) {
-    let bundle = fetch_remote_bundle(url)
+async fn pull_policy(source: &str) {
+    let url = resolve_pull_source(source).unwrap_or_else(|error| fail(error));
+
+    let bundle = fetch_remote_bundle(&url)
         .await
         .unwrap_or_else(|error| fail(error));
 
@@ -310,7 +352,8 @@ async fn pull_policy(url: &str) {
     println!();
     println!("policy:    {}", bundle.policy.id);
     println!("version:   {}", bundle.policy.version);
-    println!("source:    {url}");
+    println!("source:    {source}");
+    println!("resolved:  {url}");
     println!("installed: {}", target.display());
     println!("status:    INSTALLED");
 }
@@ -399,5 +442,55 @@ mod tests {
             validate_remote_source("file:///tmp/policy.json").expect_err("file scheme must fail");
 
         assert!(error.contains("unsupported policy source scheme"));
+    }
+}
+
+#[cfg(test)]
+mod registry_reference_tests {
+    use super::*;
+
+    #[test]
+    fn direct_https_url_is_preserved() {
+        let source = "https://example.com/policy.json";
+
+        assert_eq!(
+            resolve_pull_source(source).expect("direct URL should resolve"),
+            source
+        );
+    }
+
+    #[test]
+    fn registry_reference_resolves_to_policy_path() {
+        unsafe {
+            env::set_var("VORTEX_REGISTRY_BASE", "https://registry.example.com");
+        }
+
+        let resolved = resolve_pull_source("okamoto/agent-tool-execution@0.1.0")
+            .expect("registry reference should resolve");
+
+        assert_eq!(
+            resolved,
+            "https://registry.example.com/okamoto/agent-tool-execution/0.1.0/policy.json"
+        );
+
+        unsafe {
+            env::remove_var("VORTEX_REGISTRY_BASE");
+        }
+    }
+
+    #[test]
+    fn malformed_registry_reference_is_rejected() {
+        let error = resolve_pull_source("agent-tool-execution")
+            .expect_err("missing namespace and version must fail");
+
+        assert!(error.contains("expected namespace/name@version"));
+    }
+
+    #[test]
+    fn traversal_in_registry_reference_is_rejected() {
+        let error =
+            resolve_pull_source("../../escape@0.1.0").expect_err("unsafe namespace must fail");
+
+        assert!(error.contains("invalid namespace") || error.contains("invalid policy name"));
     }
 }
