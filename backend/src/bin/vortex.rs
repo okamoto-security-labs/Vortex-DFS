@@ -8,7 +8,9 @@ use std::{
     process,
 };
 
-use vortex_dfs::{policy_store::PolicyStore, runtime::VortexPolicyBundle};
+use vortex_dfs::{
+    policy_store::PolicyStore, registry::PolicyRegistryIndex, runtime::VortexPolicyBundle,
+};
 
 fn usage() -> ! {
     eprintln!(
@@ -21,6 +23,7 @@ USAGE:
     vortex policy install  <FILE|POLICY@VERSION>
     vortex policy pull     <URL|REGISTRY_REF>
     vortex policy list
+    vortex registry list
 
 COMMANDS:
     policy validate    Validate a Vortex RuntimePolicy bundle
@@ -28,7 +31,8 @@ COMMANDS:
     policy seal        Compute and persist SHA-256 integrity metadata
     policy install     Install a validated bundle into the local Vortex cache
     policy pull        Fetch, validate, and install a remote policy bundle or registry reference
-    policy list        List locally installed policy bundles"
+    policy list        List locally installed policy bundles
+    registry list      List policies published by the configured registry"
     );
 
     process::exit(2);
@@ -280,7 +284,11 @@ fn validate_remote_source(url: &str) -> Result<reqwest::Url, String> {
     }
 }
 
-async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
+async fn fetch_remote_bytes(
+    url: &str,
+    resource_name: &str,
+    max_bytes: usize,
+) -> Result<Vec<u8>, String> {
     use std::time::Duration;
 
     let parsed = validate_remote_source(url)?;
@@ -307,25 +315,25 @@ async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
     }
 
     if let Some(content_length) = response.content_length() {
-        if content_length > MAX_REMOTE_POLICY_BYTES as u64 {
-            return Err(format!(
-                "remote policy bundle exceeds {} byte limit",
-                MAX_REMOTE_POLICY_BYTES
-            ));
+        if content_length > max_bytes as u64 {
+            return Err(format!("{resource_name} exceeds {max_bytes} byte limit"));
         }
     }
 
     let body = response
         .bytes()
         .await
-        .map_err(|error| format!("cannot read remote policy bundle from '{url}': {error}"))?;
+        .map_err(|error| format!("cannot read {resource_name} from '{url}': {error}"))?;
 
-    if body.len() > MAX_REMOTE_POLICY_BYTES {
-        return Err(format!(
-            "remote policy bundle exceeds {} byte limit",
-            MAX_REMOTE_POLICY_BYTES
-        ));
+    if body.len() > max_bytes {
+        return Err(format!("{resource_name} exceeds {max_bytes} byte limit"));
     }
+
+    Ok(body.to_vec())
+}
+
+async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
+    let body = fetch_remote_bytes(url, "remote policy bundle", MAX_REMOTE_POLICY_BYTES).await?;
 
     let bundle: VortexPolicyBundle = serde_json::from_slice(&body)
         .map_err(|error| format!("cannot parse remote policy bundle from '{url}': {error}"))?;
@@ -333,6 +341,49 @@ async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
     bundle.validate().map_err(|error| format!("{error:?}"))?;
 
     Ok(bundle)
+}
+
+async fn fetch_registry_index() -> Result<(String, PolicyRegistryIndex), String> {
+    let base = registry_base().trim_end_matches('/').to_string();
+    let url = format!("{base}/index.json");
+
+    let body = fetch_remote_bytes(&url, "registry index", MAX_REMOTE_POLICY_BYTES).await?;
+
+    let index: PolicyRegistryIndex = serde_json::from_slice(&body)
+        .map_err(|error| format!("cannot parse registry index from '{url}': {error}"))?;
+
+    index.validate().map_err(|error| format!("{error:?}"))?;
+
+    Ok((url, index))
+}
+
+async fn list_registry() {
+    let (url, index) = fetch_registry_index()
+        .await
+        .unwrap_or_else(|error| fail(error));
+
+    println!("VORTEX POLICY REGISTRY");
+    println!();
+    println!("source:   {url}");
+    println!("policies: {}", index.policies.len());
+    println!();
+
+    if index.policies.is_empty() {
+        println!("No policies published.");
+        return;
+    }
+
+    for policy in index.policies {
+        println!("{}", policy.latest_reference());
+
+        if let Some(description) = policy.description {
+            println!("  {description}");
+        }
+
+        println!("  versions: {}", policy.versions.join(", "));
+
+        println!();
+    }
 }
 
 async fn pull_policy(source: &str) {
@@ -406,6 +457,10 @@ async fn main() {
 
         [_, command, action] if command == "policy" && action == "list" => {
             list_policies();
+        }
+
+        [_, command, action] if command == "registry" && action == "list" => {
+            list_registry().await;
         }
 
         _ => usage(),

@@ -6,6 +6,7 @@
 pub mod anonymizer_engine;
 pub mod policy_store;
 pub mod provisioner;
+pub mod registry;
 pub mod signer_lwe;
 pub mod stripe_webhook;
 
