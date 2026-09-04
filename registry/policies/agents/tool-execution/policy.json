@@ -25,5 +25,8 @@
     "audit_required": true,
     "fail_closed": true
   },
-  "integrity": null
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "dcb881a6fb257ac6da80949f1be5a719de2ccf14148182bdc8cce95df521581a"
+  }
 }
