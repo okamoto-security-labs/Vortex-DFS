@@ -1,0 +1,32 @@
+{
+  "api_version": "vortex.okamoto.dev/v1alpha1",
+  "kind": "RuntimePolicyBundle",
+  "metadata": {
+    "name": "agent-tool-execution",
+    "version": "0.1.0",
+    "description": "Baseline runtime policy for guarded agent tool execution.",
+    "author": "Okamoto Security Labs"
+  },
+  "policy": {
+    "id": "runtime.agent.tool_execution",
+    "version": "0.1.0",
+    "allowed_operations": [
+      "Anonymize"
+    ],
+    "require_identity": true,
+    "required_scopes": [
+      "agent:execute"
+    ],
+    "require_payload_integrity": true,
+    "require_signature": true,
+    "require_anonymization": false,
+    "minimum_trust_band": "operational",
+    "require_replay_protection": true,
+    "audit_required": true,
+    "fail_closed": true
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "dcb881a6fb257ac6da80949f1be5a719de2ccf14148182bdc8cce95df521581a"
+  }
+}

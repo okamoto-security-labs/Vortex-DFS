@@ -1,0 +1,15 @@
+{
+  "api_version": "vortex.okamoto.dev/v1alpha1",
+  "kind": "PolicyRegistryIndex",
+  "policies": [
+    {
+      "namespace": "agents",
+      "name": "tool-execution",
+      "latest": "0.1.0",
+      "versions": [
+        "0.1.0"
+      ],
+      "description": "Baseline runtime policy for guarded agent tool execution."
+    }
+  ]
+}

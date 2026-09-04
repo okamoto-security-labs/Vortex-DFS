@@ -4,7 +4,10 @@
 //! server, integration tests, benchmarks, and future runtime adapters.
 
 pub mod anonymizer_engine;
+pub mod policy_store;
 pub mod provisioner;
+pub mod publisher;
+pub mod registry;
 pub mod signer_lwe;
 pub mod stripe_webhook;
 
