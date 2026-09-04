@@ -19,6 +19,7 @@ USAGE:
     vortex policy inspect  <FILE|POLICY@VERSION>
     vortex policy seal     <FILE>
     vortex policy install  <FILE|POLICY@VERSION>
+    vortex policy pull     <URL>
     vortex policy list
 
 COMMANDS:
@@ -26,6 +27,7 @@ COMMANDS:
     policy inspect     Inspect bundle metadata and policy requirements
     policy seal        Compute and persist SHA-256 integrity metadata
     policy install     Install a validated bundle into the local Vortex cache
+    policy pull        Fetch, validate, and install a remote policy bundle
     policy list        List locally installed policy bundles"
     );
 
@@ -208,6 +210,111 @@ fn install_policy(reference: &str) {
     println!("status:    INSTALLED");
 }
 
+const MAX_REMOTE_POLICY_BYTES: usize = 1024 * 1024;
+const REMOTE_POLICY_TIMEOUT_SECS: u64 = 10;
+
+fn validate_remote_source(url: &str) -> Result<reqwest::Url, String> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|error| format!("invalid policy source '{url}': {error}"))?;
+
+    match parsed.scheme() {
+        "https" => Ok(parsed),
+
+        "http" => {
+            let host = parsed
+                .host_str()
+                .ok_or_else(|| format!("policy source '{url}' has no host"))?;
+
+            if matches!(host, "localhost" | "127.0.0.1" | "::1") {
+                Ok(parsed)
+            } else {
+                Err(format!(
+                    "insecure remote policy source '{url}': HTTP is allowed only for localhost"
+                ))
+            }
+        }
+
+        scheme => Err(format!(
+            "unsupported policy source scheme '{scheme}': expected https://"
+        )),
+    }
+}
+
+async fn fetch_remote_bundle(url: &str) -> Result<VortexPolicyBundle, String> {
+    use std::time::Duration;
+
+    let parsed = validate_remote_source(url)?;
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(REMOTE_POLICY_TIMEOUT_SECS))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| format!("cannot initialize HTTP client: {error}"))?;
+
+    let response = client
+        .get(parsed)
+        .send()
+        .await
+        .map_err(|error| format!("cannot fetch '{url}': {error}"))?;
+
+    let status = response.status();
+
+    if !status.is_success() {
+        return Err(format!(
+            "remote source returned HTTP {} for '{}'",
+            status, url
+        ));
+    }
+
+    if let Some(content_length) = response.content_length() {
+        if content_length > MAX_REMOTE_POLICY_BYTES as u64 {
+            return Err(format!(
+                "remote policy bundle exceeds {} byte limit",
+                MAX_REMOTE_POLICY_BYTES
+            ));
+        }
+    }
+
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| format!("cannot read remote policy bundle from '{url}': {error}"))?;
+
+    if body.len() > MAX_REMOTE_POLICY_BYTES {
+        return Err(format!(
+            "remote policy bundle exceeds {} byte limit",
+            MAX_REMOTE_POLICY_BYTES
+        ));
+    }
+
+    let bundle: VortexPolicyBundle = serde_json::from_slice(&body)
+        .map_err(|error| format!("cannot parse remote policy bundle from '{url}': {error}"))?;
+
+    bundle.validate().map_err(|error| format!("{error:?}"))?;
+
+    Ok(bundle)
+}
+
+async fn pull_policy(url: &str) {
+    let bundle = fetch_remote_bundle(url)
+        .await
+        .unwrap_or_else(|error| fail(error));
+
+    let policy_store = store();
+
+    let target = policy_store
+        .install(&bundle)
+        .unwrap_or_else(|error| fail(error.to_string()));
+
+    println!("PULLED VORTEX POLICY BUNDLE");
+    println!();
+    println!("policy:    {}", bundle.policy.id);
+    println!("version:   {}", bundle.policy.version);
+    println!("source:    {url}");
+    println!("installed: {}", target.display());
+    println!("status:    INSTALLED");
+}
+
 fn list_policies() {
     let entries = store()
         .list()
@@ -229,7 +336,8 @@ fn list_policies() {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args: Vec<String> = env::args().collect();
 
     match args.as_slice() {
@@ -249,10 +357,47 @@ fn main() {
             install_policy(reference);
         }
 
+        [_, command, action, url] if command == "policy" && action == "pull" => {
+            pull_policy(url).await;
+        }
+
         [_, command, action] if command == "policy" && action == "list" => {
             list_policies();
         }
 
         _ => usage(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn https_remote_source_is_allowed() {
+        assert!(validate_remote_source("https://registry.example.com/policy.json").is_ok());
+    }
+
+    #[test]
+    fn localhost_http_source_is_allowed() {
+        assert!(validate_remote_source("http://127.0.0.1:8000/policy.json").is_ok());
+
+        assert!(validate_remote_source("http://localhost:8000/policy.json").is_ok());
+    }
+
+    #[test]
+    fn external_http_source_is_rejected() {
+        let error = validate_remote_source("http://registry.example.com/policy.json")
+            .expect_err("external plaintext HTTP must fail");
+
+        assert!(error.contains("HTTP is allowed only for localhost"));
+    }
+
+    #[test]
+    fn unsupported_scheme_is_rejected() {
+        let error =
+            validate_remote_source("file:///tmp/policy.json").expect_err("file scheme must fail");
+
+        assert!(error.contains("unsupported policy source scheme"));
     }
 }
