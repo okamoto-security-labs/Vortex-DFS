@@ -3,6 +3,7 @@
 //! A bundle is a distribution artifact around `RuntimePolicy`.
 //! Enforcement semantics remain owned by the runtime policy and validator.
 
+use crate::publisher::{PublisherIdentity, PublisherSignatureEnvelope};
 use crate::runtime::RuntimePolicy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -36,6 +37,12 @@ pub struct VortexPolicyBundle {
     pub policy: RuntimePolicy,
 
     #[serde(default)]
+    pub publisher: Option<PublisherIdentity>,
+
+    #[serde(default)]
+    pub signature: Option<PublisherSignatureEnvelope>,
+
+    #[serde(default)]
     pub integrity: Option<PolicyBundleIntegrity>,
 }
 
@@ -51,6 +58,12 @@ pub enum PolicyBundleError {
     },
     UnsupportedIntegrityAlgorithm(String),
     IntegrityMismatch,
+    PublisherWithoutSignature,
+    SignatureWithoutPublisher,
+    PublisherSignatureKeyMismatch {
+        publisher_key_id: String,
+        signature_key_id: String,
+    },
     Serialization(String),
 }
 
@@ -71,6 +84,8 @@ impl VortexPolicyBundle {
                 author,
             },
             policy,
+            publisher: None,
+            signature: None,
             integrity: None,
         }
     }
@@ -99,6 +114,30 @@ impl VortexPolicyBundle {
                 metadata_version: self.metadata.version.clone(),
                 policy_version: self.policy.version.clone(),
             });
+        }
+
+        match (&self.publisher, &self.signature) {
+            (None, None) => {}
+            (Some(_), None) => {
+                return Err(PolicyBundleError::PublisherWithoutSignature);
+            }
+            (None, Some(_)) => {
+                return Err(PolicyBundleError::SignatureWithoutPublisher);
+            }
+            (Some(publisher), Some(signature)) => {
+                publisher.validate().map_err(|error| {
+                    PolicyBundleError::Serialization(format!(
+                        "invalid publisher identity: {error:?}"
+                    ))
+                })?;
+
+                if publisher.key_id != signature.key_id {
+                    return Err(PolicyBundleError::PublisherSignatureKeyMismatch {
+                        publisher_key_id: publisher.key_id.clone(),
+                        signature_key_id: signature.key_id.clone(),
+                    });
+                }
+            }
         }
 
         if let Some(integrity) = &self.integrity {
@@ -145,6 +184,9 @@ impl VortexPolicyBundle {
             kind: &'a str,
             metadata: &'a PolicyBundleMetadata,
             policy: &'a RuntimePolicy,
+
+            #[serde(skip_serializing_if = "Option::is_none")]
+            publisher: &'a Option<PublisherIdentity>,
         }
 
         serde_json::to_string(&DigestPayload {
@@ -152,6 +194,7 @@ impl VortexPolicyBundle {
             kind: &self.kind,
             metadata: &self.metadata,
             policy: &self.policy,
+            publisher: &self.publisher,
         })
         .map_err(|error| PolicyBundleError::Serialization(error.to_string()))
     }
@@ -175,6 +218,91 @@ mod tests {
             Some("Okamoto Security Labs".to_string()),
             policy,
         )
+    }
+
+    #[test]
+    fn unsigned_bundle_remains_valid() {
+        let bundle = test_bundle();
+
+        assert_eq!(bundle.publisher, None);
+        assert_eq!(bundle.signature, None);
+        assert_eq!(bundle.validate(), Ok(()));
+    }
+
+    #[test]
+    fn publisher_without_signature_is_rejected() {
+        let mut bundle = test_bundle();
+
+        bundle.publisher = Some(PublisherIdentity {
+            namespace: "okamoto".to_string(),
+            publisher: "security-labs".to_string(),
+            key_id: "publisher-key-1".to_string(),
+        });
+
+        assert_eq!(
+            bundle.validate(),
+            Err(PolicyBundleError::PublisherWithoutSignature)
+        );
+    }
+
+    #[test]
+    fn signature_without_publisher_is_rejected() {
+        let mut bundle = test_bundle();
+
+        bundle.signature = Some(PublisherSignatureEnvelope {
+            algorithm: "test".to_string(),
+            key_id: "publisher-key-1".to_string(),
+            signature: "placeholder".to_string(),
+        });
+
+        assert_eq!(
+            bundle.validate(),
+            Err(PolicyBundleError::SignatureWithoutPublisher)
+        );
+    }
+
+    #[test]
+    fn publisher_and_signature_key_ids_must_match() {
+        let mut bundle = test_bundle();
+
+        bundle.publisher = Some(PublisherIdentity {
+            namespace: "okamoto".to_string(),
+            publisher: "security-labs".to_string(),
+            key_id: "publisher-key-1".to_string(),
+        });
+
+        bundle.signature = Some(PublisherSignatureEnvelope {
+            algorithm: "test".to_string(),
+            key_id: "publisher-key-2".to_string(),
+            signature: "placeholder".to_string(),
+        });
+
+        assert_eq!(
+            bundle.validate(),
+            Err(PolicyBundleError::PublisherSignatureKeyMismatch {
+                publisher_key_id: "publisher-key-1".to_string(),
+                signature_key_id: "publisher-key-2".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn matching_publisher_and_signature_are_structurally_valid() {
+        let mut bundle = test_bundle();
+
+        bundle.publisher = Some(PublisherIdentity {
+            namespace: "okamoto".to_string(),
+            publisher: "security-labs".to_string(),
+            key_id: "publisher-key-1".to_string(),
+        });
+
+        bundle.signature = Some(PublisherSignatureEnvelope {
+            algorithm: "test".to_string(),
+            key_id: "publisher-key-1".to_string(),
+            signature: "placeholder".to_string(),
+        });
+
+        assert_eq!(bundle.validate(), Ok(()));
     }
 
     #[test]
@@ -214,6 +342,53 @@ mod tests {
                 policy_version: "0.1.0".to_string(),
             })
         );
+    }
+
+    #[test]
+    fn publisher_identity_changes_digest() {
+        let base = test_bundle();
+
+        let mut published = base.clone();
+        published.publisher = Some(PublisherIdentity {
+            namespace: "okamoto".to_string(),
+            publisher: "security-labs".to_string(),
+            key_id: "publisher-key-1".to_string(),
+        });
+
+        let base_digest = base.compute_digest().expect("base digest");
+        let published_digest = published.compute_digest().expect("published digest");
+
+        assert_ne!(base_digest, published_digest);
+    }
+
+    #[test]
+    fn signature_does_not_change_digest() {
+        let mut first = test_bundle();
+
+        first.publisher = Some(PublisherIdentity {
+            namespace: "okamoto".to_string(),
+            publisher: "security-labs".to_string(),
+            key_id: "publisher-key-1".to_string(),
+        });
+
+        let mut second = first.clone();
+
+        first.signature = Some(PublisherSignatureEnvelope {
+            algorithm: "test".to_string(),
+            key_id: "publisher-key-1".to_string(),
+            signature: "signature-a".to_string(),
+        });
+
+        second.signature = Some(PublisherSignatureEnvelope {
+            algorithm: "test".to_string(),
+            key_id: "publisher-key-1".to_string(),
+            signature: "signature-b".to_string(),
+        });
+
+        let first_digest = first.compute_digest().expect("first digest");
+        let second_digest = second.compute_digest().expect("second digest");
+
+        assert_eq!(first_digest, second_digest);
     }
 
     #[test]
