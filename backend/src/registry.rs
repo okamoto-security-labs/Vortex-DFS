@@ -85,6 +85,24 @@ impl PolicyRegistryEntry {
 }
 
 impl PolicyRegistryIndex {
+    pub fn search(&self, term: &str) -> Vec<&PolicyRegistryEntry> {
+        let needle = term.to_ascii_lowercase();
+
+        self.policies
+            .iter()
+            .filter(|policy| {
+                policy.namespace.to_ascii_lowercase().contains(&needle)
+                    || policy.name.to_ascii_lowercase().contains(&needle)
+                    || policy
+                        .description
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_ascii_lowercase()
+                        .contains(&needle)
+            })
+            .collect()
+    }
+
     pub fn validate(&self) -> Result<(), RegistryIndexError> {
         if self.api_version != VORTEX_POLICY_API_VERSION {
             return Err(RegistryIndexError::UnsupportedApiVersion(
@@ -146,6 +164,29 @@ mod tests {
                 description: Some("Guarded runtime policy for agent tool execution.".to_string()),
             }],
         }
+    }
+
+    #[test]
+    fn search_matches_namespace_name_and_description() {
+        let index = valid_index();
+
+        assert_eq!(index.search("agents").len(), 1);
+        assert_eq!(index.search("tool").len(), 1);
+        assert_eq!(index.search("guarded").len(), 1);
+    }
+
+    #[test]
+    fn search_is_case_insensitive() {
+        let index = valid_index();
+
+        assert_eq!(index.search("TOOL").len(), 1);
+    }
+
+    #[test]
+    fn search_returns_empty_for_missing_term() {
+        let index = valid_index();
+
+        assert!(index.search("kubernetes").is_empty());
     }
 
     #[test]

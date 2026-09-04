@@ -24,6 +24,7 @@ USAGE:
     vortex policy pull     <URL|REGISTRY_REF>
     vortex policy list
     vortex registry list
+    vortex registry search <TERM>
 
 COMMANDS:
     policy validate    Validate a Vortex RuntimePolicy bundle
@@ -32,7 +33,8 @@ COMMANDS:
     policy install     Install a validated bundle into the local Vortex cache
     policy pull        Fetch, validate, and install a remote policy bundle or registry reference
     policy list        List locally installed policy bundles
-    registry list      List policies published by the configured registry"
+    registry list      List policies published by the configured registry
+    registry search    Search policies published by the configured registry"
     );
 
     process::exit(2);
@@ -386,6 +388,36 @@ async fn list_registry() {
     }
 }
 
+async fn search_registry(term: &str) {
+    let (_, index) = fetch_registry_index()
+        .await
+        .unwrap_or_else(|error| fail(error));
+
+    let matches = index.search(term);
+
+    println!("VORTEX REGISTRY SEARCH");
+    println!();
+    println!("query:   {term}");
+    println!("matches: {}", matches.len());
+    println!();
+
+    if matches.is_empty() {
+        println!("No matching policies.");
+        return;
+    }
+
+    for policy in matches {
+        println!("{}", policy.latest_reference());
+
+        if let Some(description) = &policy.description {
+            println!("  {description}");
+        }
+
+        println!("  versions: {}", policy.versions.join(", "));
+        println!();
+    }
+}
+
 async fn pull_policy(source: &str) {
     let url = resolve_pull_source(source).unwrap_or_else(|error| fail(error));
 
@@ -461,6 +493,10 @@ async fn main() {
 
         [_, command, action] if command == "registry" && action == "list" => {
             list_registry().await;
+        }
+
+        [_, command, action, term] if command == "registry" && action == "search" => {
+            search_registry(term).await;
         }
 
         _ => usage(),
