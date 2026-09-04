@@ -8,6 +8,7 @@
 //! their internal logic.
 
 pub mod audit;
+pub mod bundle;
 pub mod consequence;
 pub mod context;
 pub mod decision;
@@ -17,6 +18,11 @@ pub mod operation;
 pub mod policy;
 pub mod trust;
 pub mod validator;
+
+pub use bundle::{
+    PolicyBundleError, PolicyBundleIntegrity, PolicyBundleMetadata, VortexPolicyBundle,
+    VORTEX_POLICY_API_VERSION, VORTEX_POLICY_KIND,
+};
 
 pub use audit::{
     AuditStoreError, InMemoryRuntimeAuditStore, PostgresRuntimeAuditStore, RuntimeAuditEvent,
