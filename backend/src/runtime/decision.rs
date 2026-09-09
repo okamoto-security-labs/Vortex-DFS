@@ -105,6 +105,9 @@ pub enum DecisionReason {
     /// Replay behavior was detected.
     ReplayDetected,
 
+    /// Mandatory security context was unavailable or invalid.
+    SecurityContextUnavailable,
+
     /// The requested operation is unsupported.
     UnsupportedOperation,
 
@@ -131,6 +134,7 @@ impl DecisionReason {
             Self::TrustBelowThreshold => "TRUST_BELOW_THRESHOLD",
             Self::ConsequenceHardGate => "CONSEQUENCE_HARD_GATE",
             Self::ReplayDetected => "REPLAY_DETECTED",
+            Self::SecurityContextUnavailable => "SECURITY_CONTEXT_UNAVAILABLE",
             Self::UnsupportedOperation => "UNSUPPORTED_OPERATION",
             Self::RuntimeError => "RUNTIME_ERROR",
         }
@@ -150,6 +154,7 @@ impl DecisionReason {
                 | Self::TrustBelowThreshold
                 | Self::ConsequenceHardGate
                 | Self::ReplayDetected
+                | Self::SecurityContextUnavailable
         )
     }
 }

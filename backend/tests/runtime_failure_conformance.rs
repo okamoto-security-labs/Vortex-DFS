@@ -22,7 +22,10 @@ fn load_case(raw: &str) -> RuntimeFailureCase {
 }
 
 fn assert_case_metadata(case: &RuntimeFailureCase) {
-    assert!(!case.scenario.trim().is_empty(), "scenario must not be empty");
+    assert!(
+        !case.scenario.trim().is_empty(),
+        "scenario must not be empty"
+    );
     assert!(
         !case.preconditions.is_empty(),
         "preconditions must contain at least one condition"
@@ -43,7 +46,10 @@ fn assert_case_metadata(case: &RuntimeFailureCase) {
         !case.expected_decision.trim().is_empty(),
         "expected_decision must not be empty"
     );
-    assert!(!case.invariant.trim().is_empty(), "invariant must not be empty");
+    assert!(
+        !case.invariant.trim().is_empty(),
+        "invariant must not be empty"
+    );
     assert!(
         !case.external_reference.trim().is_empty(),
         "external_reference must not be empty"
@@ -71,6 +77,7 @@ fn runtime_failure_cases_have_required_metadata() {
     let cases = [
         include_str!("runtime_failures/missing_identity_fails_closed.json"),
         include_str!("runtime_failures/irreversible_derived_action_is_hard_gated.json"),
+        include_str!("runtime_failures/security_context_failure_must_not_silently_continue.json"),
     ];
 
     for raw in cases {
@@ -143,5 +150,36 @@ fn irreversible_derived_action_must_reach_execution_gate() {
     assert!(
         !case.derived_actions.is_empty(),
         "execution-expansion scenarios must declare derived actions"
+    );
+}
+
+#[test]
+fn security_context_failure_must_not_silently_continue() {
+    let case = load_case(include_str!(
+        "runtime_failures/security_context_failure_must_not_silently_continue.json"
+    ));
+
+    assert_case_metadata(&case);
+
+    let mut request = RequestContext::new(
+        "rfh-security-context-001",
+        "rfh-trace-security-context-001",
+        Operation::Anonymize,
+        PayloadContext::new(64),
+    );
+
+    request.evidence.set_structural_validity(true);
+    request.evidence.set_sensitive_data_detected(false);
+    request.evidence.set_security_context_valid(false);
+
+    let policy = RuntimePolicy::anonymization_benchmark().with_security_context_requirement(true);
+
+    let evaluation = evaluate_request(request, &policy);
+
+    assert_expected_decision(&case, evaluation.decision.outcome);
+
+    assert!(
+        !evaluation.permits_execution(),
+        "mandatory security-context loss must block execution"
     );
 }

@@ -48,6 +48,10 @@ pub struct RuntimePolicy {
     /// Whether replay evidence must be evaluated.
     pub require_replay_protection: bool,
 
+    /// Whether mandatory security context must remain valid for execution.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub require_security_context: bool,
+
     /// Whether an audit event must be generated.
     pub audit_required: bool,
 
@@ -72,6 +76,7 @@ impl RuntimePolicy {
             require_anonymization: false,
             minimum_trust_band: Some(RuntimeTrustBand::Operational),
             require_replay_protection: true,
+            require_security_context: false,
             audit_required: true,
             fail_closed: true,
         }
@@ -122,6 +127,12 @@ impl RuntimePolicy {
     /// Replaces the replay-protection requirement.
     pub const fn with_replay_protection(mut self, required: bool) -> Self {
         self.require_replay_protection = required;
+        self
+    }
+
+    /// Replaces the mandatory security-context requirement.
+    pub const fn with_security_context_requirement(mut self, required: bool) -> Self {
+        self.require_security_context = required;
         self
     }
 

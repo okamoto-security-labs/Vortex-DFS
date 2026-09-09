@@ -88,6 +88,8 @@ impl RuntimeValidator {
 
         Self::validate_replay_protection(context, policy, &mut report);
 
+        Self::validate_security_context(context, policy, &mut report);
+
         Self::validate_trust(context, policy, &mut report);
 
         Self::validate_anonymization_requirement(context, policy, &mut report);
@@ -321,6 +323,38 @@ impl RuntimeValidator {
                     DecisionReason::ReplayDetected,
                     Some("request".to_string()),
                     "Replay protection was not evaluated",
+                ));
+            }
+
+            None => {}
+        }
+    }
+
+    fn validate_security_context(
+        context: &RequestContext,
+        policy: &RuntimePolicy,
+        report: &mut ValidationReport,
+    ) {
+        if !policy.require_security_context {
+            return;
+        }
+
+        match context.evidence.security_context_valid {
+            Some(true) => {}
+
+            Some(false) => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::SecurityContextUnavailable,
+                    Some("security_context".to_string()),
+                    "Mandatory security context is unavailable or invalid",
+                ));
+            }
+
+            None if policy.fail_closed => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::SecurityContextUnavailable,
+                    Some("security_context".to_string()),
+                    "Mandatory security context was not evaluated",
                 ));
             }
 
