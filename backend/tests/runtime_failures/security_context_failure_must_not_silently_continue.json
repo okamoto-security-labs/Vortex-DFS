@@ -1,0 +1,21 @@
+{
+  "scenario": "Mandatory security context becomes unavailable before agent execution",
+  "preconditions": [
+    "The requested operation is otherwise permitted",
+    "The runtime policy requires security context",
+    "The security context failed validation or was removed"
+  ],
+  "evidence": [
+    "security_context_valid=false",
+    "the agent would otherwise remain operational"
+  ],
+  "authority": [
+    "Execution authority depends on mandatory security context remaining available",
+    "Loss of mandatory security context must invalidate execution readiness"
+  ],
+  "proposed_action": "Anonymize",
+  "derived_actions": [],
+  "expected_decision": "REJECT",
+  "invariant": "security_context_failure_must_not_silently_continue",
+  "external_reference": "https://github.com/NousResearch/hermes-agent/issues/92644"
+}

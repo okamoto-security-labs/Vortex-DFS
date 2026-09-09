@@ -1,0 +1,21 @@
+{
+  "scenario": "Required identity evidence is absent at execution time",
+  "preconditions": [
+    "The requested operation is recognized by policy",
+    "Structural validation succeeds",
+    "The policy requires identity and is fail-closed"
+  ],
+  "evidence": [
+    "structural_validity=true",
+    "identity evidence unavailable"
+  ],
+  "authority": [
+    "No valid principal identity is present",
+    "No execution authority may be inferred from operation recognition"
+  ],
+  "proposed_action": "Verify",
+  "derived_actions": [],
+  "expected_decision": "REJECT",
+  "invariant": "missing_identity_must_fail_closed",
+  "external_reference": "Vortex runtime validator baseline; generalized from public fail-open identity/credential failure classes"
+}
