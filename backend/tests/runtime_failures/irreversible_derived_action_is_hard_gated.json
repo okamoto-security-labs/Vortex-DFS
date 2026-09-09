@@ -1,0 +1,23 @@
+{
+  "scenario": "A declared action expands into an irreversible derived action",
+  "preconditions": [
+    "The declared operation is allowed by policy",
+    "Structural validation succeeds",
+    "Execution expansion reveals at least one irreversible derived action"
+  ],
+  "evidence": [
+    "declared operation passes its local policy check",
+    "effective reversibility is the worst case across the action chain"
+  ],
+  "authority": [
+    "Authority for the declared action does not automatically authorize derived actions"
+  ],
+  "proposed_action": "Anonymize",
+  "derived_actions": [
+    "reversible preparation step",
+    "irreversible state-changing operation"
+  ],
+  "expected_decision": "REJECT",
+  "invariant": "derived_actions_must_be_independently_gated",
+  "external_reference": "Vortex Execution Expansion model; generalized from public agent runtime boundary failures"
+}
