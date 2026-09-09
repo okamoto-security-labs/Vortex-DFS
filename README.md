@@ -229,6 +229,30 @@ A durable audit sink, immutable retention, compliance exports, and governance da
 
 ---
 
+## Runtime Failure Assessment
+
+Deploying agents with tool or execution authority?
+
+Okamoto Security Labs runs a fixed-scope assessment that converts failure modes from an agent or runtime architecture into executable security invariants and tests whether the execution boundary actually enforces them.
+
+### 7-day pilot
+
+- 1 agent/runtime workflow
+- up to 15 runtime failure scenarios
+- executable conformance harness
+- Evidence → Authority → Action → Consequence mapping
+- PASS / FAIL results
+- execution-boundary findings
+- remediation priorities
+- technical handoff
+
+**Fixed-scope pilot: USD 1,000**
+
+For assessment requests: https://vortexdfs.com/
+
+
+---
+
 ## Development
 
 Run backend tests:
