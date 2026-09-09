@@ -45,6 +45,10 @@ pub struct SecurityEvidence {
     /// Whether replay behavior was detected.
     pub replay_detected: Option<bool>,
 
+    /// Whether mandatory security context remained available and valid
+    /// for runtime execution.
+    pub security_context_valid: Option<bool>,
+
     /// Optional deterministic risk value produced by a feature.
     ///
     /// This value must not automatically be interpreted as a
@@ -115,6 +119,11 @@ impl SecurityEvidence {
         self.replay_detected = Some(detected);
     }
 
+    /// Records mandatory security-context validity.
+    pub fn set_security_context_valid(&mut self, valid: bool) {
+        self.security_context_valid = Some(valid);
+    }
+
     /// Records a runtime risk score.
     pub fn set_risk_score(&mut self, score: f64) {
         self.risk_score = Some(score);
@@ -133,6 +142,7 @@ impl SecurityEvidence {
             || self.payload_integrity_valid == Some(false)
             || self.signature_valid == Some(false)
             || self.replay_detected == Some(true)
+            || self.security_context_valid == Some(false)
             || self.trust_band == Some(RuntimeTrustBand::Critical)
     }
 }
@@ -149,6 +159,7 @@ pub struct EvidenceSummary {
     pub signature_valid: Option<bool>,
     pub sensitive_data_detected: Option<bool>,
     pub replay_detected: Option<bool>,
+    pub security_context_valid: Option<bool>,
     pub risk_score: Option<f64>,
     pub trust_band: Option<RuntimeTrustBand>,
 }
@@ -162,6 +173,7 @@ impl From<&SecurityEvidence> for EvidenceSummary {
             signature_valid: evidence.signature_valid,
             sensitive_data_detected: evidence.sensitive_data_detected,
             replay_detected: evidence.replay_detected,
+            security_context_valid: evidence.security_context_valid,
             risk_score: evidence.risk_score,
             trust_band: evidence.trust_band,
         }
