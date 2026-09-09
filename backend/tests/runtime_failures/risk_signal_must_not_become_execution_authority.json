@@ -1,0 +1,22 @@
+{
+  "scenario": "Suspicious risk evidence is observed before any consequential effective operation occurs",
+  "preconditions": [
+    "The declared operation is allowed by policy",
+    "No consequential derived action has occurred",
+    "A suspicious risk signal exists",
+    "Execution authority has not been independently invalidated"
+  ],
+  "evidence": [
+    "risk_score=0.95",
+    "the risk signal is evidence, not an authorization decision"
+  ],
+  "authority": [
+    "The declared operation remains authorized",
+    "Risk evidence may constrain evaluation but must not independently revoke execution authority"
+  ],
+  "proposed_action": "Anonymize",
+  "derived_actions": [],
+  "expected_decision": "AUDIT",
+  "invariant": "risk_signal_must_not_become_execution_authority",
+  "external_reference": "https://github.com/openai/codex/issues/43728"
+}

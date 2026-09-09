@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use vortex_dfs::runtime::{
     evaluate_request, ConsequenceContext, DecisionOutcome, Operation, PayloadContext,
-    RequestContext, ReversibilityClass, RuntimePolicy,
+    RequestContext, ReversibilityClass, RuntimePolicy, RuntimeTrustBand,
 };
 
 #[derive(Debug, Deserialize)]
@@ -181,5 +181,76 @@ fn security_context_failure_must_not_silently_continue() {
     assert!(
         !evaluation.permits_execution(),
         "mandatory security-context loss must block execution"
+    );
+}
+
+#[test]
+fn risk_signal_must_not_become_execution_authority() {
+    let case = load_case(include_str!(
+        "runtime_failures/risk_signal_must_not_become_execution_authority.json"
+    ));
+
+    assert_case_metadata(&case);
+
+    let mut request = RequestContext::new(
+        "rfh-risk-authority-001",
+        "rfh-trace-risk-authority-001",
+        Operation::Anonymize,
+        PayloadContext::new(64),
+    );
+
+    request.evidence.set_structural_validity(true);
+    request.evidence.set_sensitive_data_detected(false);
+
+    // Suspicious evidence exists.
+    // It is deliberately NOT converted into a trust-band decision here.
+    request.evidence.set_risk_score(0.95);
+
+    let policy = RuntimePolicy::anonymization_benchmark();
+
+    let evaluation = evaluate_request(request, &policy);
+
+    assert_expected_decision(&case, evaluation.decision.outcome);
+
+    assert!(
+        evaluation.permits_execution(),
+        "risk evidence alone must not become execution authority"
+    );
+}
+
+#[test]
+fn risk_signal_must_not_override_independently_validated_trust() {
+    let mut request = RequestContext::new(
+        "rfh-risk-trust-001",
+        "rfh-trace-risk-trust-001",
+        Operation::Anonymize,
+        PayloadContext::new(64),
+    );
+
+    request.evidence.set_structural_validity(true);
+    request.evidence.set_sensitive_data_detected(false);
+
+    // Risk evidence is suspicious.
+    request.evidence.set_risk_score(0.95);
+
+    // Trust was independently evaluated and satisfies policy.
+    request
+        .evidence
+        .set_trust_band(RuntimeTrustBand::Operational);
+
+    let policy = RuntimePolicy::anonymization_benchmark()
+        .with_minimum_trust_band(Some(RuntimeTrustBand::Operational));
+
+    let evaluation = evaluate_request(request, &policy);
+
+    assert!(
+        evaluation.permits_execution(),
+        "risk evidence must not override independently validated trust"
+    );
+
+    assert_ne!(
+        evaluation.decision.outcome,
+        DecisionOutcome::Reject,
+        "risk evidence alone must not produce terminal denial"
     );
 }
