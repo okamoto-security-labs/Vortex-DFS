@@ -90,6 +90,8 @@ impl RuntimeValidator {
 
         Self::validate_security_context(context, policy, &mut report);
 
+        Self::validate_approval_context(context, policy, &mut report);
+
         Self::validate_trust(context, policy, &mut report);
 
         Self::validate_anonymization_requirement(context, policy, &mut report);
@@ -355,6 +357,38 @@ impl RuntimeValidator {
                     DecisionReason::SecurityContextUnavailable,
                     Some("security_context".to_string()),
                     "Mandatory security context was not evaluated",
+                ));
+            }
+
+            None => {}
+        }
+    }
+
+    fn validate_approval_context(
+        context: &RequestContext,
+        policy: &RuntimePolicy,
+        report: &mut ValidationReport,
+    ) {
+        if !policy.require_complete_approval_context {
+            return;
+        }
+
+        match context.evidence.approval_context_complete {
+            Some(true) => {}
+
+            Some(false) => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::ApprovalContextIncomplete,
+                    Some("approval_context".to_string()),
+                    "Material approval context is incomplete or degraded",
+                ));
+            }
+
+            None if policy.fail_closed => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::ApprovalContextIncomplete,
+                    Some("approval_context".to_string()),
+                    "Material approval context was not evaluated",
                 ));
             }
 
@@ -657,5 +691,58 @@ mod tests {
         let report = RuntimeValidator::validate(&context, &policy);
 
         assert!(report.is_valid());
+    }
+
+    #[test]
+    fn degraded_approval_context_is_reported_when_required() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_complete_approval_context_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+        context.evidence.set_approval_context_complete(false);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report.failures.iter().any(|failure| {
+            failure.reason == DecisionReason::ApprovalContextIncomplete
+                && failure.field.as_deref() == Some("approval_context")
+        }));
+    }
+
+    #[test]
+    fn complete_approval_context_satisfies_requirement() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_complete_approval_context_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+        context.evidence.set_approval_context_complete(true);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(!report
+            .failures
+            .iter()
+            .any(|failure| { failure.reason == DecisionReason::ApprovalContextIncomplete }));
+    }
+
+    #[test]
+    fn missing_required_approval_context_fails_closed() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_complete_approval_context_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report.failures.iter().any(|failure| {
+            failure.reason == DecisionReason::ApprovalContextIncomplete
+                && failure.field.as_deref() == Some("approval_context")
+        }));
     }
 }

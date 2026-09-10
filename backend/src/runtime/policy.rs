@@ -52,6 +52,11 @@ pub struct RuntimePolicy {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub require_security_context: bool,
 
+    /// Whether material approval context must remain complete before
+    /// authority can be granted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub require_complete_approval_context: bool,
+
     /// Whether an audit event must be generated.
     pub audit_required: bool,
 
@@ -77,6 +82,7 @@ impl RuntimePolicy {
             minimum_trust_band: Some(RuntimeTrustBand::Operational),
             require_replay_protection: true,
             require_security_context: false,
+            require_complete_approval_context: false,
             audit_required: true,
             fail_closed: true,
         }
@@ -133,6 +139,12 @@ impl RuntimePolicy {
     /// Replaces the mandatory security-context requirement.
     pub const fn with_security_context_requirement(mut self, required: bool) -> Self {
         self.require_security_context = required;
+        self
+    }
+
+    /// Replaces the complete approval-context requirement.
+    pub const fn with_complete_approval_context_requirement(mut self, required: bool) -> Self {
+        self.require_complete_approval_context = required;
         self
     }
 

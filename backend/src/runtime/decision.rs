@@ -108,6 +108,9 @@ pub enum DecisionReason {
     /// Mandatory security context was unavailable or invalid.
     SecurityContextUnavailable,
 
+    /// Material approval context was incomplete or unavailable.
+    ApprovalContextIncomplete,
+
     /// The requested operation is unsupported.
     UnsupportedOperation,
 
@@ -135,6 +138,7 @@ impl DecisionReason {
             Self::ConsequenceHardGate => "CONSEQUENCE_HARD_GATE",
             Self::ReplayDetected => "REPLAY_DETECTED",
             Self::SecurityContextUnavailable => "SECURITY_CONTEXT_UNAVAILABLE",
+            Self::ApprovalContextIncomplete => "APPROVAL_CONTEXT_INCOMPLETE",
             Self::UnsupportedOperation => "UNSUPPORTED_OPERATION",
             Self::RuntimeError => "RUNTIME_ERROR",
         }
@@ -155,6 +159,7 @@ impl DecisionReason {
                 | Self::ConsequenceHardGate
                 | Self::ReplayDetected
                 | Self::SecurityContextUnavailable
+                | Self::ApprovalContextIncomplete
         )
     }
 }

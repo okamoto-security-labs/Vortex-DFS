@@ -49,6 +49,10 @@ pub struct SecurityEvidence {
     /// for runtime execution.
     pub security_context_valid: Option<bool>,
 
+    /// Whether material action evidence remained complete for an
+    /// approval or authority decision.
+    pub approval_context_complete: Option<bool>,
+
     /// Optional deterministic risk value produced by a feature.
     ///
     /// This value must not automatically be interpreted as a
@@ -124,6 +128,11 @@ impl SecurityEvidence {
         self.security_context_valid = Some(valid);
     }
 
+    /// Records whether material approval context remained complete.
+    pub fn set_approval_context_complete(&mut self, complete: bool) {
+        self.approval_context_complete = Some(complete);
+    }
+
     /// Records a runtime risk score.
     pub fn set_risk_score(&mut self, score: f64) {
         self.risk_score = Some(score);
@@ -143,6 +152,7 @@ impl SecurityEvidence {
             || self.signature_valid == Some(false)
             || self.replay_detected == Some(true)
             || self.security_context_valid == Some(false)
+            || self.approval_context_complete == Some(false)
             || self.trust_band == Some(RuntimeTrustBand::Critical)
     }
 }
@@ -160,6 +170,7 @@ pub struct EvidenceSummary {
     pub sensitive_data_detected: Option<bool>,
     pub replay_detected: Option<bool>,
     pub security_context_valid: Option<bool>,
+    pub approval_context_complete: Option<bool>,
     pub risk_score: Option<f64>,
     pub trust_band: Option<RuntimeTrustBand>,
 }
@@ -174,6 +185,7 @@ impl From<&SecurityEvidence> for EvidenceSummary {
             sensitive_data_detected: evidence.sensitive_data_detected,
             replay_detected: evidence.replay_detected,
             security_context_valid: evidence.security_context_valid,
+            approval_context_complete: evidence.approval_context_complete,
             risk_score: evidence.risk_score,
             trust_band: evidence.trust_band,
         }

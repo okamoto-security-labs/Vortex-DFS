@@ -1,0 +1,23 @@
+{
+  "scenario": "Material tool-call input is supplied but becomes unavailable after normalization before approval",
+  "preconditions": [
+    "The proposed operation is otherwise allowed by policy",
+    "Approval depends on material action evidence",
+    "Tool-call input was originally supplied",
+    "Normalization or parsing of that input failed before approval"
+  ],
+  "evidence": [
+    "action_input_present=true",
+    "action_input_valid=false",
+    "approval_context_complete=false"
+  ],
+  "authority": [
+    "Approval authority depends on complete material action evidence",
+    "Loss of material approval evidence must be explicit and policy-visible"
+  ],
+  "proposed_action": "Anonymize",
+  "derived_actions": [],
+  "expected_decision": "REJECT",
+  "invariant": "authority_must_not_be_granted_from_degraded_approval_evidence",
+  "external_reference": "https://github.com/agentclientprotocol/agent-client-protocol/issues/1979"
+}
