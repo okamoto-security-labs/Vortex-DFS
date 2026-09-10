@@ -80,6 +80,7 @@ fn runtime_failure_cases_have_required_metadata() {
         include_str!("runtime_failures/security_context_failure_must_not_silently_continue.json"),
         include_str!("runtime_failures/risk_signal_must_not_become_execution_authority.json"),
         include_str!("runtime_failures/degraded_approval_evidence_must_not_grant_authority.json"),
+        include_str!("runtime_failures/denied_intent_must_remain_constrained.json"),
     ];
 
     for raw in cases {
@@ -293,4 +294,41 @@ fn authority_must_not_be_granted_from_degraded_approval_evidence() {
     // Until that state can be represented and enforced, the runtime
     // cannot distinguish degraded approval evidence from ordinary absence.
     assert_expected_decision(&case, evaluation.decision.outcome);
+}
+
+#[test]
+fn denied_intent_must_remain_constrained() {
+    let case = load_case(include_str!(
+        "runtime_failures/denied_intent_must_remain_constrained.json"
+    ));
+
+    assert_case_metadata(&case);
+
+    let mut request = RequestContext::new(
+        "rfh-denied-intent-001",
+        "rfh-trace-denied-intent-001",
+        Operation::Anonymize,
+        PayloadContext::new(64),
+    );
+
+    request.evidence.set_structural_validity(true);
+    request.evidence.set_sensitive_data_detected(false);
+    request
+        .evidence
+        .set_trust_band(RuntimeTrustBand::Operational);
+
+    request.evidence.set_denied_intent_constraint_active(true);
+
+    let policy = RuntimePolicy::anonymization_benchmark()
+        .with_minimum_trust_band(Some(RuntimeTrustBand::Operational))
+        .with_denied_intent_constraint_requirement(true);
+
+    let evaluation = evaluate_request(request, &policy);
+
+    assert_expected_decision(&case, evaluation.decision.outcome);
+
+    assert!(
+        !evaluation.permits_execution(),
+        "a prior authoritative denial must constrain equivalent re-proposals"
+    );
 }
