@@ -78,6 +78,8 @@ fn runtime_failure_cases_have_required_metadata() {
         include_str!("runtime_failures/missing_identity_fails_closed.json"),
         include_str!("runtime_failures/irreversible_derived_action_is_hard_gated.json"),
         include_str!("runtime_failures/security_context_failure_must_not_silently_continue.json"),
+        include_str!("runtime_failures/risk_signal_must_not_become_execution_authority.json"),
+        include_str!("runtime_failures/degraded_approval_evidence_must_not_grant_authority.json"),
     ];
 
     for raw in cases {
@@ -253,4 +255,42 @@ fn risk_signal_must_not_override_independently_validated_trust() {
         DecisionOutcome::Reject,
         "risk evidence alone must not produce terminal denial"
     );
+}
+
+#[test]
+fn authority_must_not_be_granted_from_degraded_approval_evidence() {
+    let case = load_case(include_str!(
+        "runtime_failures/degraded_approval_evidence_must_not_grant_authority.json"
+    ));
+
+    assert_case_metadata(&case);
+
+    let mut request = RequestContext::new(
+        "rfh-approval-evidence-001",
+        "rfh-trace-approval-evidence-001",
+        Operation::Anonymize,
+        PayloadContext::new(64),
+    );
+
+    request.evidence.set_structural_validity(true);
+    request.evidence.set_sensitive_data_detected(false);
+    request
+        .evidence
+        .set_trust_band(RuntimeTrustBand::Operational);
+    request.evidence.set_approval_context_complete(false);
+
+    let policy = RuntimePolicy::anonymization_benchmark()
+        .with_minimum_trust_band(Some(RuntimeTrustBand::Operational))
+        .with_complete_approval_context_requirement(true);
+
+    let evaluation = evaluate_request(request, &policy);
+
+    // RED GAP:
+    // Vortex currently has no first-class runtime evidence representing
+    // "material approval context was supplied but became unavailable
+    // during parsing/normalization before authority was granted".
+    //
+    // Until that state can be represented and enforced, the runtime
+    // cannot distinguish degraded approval evidence from ordinary absence.
+    assert_expected_decision(&case, evaluation.decision.outcome);
 }
