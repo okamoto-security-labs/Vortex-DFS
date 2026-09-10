@@ -1,0 +1,12 @@
+minimum_dfs_score: 70
+
+block_severities:
+  - CRITICAL
+
+disabled_rules:
+  - VX-RUST-002
+
+ignored_paths: []
+
+rule_penalties:
+  VX-PROC-001: 30
