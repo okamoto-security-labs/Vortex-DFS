@@ -109,6 +109,7 @@ fn decision_reason_from_storage(value: &str) -> Result<DecisionReason, AuditStor
         "SECURITY_CONTEXT_UNAVAILABLE" => Ok(DecisionReason::SecurityContextUnavailable),
         "APPROVAL_CONTEXT_INCOMPLETE" => Ok(DecisionReason::ApprovalContextIncomplete),
         "DENIED_INTENT_CONSTRAINT" => Ok(DecisionReason::DeniedIntentConstraint),
+        "RETRY_CONSTRAINT" => Ok(DecisionReason::RetryConstraint),
         "UNSUPPORTED_OPERATION" => Ok(DecisionReason::UnsupportedOperation),
         "RUNTIME_ERROR" => Ok(DecisionReason::RuntimeError),
         _ => Err(AuditStoreError::new(format!(
@@ -489,6 +490,14 @@ mod tests {
         for (stored, expected) in cases {
             assert_eq!(decision_reason_from_storage(stored).unwrap(), expected);
         }
+    }
+
+    #[test]
+    fn retry_constraint_reason_is_readable_from_audit_storage() {
+        assert_eq!(
+            decision_reason_from_storage("RETRY_CONSTRAINT").unwrap(),
+            DecisionReason::RetryConstraint
+        );
     }
 
     #[test]

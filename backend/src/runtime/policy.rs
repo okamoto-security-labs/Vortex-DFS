@@ -62,6 +62,10 @@ pub struct RuntimePolicy {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub require_denied_intent_constraint_evaluation: bool,
 
+    /// Whether retry-control constraint state must be evaluated.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub require_retry_constraint_evaluation: bool,
+
     /// Whether an audit event must be generated.
     pub audit_required: bool,
 
@@ -89,6 +93,7 @@ impl RuntimePolicy {
             require_security_context: false,
             require_complete_approval_context: false,
             require_denied_intent_constraint_evaluation: false,
+            require_retry_constraint_evaluation: false,
             audit_required: true,
             fail_closed: true,
         }
@@ -157,6 +162,12 @@ impl RuntimePolicy {
     /// Requires prior-denial constraint state to be evaluated.
     pub const fn with_denied_intent_constraint_requirement(mut self, required: bool) -> Self {
         self.require_denied_intent_constraint_evaluation = required;
+        self
+    }
+
+    /// Requires retry-control constraint state to be evaluated.
+    pub const fn with_retry_constraint_requirement(mut self, required: bool) -> Self {
+        self.require_retry_constraint_evaluation = required;
         self
     }
 
