@@ -104,7 +104,11 @@ fn decision_reason_from_storage(value: &str) -> Result<DecisionReason, AuditStor
         "SENSITIVE_DATA_DETECTED" => Ok(DecisionReason::SensitiveDataDetected),
         "SENSITIVE_DATA_REDACTED" => Ok(DecisionReason::SensitiveDataRedacted),
         "TRUST_BELOW_THRESHOLD" => Ok(DecisionReason::TrustBelowThreshold),
+        "CONSEQUENCE_HARD_GATE" => Ok(DecisionReason::ConsequenceHardGate),
         "REPLAY_DETECTED" => Ok(DecisionReason::ReplayDetected),
+        "SECURITY_CONTEXT_UNAVAILABLE" => Ok(DecisionReason::SecurityContextUnavailable),
+        "APPROVAL_CONTEXT_INCOMPLETE" => Ok(DecisionReason::ApprovalContextIncomplete),
+        "DENIED_INTENT_CONSTRAINT" => Ok(DecisionReason::DeniedIntentConstraint),
         "UNSUPPORTED_OPERATION" => Ok(DecisionReason::UnsupportedOperation),
         "RUNTIME_ERROR" => Ok(DecisionReason::RuntimeError),
         _ => Err(AuditStoreError::new(format!(
@@ -458,6 +462,33 @@ mod tests {
             decision_reason_from_storage("SCOPE_DENIED").unwrap(),
             DecisionReason::ScopeDenied
         );
+    }
+
+    #[test]
+    fn denied_intent_constraint_reason_is_readable_from_audit_storage() {
+        assert_eq!(
+            decision_reason_from_storage("DENIED_INTENT_CONSTRAINT").unwrap(),
+            DecisionReason::DeniedIntentConstraint
+        );
+    }
+
+    #[test]
+    fn runtime_security_reasons_are_readable_from_audit_storage() {
+        let cases = [
+            ("CONSEQUENCE_HARD_GATE", DecisionReason::ConsequenceHardGate),
+            (
+                "SECURITY_CONTEXT_UNAVAILABLE",
+                DecisionReason::SecurityContextUnavailable,
+            ),
+            (
+                "APPROVAL_CONTEXT_INCOMPLETE",
+                DecisionReason::ApprovalContextIncomplete,
+            ),
+        ];
+
+        for (stored, expected) in cases {
+            assert_eq!(decision_reason_from_storage(stored).unwrap(), expected);
+        }
     }
 
     #[test]

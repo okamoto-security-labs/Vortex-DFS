@@ -57,6 +57,11 @@ pub struct RuntimePolicy {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub require_complete_approval_context: bool,
 
+    /// Whether prior-denial constraint state must be evaluated before
+    /// execution authority can be granted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub require_denied_intent_constraint_evaluation: bool,
+
     /// Whether an audit event must be generated.
     pub audit_required: bool,
 
@@ -83,6 +88,7 @@ impl RuntimePolicy {
             require_replay_protection: true,
             require_security_context: false,
             require_complete_approval_context: false,
+            require_denied_intent_constraint_evaluation: false,
             audit_required: true,
             fail_closed: true,
         }
@@ -145,6 +151,12 @@ impl RuntimePolicy {
     /// Replaces the complete approval-context requirement.
     pub const fn with_complete_approval_context_requirement(mut self, required: bool) -> Self {
         self.require_complete_approval_context = required;
+        self
+    }
+
+    /// Requires prior-denial constraint state to be evaluated.
+    pub const fn with_denied_intent_constraint_requirement(mut self, required: bool) -> Self {
+        self.require_denied_intent_constraint_evaluation = required;
         self
     }
 

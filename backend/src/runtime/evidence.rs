@@ -53,6 +53,10 @@ pub struct SecurityEvidence {
     /// approval or authority decision.
     pub approval_context_complete: Option<bool>,
 
+    /// Whether a previously established denial currently constrains
+    /// this proposed action.
+    pub denied_intent_constraint_active: Option<bool>,
+
     /// Optional deterministic risk value produced by a feature.
     ///
     /// This value must not automatically be interpreted as a
@@ -133,6 +137,12 @@ impl SecurityEvidence {
         self.approval_context_complete = Some(complete);
     }
 
+    /// Records whether a prior authoritative denial constrains
+    /// the currently proposed action.
+    pub fn set_denied_intent_constraint_active(&mut self, active: bool) {
+        self.denied_intent_constraint_active = Some(active);
+    }
+
     /// Records a runtime risk score.
     pub fn set_risk_score(&mut self, score: f64) {
         self.risk_score = Some(score);
@@ -153,6 +163,7 @@ impl SecurityEvidence {
             || self.replay_detected == Some(true)
             || self.security_context_valid == Some(false)
             || self.approval_context_complete == Some(false)
+            || self.denied_intent_constraint_active == Some(true)
             || self.trust_band == Some(RuntimeTrustBand::Critical)
     }
 }
@@ -171,6 +182,7 @@ pub struct EvidenceSummary {
     pub replay_detected: Option<bool>,
     pub security_context_valid: Option<bool>,
     pub approval_context_complete: Option<bool>,
+    pub denied_intent_constraint_active: Option<bool>,
     pub risk_score: Option<f64>,
     pub trust_band: Option<RuntimeTrustBand>,
 }
@@ -186,6 +198,7 @@ impl From<&SecurityEvidence> for EvidenceSummary {
             replay_detected: evidence.replay_detected,
             security_context_valid: evidence.security_context_valid,
             approval_context_complete: evidence.approval_context_complete,
+            denied_intent_constraint_active: evidence.denied_intent_constraint_active,
             risk_score: evidence.risk_score,
             trust_band: evidence.trust_band,
         }

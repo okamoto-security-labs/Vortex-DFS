@@ -92,6 +92,8 @@ impl RuntimeValidator {
 
         Self::validate_approval_context(context, policy, &mut report);
 
+        Self::validate_denied_intent_constraint(context, policy, &mut report);
+
         Self::validate_trust(context, policy, &mut report);
 
         Self::validate_anonymization_requirement(context, policy, &mut report);
@@ -389,6 +391,38 @@ impl RuntimeValidator {
                     DecisionReason::ApprovalContextIncomplete,
                     Some("approval_context".to_string()),
                     "Material approval context was not evaluated",
+                ));
+            }
+
+            None => {}
+        }
+    }
+
+    fn validate_denied_intent_constraint(
+        context: &RequestContext,
+        policy: &RuntimePolicy,
+        report: &mut ValidationReport,
+    ) {
+        if !policy.require_denied_intent_constraint_evaluation {
+            return;
+        }
+
+        match context.evidence.denied_intent_constraint_active {
+            Some(false) => {}
+
+            Some(true) => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::DeniedIntentConstraint,
+                    Some("denied_intent_constraint".to_string()),
+                    "A prior authoritative denial constrains this proposed action",
+                ));
+            }
+
+            None if policy.fail_closed => {
+                report.add_failure(ValidationFailure::new(
+                    DecisionReason::DeniedIntentConstraint,
+                    Some("denied_intent_constraint".to_string()),
+                    "Prior-denial constraint state was not evaluated",
                 ));
             }
 
@@ -743,6 +777,59 @@ mod tests {
         assert!(report.failures.iter().any(|failure| {
             failure.reason == DecisionReason::ApprovalContextIncomplete
                 && failure.field.as_deref() == Some("approval_context")
+        }));
+    }
+
+    #[test]
+    fn active_denied_intent_constraint_is_reported_when_required() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_denied_intent_constraint_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+        context.evidence.set_denied_intent_constraint_active(true);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report.failures.iter().any(|failure| {
+            failure.reason == DecisionReason::DeniedIntentConstraint
+                && failure.field.as_deref() == Some("denied_intent_constraint")
+        }));
+    }
+
+    #[test]
+    fn inactive_denied_intent_constraint_satisfies_requirement() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_denied_intent_constraint_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+        context.evidence.set_denied_intent_constraint_active(false);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(!report
+            .failures
+            .iter()
+            .any(|failure| failure.reason == DecisionReason::DeniedIntentConstraint));
+    }
+
+    #[test]
+    fn missing_required_denied_intent_constraint_fails_closed() {
+        let policy = RuntimePolicy::anonymization_benchmark()
+            .with_denied_intent_constraint_requirement(true);
+
+        let mut context = context_for(Operation::Anonymize);
+        context.evidence.set_structural_validity(true);
+        context.evidence.set_sensitive_data_detected(false);
+
+        let report = RuntimeValidator::validate(&context, &policy);
+
+        assert!(report.failures.iter().any(|failure| {
+            failure.reason == DecisionReason::DeniedIntentConstraint
+                && failure.field.as_deref() == Some("denied_intent_constraint")
         }));
     }
 }

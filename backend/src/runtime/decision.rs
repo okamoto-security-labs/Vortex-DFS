@@ -111,6 +111,9 @@ pub enum DecisionReason {
     /// Material approval context was incomplete or unavailable.
     ApprovalContextIncomplete,
 
+    /// A previously established denial constrains the proposed action.
+    DeniedIntentConstraint,
+
     /// The requested operation is unsupported.
     UnsupportedOperation,
 
@@ -139,6 +142,7 @@ impl DecisionReason {
             Self::ReplayDetected => "REPLAY_DETECTED",
             Self::SecurityContextUnavailable => "SECURITY_CONTEXT_UNAVAILABLE",
             Self::ApprovalContextIncomplete => "APPROVAL_CONTEXT_INCOMPLETE",
+            Self::DeniedIntentConstraint => "DENIED_INTENT_CONSTRAINT",
             Self::UnsupportedOperation => "UNSUPPORTED_OPERATION",
             Self::RuntimeError => "RUNTIME_ERROR",
         }
@@ -160,6 +164,7 @@ impl DecisionReason {
                 | Self::ReplayDetected
                 | Self::SecurityContextUnavailable
                 | Self::ApprovalContextIncomplete
+                | Self::DeniedIntentConstraint
         )
     }
 }
