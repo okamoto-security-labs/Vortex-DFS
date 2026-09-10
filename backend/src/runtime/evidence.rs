@@ -57,6 +57,9 @@ pub struct SecurityEvidence {
     /// this proposed action.
     pub denied_intent_constraint_active: Option<bool>,
 
+    /// Whether retry-control state currently constrains further execution.
+    pub retry_constraint_active: Option<bool>,
+
     /// Optional deterministic risk value produced by a feature.
     ///
     /// This value must not automatically be interpreted as a
@@ -143,6 +146,11 @@ impl SecurityEvidence {
         self.denied_intent_constraint_active = Some(active);
     }
 
+    /// Records whether retry-control state constrains further execution.
+    pub fn set_retry_constraint_active(&mut self, active: bool) {
+        self.retry_constraint_active = Some(active);
+    }
+
     /// Records a runtime risk score.
     pub fn set_risk_score(&mut self, score: f64) {
         self.risk_score = Some(score);
@@ -164,6 +172,7 @@ impl SecurityEvidence {
             || self.security_context_valid == Some(false)
             || self.approval_context_complete == Some(false)
             || self.denied_intent_constraint_active == Some(true)
+            || self.retry_constraint_active == Some(true)
             || self.trust_band == Some(RuntimeTrustBand::Critical)
     }
 }
@@ -183,6 +192,7 @@ pub struct EvidenceSummary {
     pub security_context_valid: Option<bool>,
     pub approval_context_complete: Option<bool>,
     pub denied_intent_constraint_active: Option<bool>,
+    pub retry_constraint_active: Option<bool>,
     pub risk_score: Option<f64>,
     pub trust_band: Option<RuntimeTrustBand>,
 }
@@ -199,6 +209,7 @@ impl From<&SecurityEvidence> for EvidenceSummary {
             security_context_valid: evidence.security_context_valid,
             approval_context_complete: evidence.approval_context_complete,
             denied_intent_constraint_active: evidence.denied_intent_constraint_active,
+            retry_constraint_active: evidence.retry_constraint_active,
             risk_score: evidence.risk_score,
             trust_band: evidence.trust_band,
         }

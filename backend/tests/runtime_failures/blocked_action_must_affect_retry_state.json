@@ -1,0 +1,22 @@
+{
+  "scenario": "A tool action is repeatedly blocked but retry-control state does not advance",
+  "preconditions": [
+    "The proposed action is structurally blocked before execution",
+    "The agent remains active in the same runtime turn or retry window",
+    "The same blocked action is proposed repeatedly",
+    "A retry-control threshold exists"
+  ],
+  "evidence": [
+    "action_blocked=true",
+    "blocked_attempt_count_exceeded=true"
+  ],
+  "authority": [
+    "A blocked action must not be treated as an invisible execution attempt",
+    "Repeated blocked attempts must eventually constrain continued execution"
+  ],
+  "proposed_action": "Anonymize",
+  "derived_actions": [],
+  "expected_decision": "REJECT",
+  "invariant": "blocked_action_must_affect_retry_state",
+  "external_reference": "https://github.com/NousResearch/hermes-agent/issues/96579"
+}

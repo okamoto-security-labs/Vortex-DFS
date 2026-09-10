@@ -114,6 +114,9 @@ pub enum DecisionReason {
     /// A previously established denial constrains the proposed action.
     DeniedIntentConstraint,
 
+    /// Retry-control state constrains further execution.
+    RetryConstraint,
+
     /// The requested operation is unsupported.
     UnsupportedOperation,
 
@@ -143,6 +146,7 @@ impl DecisionReason {
             Self::SecurityContextUnavailable => "SECURITY_CONTEXT_UNAVAILABLE",
             Self::ApprovalContextIncomplete => "APPROVAL_CONTEXT_INCOMPLETE",
             Self::DeniedIntentConstraint => "DENIED_INTENT_CONSTRAINT",
+            Self::RetryConstraint => "RETRY_CONSTRAINT",
             Self::UnsupportedOperation => "UNSUPPORTED_OPERATION",
             Self::RuntimeError => "RUNTIME_ERROR",
         }
@@ -165,6 +169,7 @@ impl DecisionReason {
                 | Self::SecurityContextUnavailable
                 | Self::ApprovalContextIncomplete
                 | Self::DeniedIntentConstraint
+                | Self::RetryConstraint
         )
     }
 }
