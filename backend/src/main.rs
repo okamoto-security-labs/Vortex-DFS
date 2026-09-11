@@ -131,16 +131,13 @@ async fn evaluate_agent_tool_execution(
         context.evidence.set_payload_integrity_valid(valid);
     }
 
-    match (
+    if let (Some(telemetry_fresh), Some(behavior_consistent)) = (
         req.evidence.telemetry_fresh,
         req.evidence.behavior_consistent,
     ) {
-        (Some(telemetry_fresh), Some(behavior_consistent)) => {
-            context
-                .evidence
-                .set_security_context_valid(telemetry_fresh && behavior_consistent);
-        }
-        _ => {}
+        context
+            .evidence
+            .set_security_context_valid(telemetry_fresh && behavior_consistent);
     }
 
     if let Some(complete) = req.evidence.approval_context_complete {
