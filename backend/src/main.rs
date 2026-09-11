@@ -65,6 +65,132 @@ fn anonymize_json_config() -> web::JsonConfig {
         })
 }
 
+#[derive(Debug, Deserialize)]
+struct EvaluateEvidenceRequest {
+    payload_integrity: Option<bool>,
+    telemetry_fresh: Option<bool>,
+    behavior_consistent: Option<bool>,
+    approval_context_complete: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvaluateRequest {
+    operation: Operation,
+    payload_size: usize,
+    evidence: EvaluateEvidenceRequest,
+}
+
+/// Evaluates a protected agent tool execution request.
+///
+/// SECURITY BOUNDARY:
+/// `evidence` is trusted, normalized evidence supplied by an authorized
+/// integration. It must not be treated as self-attested claims from an
+/// untrusted agent. Evidence collection and verification happen upstream.
+async fn evaluate_agent_tool_execution(
+    request: HttpRequest,
+    req: web::Json<EvaluateRequest>,
+    runtime_state: web::Data<RuntimeState>,
+) -> HttpResponse {
+    let identity = match authenticate_bearer(&request, runtime_state.get_ref()) {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+
+    if req.operation != Operation::AgentToolExecution {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "unsupported operation",
+        }));
+    }
+
+    let policy = RuntimePolicy::new("runtime.agent_tool_execution", "0.1.0")
+        .allow_operation(Operation::AgentToolExecution)
+        .with_identity_requirement(true)
+        .with_required_scope("agent:tool:execute")
+        .with_payload_integrity_requirement(true)
+        .with_signature_requirement(false)
+        .with_anonymization_requirement(false)
+        .with_minimum_trust_band(None)
+        .with_replay_protection(false)
+        .with_security_context_requirement(true)
+        .with_complete_approval_context_requirement(true)
+        .with_audit_requirement(true)
+        .with_fail_closed(true);
+
+    let mut context = RequestContext::new(
+        Uuid::new_v4().to_string(),
+        Uuid::new_v4().to_string(),
+        Operation::AgentToolExecution,
+        PayloadContext::new(req.payload_size),
+    )
+    .with_identity(identity)
+    .with_policy_id("runtime.agent_tool_execution");
+
+    context.evidence.set_structural_validity(true);
+
+    if let Some(valid) = req.evidence.payload_integrity {
+        context.evidence.set_payload_integrity_valid(valid);
+    }
+
+    if let (Some(telemetry_fresh), Some(behavior_consistent)) = (
+        req.evidence.telemetry_fresh,
+        req.evidence.behavior_consistent,
+    ) {
+        context
+            .evidence
+            .set_security_context_valid(telemetry_fresh && behavior_consistent);
+    }
+
+    if let Some(complete) = req.evidence.approval_context_complete {
+        context.evidence.set_approval_context_complete(complete);
+    }
+
+    let execution = match evaluate_audit_and_execute(
+        context,
+        &policy,
+        runtime_state.audit_store.as_ref(),
+        |_| (),
+    )
+    .await
+    {
+        Ok(execution) => execution,
+        Err(error) => {
+            log::error!("runtime audit persistence failed: {error}");
+
+            return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+                "error": "runtime audit persistence unavailable",
+            }));
+        }
+    };
+
+    match execution {
+        GuardedExecution::Blocked { evaluation } => {
+            let mut response = if evaluation.decision.reason_code == DecisionReason::ScopeDenied {
+                HttpResponse::Forbidden()
+            } else {
+                HttpResponse::UnprocessableEntity()
+            };
+
+            response.json(serde_json::json!({
+                "outcome": evaluation.decision.outcome.as_str(),
+                "reason_code": evaluation.decision.reason_code.as_str(),
+                "policy_id": evaluation.decision.policy.id,
+                "policy_version": evaluation.decision.policy.version,
+                "trace_id": evaluation.context.trace_id,
+            }))
+        }
+
+        GuardedExecution::Executed { evaluation, .. } => {
+            HttpResponse::Ok().json(serde_json::json!({
+                "outcome": evaluation.decision.outcome.as_str(),
+                "reason_code": evaluation.decision.reason_code.as_str(),
+                "policy_id": evaluation.decision.policy.id,
+                "policy_version": evaluation.decision.policy.version,
+                "trace_id": evaluation.context.trace_id,
+            }))
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Deserialize)]
 struct AnonymizeRequest {
@@ -475,6 +601,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(runtime_state.clone())
             .app_data(anonymize_json_config())
             .route("/health", web::get().to(health_check))
+            .route(
+                "/v1/evaluate",
+                web::post().to(evaluate_agent_tool_execution),
+            )
             .route("/v1/anonymize", web::post().to(benchmark_anonymize))
             .route("/benchmark/anonymize", web::post().to(benchmark_anonymize))
             .route(
