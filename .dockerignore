@@ -1,0 +1,12 @@
+.git
+.gitignore
+target
+backend/target
+node_modules
+.next
+.open-next
+.wrangler
+*.log
+.env
+.env.*
+Dockerfile.gitpod
