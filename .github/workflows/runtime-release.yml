@@ -1,0 +1,42 @@
+name: Runtime Release Artifacts
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        run: |
+          rustup default stable
+
+      - name: Build runtime binaries
+        run: |
+          cargo build \
+            --manifest-path backend/Cargo.toml \
+            --release \
+            --bin vortex-dfs \
+            --bin vortex_migrate
+
+      - name: Package artifacts
+        run: |
+          mkdir -p dist
+          cp backend/target/release/vortex-dfs dist/
+          cp backend/target/release/vortex_migrate dist/
+          chmod +x dist/vortex-dfs dist/vortex_migrate
+          tar -czf vortex-runtime-linux-amd64.tar.gz -C dist .
+
+      - name: Upload runtime artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vortex-runtime-linux-amd64
+          path: vortex-runtime-linux-amd64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
