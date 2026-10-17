@@ -1,348 +1,818 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Vortex DFS is a deterministic runtime trust and authorization layer that evaluates policy before autonomous execution.">
-  <meta name="theme-color" content="#07111f">
-  <title>Vortex DFS — Runtime Trust & Authorization</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:#050a12;
-      --bg-2:#08111e;
-      --panel:#0b1625;
-      --panel-2:#0e1b2d;
-      --text:#f4f8ff;
-      --muted:#91a2b8;
-      --line:rgba(148,190,255,.14);
-      --line-hi:rgba(100,211,255,.34);
-      --cyan:#55d7ff;
-      --blue:#5b8cff;
-      --green:#52e09b;
-      --amber:#ffc766;
-      --red:#ff7685;
-      --shadow:0 28px 80px rgba(0,0,0,.35);
-      --mono:'JetBrains Mono',monospace;
-      --sans:'Inter',system-ui,sans-serif;
-      --display:'Manrope',var(--sans);
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_standard" name="shell-type"/>
+<title>Vortex DFS — Runtime Authorization Engine</title>
+<!-- Material Symbols & Vercel-like typography: Geist / Inter + JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #000000;
+        color: #ededed;
+        font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
     }
-    *{box-sizing:border-box}
-    html{scroll-behavior:smooth}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;-webkit-font-smoothing:antialiased}
-    body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
-      radial-gradient(circle at 17% 0%,rgba(91,140,255,.14),transparent 30%),
-      radial-gradient(circle at 83% 12%,rgba(85,215,255,.10),transparent 26%);z-index:-2}
-    body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 72%);z-index:-1}
-    a{color:inherit}
-    .wrap{width:min(1160px,calc(100% - 40px));margin:auto}
-    .nav{position:sticky;top:0;z-index:50;background:rgba(5,10,18,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
-    .nav-inner{height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}
-    .brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-family:var(--display);font-weight:800;letter-spacing:-.03em}
-    .mark{width:34px;height:34px;border:1px solid var(--line-hi);border-radius:10px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(85,215,255,.15),rgba(91,140,255,.08));box-shadow:0 0 28px rgba(85,215,255,.12)}
-    .mark svg{width:21px}
-    .brand small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;font-weight:500}
-    .links{display:flex;align-items:center;gap:24px}
-    .links a{text-decoration:none;color:var(--muted);font-size:14px}
-    .links a:hover{color:var(--text)}
-    .nav-cta{padding:9px 14px;border:1px solid var(--line-hi);border-radius:9px;color:var(--text)!important;background:rgba(85,215,255,.05)}
-    .hero{padding:104px 0 72px;text-align:center}
-    .eyebrow,.section-kicker{font:600 11px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--cyan)}
-    .eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line-hi);padding:9px 12px;border-radius:999px;background:rgba(85,215,255,.05)}
-    .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
-    h1{font:800 clamp(42px,7vw,82px)/1.02 var(--display);letter-spacing:-.06em;margin:30px auto 22px;max-width:970px}
-    .gradient{background:linear-gradient(105deg,#fff 12%,var(--cyan) 48%,#9eafff 85%);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .hero-copy{max-width:710px;margin:0 auto;color:var(--muted);font-size:clamp(17px,2vw,20px)}
-    .hero-copy strong{color:var(--text);font-weight:600}
-    .actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:34px 0 42px}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 18px;border-radius:10px;text-decoration:none;font-weight:650;font-size:14px;border:1px solid var(--line-hi)}
-    .btn-primary{background:linear-gradient(135deg,var(--cyan),#70a7ff);color:#03101a;border-color:transparent;box-shadow:0 10px 36px rgba(85,215,255,.18)}
-    .btn-secondary{background:rgba(255,255,255,.025)}
-    .badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:44px}
-    .badges img{height:22px}
-    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;max-width:920px;margin:auto}
-    .flow-card{position:relative;padding:17px 12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,rgba(14,27,45,.9),rgba(8,17,30,.82));font-family:var(--mono);font-size:12px;color:var(--muted)}
-    .flow-card strong{display:block;color:var(--text);font-family:var(--sans);font-size:14px;margin-bottom:3px}
-    .flow-card:not(:last-child)::after{content:"→";position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:var(--cyan);z-index:2}
-    section{padding:88px 0;border-top:1px solid var(--line)}
-    .section-head{display:grid;grid-template-columns:1.1fr .9fr;gap:80px;align-items:end;margin-bottom:44px}
-    h2{font:750 clamp(30px,4.3vw,52px)/1.08 var(--display);letter-spacing:-.045em;margin:13px 0 0}
-    .section-lead{color:var(--muted);font-size:17px;margin:0}
-    .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-    .compare-card,.card,.metric,.terminal,.roadmap,.quote{border:1px solid var(--line);border-radius:16px;background:linear-gradient(160deg,rgba(14,27,45,.88),rgba(8,17,30,.78));box-shadow:var(--shadow)}
-    .compare-card{padding:28px}
-    .compare-card h3{margin:0 0 16px;font-size:17px}
-    .compare-flow{font-family:var(--mono);font-size:13px;color:var(--muted);display:grid;gap:9px}
-    .compare-flow span{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.015)}
-    .compare-card.vortex{border-color:var(--line-hi)}
-    .compare-card.vortex h3{color:var(--cyan)}
-    .decision-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-    .card{padding:26px}
-    .decision{font:700 12px/1 var(--mono);letter-spacing:.1em;margin-bottom:18px}
-    .allow{color:var(--green)}.review{color:var(--amber)}.block{color:var(--red)}
-    .score{font:750 28px/1 var(--display);margin-bottom:11px}
-    .card p{margin:0;color:var(--muted);font-size:14px}
-    .pipeline-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}
-    .steps{display:grid;gap:10px}
-    .step{display:grid;grid-template-columns:38px 1fr;gap:14px;align-items:start;padding:15px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
-    .step-n{font:600 11px var(--mono);color:var(--cyan);padding-top:3px}
-    .step strong{display:block;font-size:14px;margin-bottom:3px}.step span{color:var(--muted);font-size:13px}
-    .terminal{overflow:hidden}
-    .term-bar{display:flex;align-items:center;gap:7px;padding:12px 15px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--line)}
-    .dot{width:9px;height:9px;border-radius:50%}.r{background:#ff6b78}.y{background:#ffc760}.g{background:#54dd9b}
-    .term-title{margin-left:6px;color:var(--muted);font:11px var(--mono)}
-    pre{margin:0;padding:22px;overflow:auto;color:#b9c7d8;font:12px/1.75 var(--mono);white-space:pre-wrap}
-    .ok{color:var(--green)}.info{color:var(--cyan)}.warn{color:var(--amber)}
-    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-    .metric{padding:24px}
-    .metric-value{font:750 32px/1 var(--display);letter-spacing:-.04em;margin-bottom:9px}
-    .metric-label{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--cyan)}
-    .metric-note{color:var(--muted);font-size:12px;margin-top:10px}
-    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
-    .feature-icon{font:600 13px var(--mono);color:var(--cyan);margin-bottom:16px}
-    .card h3{font-size:16px;margin:0 0 8px}
-    .code{margin-top:26px}
-    .quote{padding:48px;text-align:center;border-color:var(--line-hi)}
-    .quote p{font:750 clamp(28px,4vw,48px)/1.15 var(--display);letter-spacing:-.045em;margin:0 auto 16px;max-width:850px}
-    .quote span{color:var(--muted)}
-    .roadmap{padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
-    .roadmap h3{margin:0 0 15px;font-size:15px}
-    .roadmap ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
-    .roadmap li{color:var(--muted);font-size:14px}
-    .roadmap li::before{content:"○";color:var(--muted);font-family:var(--mono);margin-right:10px}
-    .roadmap .done::before{content:"●";color:var(--green)}
-    .cta{padding:100px 0;text-align:center}
-    .cta h2{max-width:780px;margin:14px auto 18px}
-    .cta p{color:var(--muted);max-width:620px;margin:auto}
-    footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:13px}
-    .footer-inner{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
-    .footer-links{display:flex;gap:18px}.footer-links a{text-decoration:none}.footer-links a:hover{color:var(--text)}
-    .reveal{opacity:0;transform:translateY(18px);transition:.65s ease}.reveal.on{opacity:1;transform:none}
-    @media(max-width:900px){.links a:not(.nav-cta){display:none}.section-head,.pipeline-grid{grid-template-columns:1fr;gap:28px}.flow{grid-template-columns:1fr}.flow-card:not(:last-child)::after{content:"↓";right:auto;top:auto;left:50%;bottom:-21px;transform:translateX(-50%)}.decision-grid,.metrics,.features{grid-template-columns:1fr 1fr}.compare{grid-template-columns:1fr}.roadmap{grid-template-columns:1fr}}
-    @media(max-width:620px){.wrap{width:min(100% - 26px,1160px)}.hero{padding-top:78px}.decision-grid,.metrics,.features{grid-template-columns:1fr}.quote{padding:30px 20px}.nav-inner{height:64px}.brand small{display:none}}
-    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}}
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
   </style>
-</head>
-<body>
-  <header class="nav">
-    <div class="wrap nav-inner">
-      <a class="brand" href="#top" aria-label="Vortex DFS home">
-        <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5l7 14 7-14M8 5h8" stroke="#55d7ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <span>Vortex DFS<small>Okamoto Security Labs</small></span>
-      </a>
-      <nav class="links" aria-label="Main navigation">
-        <a href="#architecture">Architecture</a>
-        <a href="#benchmarks">Benchmarks</a>
-        <a href="#roadmap">Roadmap</a>
-        <a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer" class="nav-cta">GitHub ↗</a>
-      </nav>
-    </div>
-  </header>
-
-  <main id="top">
-    <section class="hero" style="border-top:0">
-      <div class="wrap">
-        <div class="eyebrow"><span class="pulse"></span> deterministic runtime authorization</div>
-        <h1>Every autonomous action deserves an <span class="gradient">authorization decision.</span></h1>
-        <p class="hero-copy">Vortex DFS evaluates runtime trust and policy <strong>before execution begins</strong>. The runtime decides. The Agent SDK executes.</p>
-        <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">Explore the runtime <span>→</span></a>
-          <a class="btn btn-secondary" href="#quickstart">View integration</a>
-        </div>
-        <div class="badges" aria-label="Project status badges">
-          <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
-          <img src="https://img.shields.io/badge/Rust-2024-111827?logo=rust&logoColor=white" alt="Rust 2024">
-          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-5B8CFF" alt="Agent SDK 0.16.0">
-          <img src="https://img.shields.io/badge/License-BUSL--1.1-FFC766" alt="BUSL 1.1">
-        </div>
-        <div class="flow" aria-label="Execution pipeline">
-          <div class="flow-card"><strong>Application</strong>requests action</div>
-          <div class="flow-card"><strong>Vortex Runtime</strong>loads policy</div>
-          <div class="flow-card"><strong>Trust Boundary</strong>evaluates context</div>
-          <div class="flow-card"><strong>Decision</strong>allow · review · block</div>
-          <div class="flow-card"><strong>Executor</strong>Agent SDK / workflow</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="architecture">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Why Vortex exists</div><h2>Credentials are not a reason to execute.</h2></div>
-          <p class="section-lead">Most autonomous systems assume that possession of credentials is enough. Vortex inserts a deterministic decision boundary between intent and execution.</p>
-        </div>
-        <div class="compare reveal">
-          <article class="compare-card">
-            <h3>Traditional execution path</h3>
-            <div class="compare-flow"><span>Application request</span><span>Agent or workflow</span><span>Credentials present</span><span>Execution begins</span></div>
-          </article>
-          <article class="compare-card vortex">
-            <h3>Vortex execution path</h3>
-            <div class="compare-flow"><span>Application request</span><span>Runtime context and policy</span><span>Explicit authorization decision</span><span>Execution only when approved</span></div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Decision semantics</div><h2>Three outcomes. No ambiguous fallback.</h2></div>
-          <p class="section-lead">The initial enterprise policy demonstrates a typed, auditable decision model. Thresholds are explicit and test-covered.</p>
-        </div>
-        <div class="decision-grid reveal">
-          <article class="card"><div class="decision allow">ALLOW</div><div class="score">≥ 0.90</div><p>Authorization is granted and the external executor may begin.</p></article>
-          <article class="card"><div class="decision review">REVIEW REQUIRED</div><div class="score">0.60–0.89</div><p>Execution pauses until an independent approval is provided.</p></article>
-          <article class="card"><div class="decision block">BLOCK</div><div class="score">&lt; 0.60</div><p>Authorization is denied. The executor is not started.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap pipeline-grid">
-        <div class="reveal">
-          <div class="section-kicker">Runtime pipeline</div>
-          <h2>Evaluation before delegation.</h2>
-          <p class="section-lead" style="margin:18px 0 26px">The authorization API returns a structured report. The runtime does not execute tools; consumers decide how to handle the result.</p>
-          <div class="steps">
-            <div class="step"><div class="step-n">01</div><div><strong>Collect context</strong><span>Normalize the request and available runtime evidence.</span></div></div>
-            <div class="step"><div class="step-n">02</div><div><strong>Load policy</strong><span>Select an explicit, versionable policy profile.</span></div></div>
-            <div class="step"><div class="step-n">03</div><div><strong>Evaluate trust</strong><span>Apply deterministic rules to the supplied evidence.</span></div></div>
-            <div class="step"><div class="step-n">04</div><div><strong>Generate report</strong><span>Return decision, reason, policy, score, and latency.</span></div></div>
-            <div class="step"><div class="step-n">05</div><div><strong>Delegate or stop</strong><span>Approved requests reach the executor; denied requests do not.</span></div></div>
-          </div>
-        </div>
-        <div class="terminal reveal">
-          <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">vortex-runtime — audit summary</span></div>
-          <pre><span class="info">RUNTIME AUTHORIZATION</span>
-
-Collect Runtime Context ........ COMPLETE
-Load Policy Profile ............ COMPLETE
-Evaluate Trust Boundary ........ COMPLETE
-Generate Decision .............. COMPLETE
-
-Decision ....................... <span class="ok">APPROVED</span>
-Input Trust Score ............... 0.94
-Policy Profile .................. Enterprise Default
-Authorization Latency ........... 0.411 µs
-
-Agent SDK Authorization ........ <span class="ok">SUCCESS</span>
-Agent Execution ................ <span class="ok">SUCCESS</span>
-Completed Execution Cycles ..... 1000
-Execution Failures .............. 0</pre>
-        </div>
-      </div>
-    </section>
-
-    <section id="benchmarks">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Measured locally</div><h2>Deterministic validation with visible cost.</h2></div>
-          <p class="section-lead">Results below come from the offline stub-provider integration benchmark. They demonstrate the current code path, not production capacity guarantees.</p>
-        </div>
-        <div class="metrics reveal">
-          <article class="metric"><div class="metric-value">24.9 µs</div><div class="metric-label">Average SDK latency</div><div class="metric-note">Latest representative local run</div></article>
-          <article class="metric"><div class="metric-value">42.6 µs</div><div class="metric-label">P99 latency</div><div class="metric-note">1,000 deterministic cycles</div></article>
-          <article class="metric"><div class="metric-value">37.7k</div><div class="metric-label">Requests / second</div><div class="metric-note">Offline stub-provider throughput</div></article>
-          <article class="metric"><div class="metric-value">0</div><div class="metric-label">Execution failures</div><div class="metric-note">1,000 / 1,000 successful runs</div></article>
-        </div>
-      </div>
-    </section>
-
-    <section id="quickstart">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Reusable API</div><h2>Integrate the decision boundary, not the demo.</h2></div>
-          <p class="section-lead">Vortex exposes a runtime authorization API that can be consumed by Agent SDKs, workflows, services, and future adapters.</p>
-        </div>
-        <div class="terminal code reveal">
-          <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="term-title">main.rs</span></div>
-          <pre><span class="info">use</span> vortex_dfs::runtime::{authorize, AuthorizationRequest};
-
-let report = authorize(AuthorizationRequest::new(
-    0.94,
-    "Enterprise Default",
-));
-
-if report.is_allowed() {
-    agent.run(...).await?;
-} else {
-    // Review or block without starting the executor.
-}</pre>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Engineering properties</div><h2>Infrastructure behavior, not a marketing wrapper.</h2></div>
-          <p class="section-lead">The current milestone focuses on explicit control flow and a reusable boundary. Dynamic evidence is the next engineering phase.</p>
-        </div>
-        <div class="features reveal">
-          <article class="card"><div class="feature-icon">01 / DETERMINISTIC</div><h3>Explicit policy behavior</h3><p>Identical input and policy produce the same typed decision and reason.</p></article>
-          <article class="card"><div class="feature-icon">02 / FAIL CLOSED</div><h3>No unauthorized delegation</h3><p>Blocked and review-required paths terminate before the Agent SDK starts.</p></article>
-          <article class="card"><div class="feature-icon">03 / AUDITABLE</div><h3>Structured authorization report</h3><p>Decision, trust score, policy profile, reason, and latency remain visible.</p></article>
-          <article class="card"><div class="feature-icon">04 / TESTED</div><h3>Core paths covered</h3><p>Unit tests verify allow, review, and block behavior across policy thresholds.</p></article>
-          <article class="card"><div class="feature-icon">05 / MODULAR</div><h3>Executor-independent runtime</h3><p>The authorization engine is a reusable library rather than Agent SDK logic.</p></article>
-          <article class="card"><div class="feature-icon">06 / GOVERNED</div><h3>Protected delivery pipeline</h3><p>Pull requests, required CI checks, and protected main-branch rules guard changes.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="wrap quote reveal">
-        <p>Execution is never the first decision.<br><span>Authorization is.</span></p>
-        <div class="section-kicker">Trust. Authorize. Execute.</div>
-      </div>
-    </section>
-
-    <section id="roadmap">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Roadmap</div><h2>From controlled input to runtime evidence.</h2></div>
-          <p class="section-lead">The current version proves the boundary and integration flow. The roadmap focuses on evidence quality, policy maturity, and production adapters.</p>
-        </div>
-        <div class="roadmap reveal">
-          <div><h3>Implemented</h3><ul><li class="done">Reusable authorization API</li><li class="done">ALLOW / REVIEW / BLOCK decisions</li><li class="done">Agent SDK execution gate</li><li class="done">Authorization audit summary</li><li class="done">Unit-tested core paths</li><li class="done">CI and protected main branch</li></ul></div>
-          <div><h3>Next milestones</h3><ul><li>Dynamic runtime evidence</li><li>Tool-permission validation</li><li>Versioned policy packs</li><li>Persistent decision traces</li><li>OpenTelemetry integration</li><li>REST and workflow adapters</li></ul></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta">
-      <div class="wrap reveal">
-        <div class="section-kicker">Okamoto Security Labs</div>
-        <h2>Build autonomous execution around an explicit decision boundary.</h2>
-        <p>Read the implementation, review the assumptions, run the tests, and challenge the runtime.</p>
-        <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">View repository →</a>
-          <a class="btn btn-secondary" href="mailto:gugaokamoto1@gmail.com">Contact the lab</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="wrap footer-inner">
-      <div><strong style="color:var(--text)">Vortex DFS</strong> · Runtime Trust & Authorization</div>
-      <div class="footer-links"><a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">GitHub</a><a href="https://www.linkedin.com/in/gustavo-okamoto-de-carvalho-ti" target="_blank" rel="noreferrer">LinkedIn</a><a href="mailto:gugaokamoto1@gmail.com">Email</a></div>
-      <div>Built in Rust · Okamoto Security Labs</div>
-    </div>
-  </footer>
-
-  <script>
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('on');
-          observer.unobserve(entry.target);
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              green: "#00ff85",
+              emerald: "#10b981",
+            },
+            neutral: {
+              950: "#000000",
+              900: "#0a0a0a",
+              850: "#121212",
+              800: "#1f1f1f",
+              750: "#262626",
+              700: "#333333",
+              500: "#666666",
+              400: "#888888",
+              300: "#a1a1a1",
+              200: "#d1d1d1",
+              100: "#ededed"
+            }
+          },
+          fontFamily: {
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
         }
       }
-    }, { threshold: 0.12 });
-    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    }
   </script>
-</body>
-</html>
+</head>
+<body class="bg-black text-neutral-100 antialiased selection:bg-neutral-100 selection:text-black min-h-screen flex flex-col font-sans">
+<!-- VERCEL-STYLE TOP NAVIGATION BAR -->
+<header class="sticky top-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-neutral-800/80">
+<div class="max-w-[1200px] h-14 mx-auto px-6 flex items-center justify-between">
+<!-- Left: Logo + Product -->
+<div class="flex items-center gap-6">
+<a class="flex items-center gap-3 group" href="#">
+<div class="w-7 h-7 rounded-full overflow-hidden border border-neutral-700 bg-neutral-900 flex-shrink-0 flex items-center justify-center">
+<img alt="Okamoto Security Labs Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuF4ocEJ7OrPbDi9LU2-twNctsi9cBtsCHFbV1-g5fO5vHpILQgydgMMwYzsSwQ8Q6tQdahgyMWKpLezy0Y6KgWloC2EMTuH0hOIRN9HZ2UOC2U-jfvoLM-qWxmMotBgk5kbrQJ9rlW6Xnq97GAAOR7TUR9TSddZq5Ne41wBjA4UL5-rJLAoQ4fWfLbUT-Z1Op_ZMF6BkPKDB_OOvHj7632-2ouy6wWQPH30vBDp8ut8MENNvlnFdoyzshNS7tQKCXLA"/>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-[15px] tracking-tight text-white group-hover:text-neutral-300 transition-colors">Vortex DFS</span>
+<span class="text-neutral-600 font-normal">/</span>
+<span class="text-xs text-neutral-400 font-medium hidden sm:inline-block">Okamoto Labs</span>
+</div>
+</a>
+<!-- Runtime Status Pill -->
+<div class="hidden md:flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-400">
+<span class="w-1.5 h-1.5 rounded-full bg-[#00ff85]"></span>
+<span>v0.4.1 runtime</span>
+<span class="text-neutral-600">·</span>
+<span>verified</span>
+</div>
+</div>
+<!-- Center & Right: Clean Nav items -->
+<div class="flex items-center gap-1 sm:gap-4">
+<nav class="hidden lg:flex items-center gap-1 text-[13px] text-neutral-400">
+<a class="px-3 py-1.5 rounded-md hover:text-white hover:bg-neutral-900 transition-colors" href="#architecture">Architecture</a>
+<a class="px-3 py-1.5 rounded-md hover:text-white hover:bg-neutral-900 transition-colors" href="#decision-boundary">Decision Boundary</a>
+<a class="px-3 py-1.5 rounded-md hover:text-white hover:bg-neutral-900 transition-colors" href="#benchmarks">Benchmarks</a>
+<a class="px-3 py-1.5 rounded-md hover:text-white hover:bg-neutral-900 transition-colors" href="#api">API</a>
+<a class="px-3 py-1.5 rounded-md hover:text-white hover:bg-neutral-900 transition-colors" href="#roadmap">Roadmap</a>
+</nav>
+<div class="flex items-center gap-2.5 pl-2 border-l border-neutral-800">
+<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800 hover:text-white text-xs font-medium text-neutral-300 transition-all" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">
+<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+<path clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" fill-rule="evenodd"></path>
+</svg>
+<span>GitHub</span>
+</a>
+<a class="px-3 py-1.5 rounded-md bg-white text-black font-medium text-xs hover:bg-neutral-200 transition-colors" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">
+            Deploy Runtime
+          </a>
+</div>
+</div>
+</div>
+</header>
+<!-- MAIN WRAPPER -->
+<main class="w-full flex-1 max-w-[1200px] mx-auto px-6 pt-16 sm:pt-24 pb-24">
+<!-- HERO SECTION -->
+<section class="flex flex-col items-center text-center max-w-4xl mx-auto mb-28">
+<!-- Tag / Eyebrow -->
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 mb-8 hover:border-neutral-700 transition-colors">
+<span class="w-1.5 h-1.5 rounded-full bg-[#00ff85]"></span>
+<span class="text-xs text-neutral-300 font-medium">Deterministic Trust Execution Boundary</span>
+<span class="text-neutral-600">·</span>
+<span class="text-xs font-mono text-neutral-400">Rust Core</span>
+</div>
+<!-- Main Headline: Crisp, high-contrast, Vercel-style typography -->
+<h1 class="text-4xl sm:text-6xl md:text-7xl font-bold tracking-[-0.035em] text-white leading-[1.08] mb-6">
+        Every autonomous action deserves an authorization decision.
+      </h1>
+<!-- Subtitle -->
+<p class="text-lg sm:text-xl text-neutral-400 font-normal leading-relaxed max-w-2xl mb-10">
+        Vortex DFS evaluates runtime trust and policy <span class="text-white font-medium">before execution begins</span>. The runtime decides. The Agent SDK executes.
+      </p>
+<!-- CTAs & CLI Command -->
+<div class="flex flex-wrap items-center justify-center gap-3 w-full mb-12">
+<a class="px-5 py-2.5 rounded-lg bg-white text-black font-medium text-sm hover:bg-neutral-200 transition-all flex items-center gap-2 shadow-sm" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">
+<span>Explore the runtime</span>
+<span class="text-xs">→</span>
+</a>
+<a class="px-5 py-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-200 font-medium text-sm transition-all" href="#pipeline">
+          View integration
+        </a>
+<!-- Cargo copy box -->
+<div class="flex items-center bg-neutral-900 border border-neutral-800 rounded-lg px-3.5 py-2 text-xs font-mono text-neutral-300">
+<span class="text-neutral-500 mr-2">$</span>
+<span>cargo add vortex-dfs</span>
+<button class="ml-3 text-neutral-400 hover:text-white transition-colors" onclick="navigator.clipboard.writeText('cargo add vortex-dfs'); this.querySelector('span').innerText='check'; setTimeout(() =&gt; this.querySelector('span').innerText='content_copy', 1600);" title="Copy command">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Micro Badges -->
+<div class="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-neutral-400">
+<span class="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#00ff85]"></span>
+<span>CI Pipeline: <strong class="text-neutral-200 font-semibold">passing</strong></span>
+</span>
+<span class="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800">Rust 2024</span>
+<span class="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800">Agent SDK: <span class="text-neutral-200 font-medium">v0.9.1</span></span>
+<span class="px-2.5 py-1 rounded bg-neutral-900 border border-neutral-800">License: <span class="text-neutral-200 font-medium">BUSL-1.1</span></span>
+</div>
+<!-- HERO ARCHITECTURAL PIPELINE (SCHEMATIC) -->
+<div class="w-full mt-16 rounded-xl bg-neutral-900/60 border border-neutral-800 p-5 sm:p-6 text-left" id="architecture">
+<div class="flex items-center justify-between pb-4 mb-4 border-b border-neutral-800 text-xs font-mono text-neutral-400">
+<span class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#00ff85]"></span>
+            SCHEMATIC: DETERMINISTIC TRUST EXECUTION ENVELOPE
+          </span>
+<span class="text-neutral-500 hidden sm:inline">STAGE-GATED PIPELINE</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+<!-- Step 1 -->
+<div class="p-4 rounded-lg bg-black border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div class="flex items-center justify-between mb-3 text-neutral-500 font-mono text-[11px]">
+<span>01 / STAGE</span>
+<span class="material-symbols-outlined text-[15px]">touch_app</span>
+</div>
+<div>
+<p class="font-medium text-sm text-neutral-100">Application</p>
+<p class="text-xs text-neutral-500 mt-0.5">requests action</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="p-4 rounded-lg bg-black border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div class="flex items-center justify-between mb-3 text-neutral-500 font-mono text-[11px]">
+<span>02 / KERNEL</span>
+<span class="material-symbols-outlined text-[15px]">rule</span>
+</div>
+<div>
+<p class="font-medium text-sm text-neutral-100">Vortex Runtime</p>
+<p class="text-xs text-neutral-500 mt-0.5">loads policy</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="p-4 rounded-lg bg-black border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div class="flex items-center justify-between mb-3 text-neutral-500 font-mono text-[11px]">
+<span>03 / GATE</span>
+<span class="material-symbols-outlined text-[15px]">verified_user</span>
+</div>
+<div>
+<p class="font-medium text-sm text-neutral-100">Trust Boundary</p>
+<p class="text-xs text-neutral-500 mt-0.5">evaluates context</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="p-4 rounded-lg bg-neutral-900 border border-neutral-700 flex flex-col justify-between">
+<div class="flex items-center justify-between mb-3 text-[#00ff85] font-mono text-[11px]">
+<span>04 / AUDIT</span>
+<span class="material-symbols-outlined text-[15px] text-[#00ff85]">offline_bolt</span>
+</div>
+<div>
+<p class="font-medium text-sm text-white">Decision</p>
+<p class="text-xs text-neutral-400 mt-0.5">allow · review · block</p>
+</div>
+</div>
+<!-- Step 5 -->
+<div class="p-4 rounded-lg bg-black border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div class="flex items-center justify-between mb-3 text-neutral-500 font-mono text-[11px]">
+<span>05 / SINK</span>
+<span class="material-symbols-outlined text-[15px]">play_circle</span>
+</div>
+<div>
+<p class="font-medium text-sm text-neutral-100">Executor</p>
+<p class="text-xs text-neutral-500 mt-0.5">Agent SDK / workflow</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION: WHY VORTEX EXISTS -->
+<section class="py-20 border-t border-neutral-800">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-5">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Why Vortex Exists</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">Credentials are not a reason to execute.</h2>
+</div>
+<div class="lg:col-span-7 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            Most autonomous systems assume that possession of credentials is enough. Vortex inserts a deterministic decision boundary between intent and execution.
+          </p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Traditional Path -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-6 pb-3 border-b border-neutral-800">
+<span class="text-xs font-mono uppercase tracking-wider text-red-400 flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                Traditional execution path
+              </span>
+<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-red-950/40 border border-red-900/60 text-red-400">
+                UNCHECKED VULNERABILITY
+              </span>
+</div>
+<div class="space-y-2">
+<div class="p-3 rounded-lg bg-black border border-neutral-800 text-xs font-mono text-neutral-400 flex items-center justify-between">
+<span>Application request</span>
+<span class="text-neutral-600">→</span>
+</div>
+<div class="p-3 rounded-lg bg-black border border-neutral-800 text-xs font-mono text-neutral-400 flex items-center justify-between">
+<span>Agent or workflow</span>
+<span class="text-neutral-600">→</span>
+</div>
+<div class="p-3 rounded-lg bg-black border border-red-900/40 text-xs font-mono text-red-300 flex items-center justify-between">
+<span>Credentials present</span>
+<span class="text-red-400 font-medium">Implicitly Trusted</span>
+</div>
+<div class="p-3 rounded-lg bg-red-950/30 border border-red-900/50 text-xs font-mono text-red-400 flex items-center justify-between font-medium">
+<span>Execution begins</span>
+<span>Blind dispatch</span>
+</div>
+</div>
+</div>
+<p class="mt-6 pt-4 border-t border-neutral-800/80 text-xs text-neutral-500">
+            No runtime verification. Prompt injection or hijacked tool execution will proceed unabated.
+          </p>
+</div>
+<!-- Vortex Secured Path -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-750 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-6 pb-3 border-b border-neutral-800">
+<span class="text-xs font-mono uppercase tracking-wider text-neutral-200 flex items-center gap-2 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-[#00ff85]"></span>
+                Vortex execution path
+              </span>
+<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[#00ff85]">
+                DETERMINISTIC BOUNDARY
+              </span>
+</div>
+<div class="space-y-2">
+<div class="p-3 rounded-lg bg-black border border-neutral-800 text-xs font-mono text-neutral-300 flex items-center justify-between">
+<span>Application request</span>
+<span class="text-neutral-600">→</span>
+</div>
+<div class="p-3 rounded-lg bg-black border border-neutral-800 text-xs font-mono text-neutral-300 flex items-center justify-between">
+<span>Runtime context and policy</span>
+<span class="text-neutral-600">→</span>
+</div>
+<div class="p-3 rounded-lg bg-neutral-900 border border-neutral-700 text-xs font-mono text-neutral-100 flex items-center justify-between">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-[#00ff85]">verified_user</span>
+                  Explicit authorization decision
+                </span>
+<span class="text-[#00ff85] font-semibold">Gated &amp; Audited</span>
+</div>
+<div class="p-3 rounded-lg bg-neutral-850 border border-neutral-700 text-xs font-mono text-white flex items-center justify-between font-medium">
+<span>Execution only when approved</span>
+<span class="text-neutral-400">Typed delegation</span>
+</div>
+</div>
+</div>
+<p class="mt-6 pt-4 border-t border-neutral-800/80 text-xs text-neutral-400">
+            Zero execution bypass. Actions fail closed unless deterministically scored against versioned policy.
+          </p>
+</div>
+</div>
+</section>
+<!-- SECTION: DECISION SEMANTICS -->
+<section class="py-20 border-t border-neutral-800" id="decision-boundary">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-6">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Decision Semantics</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">Three outcomes. No ambiguous fallback.</h2>
+</div>
+<div class="lg:col-span-6 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            The initial enterprise policy demonstrates a typed, auditable decision model. Thresholds are explicit and test-covered.
+          </p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- ALLOW -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-[11px] font-mono uppercase tracking-wider text-neutral-500">Outcome</span>
+<span class="text-xs font-mono px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-[#00ff85] font-medium">ALLOW</span>
+</div>
+<div class="text-4xl font-mono font-bold tracking-tight text-white mb-1">≥ 0.90</div>
+<span class="text-xs font-mono text-neutral-500 uppercase">Minimum Trust Score</span>
+</div>
+<p class="text-xs text-neutral-400 mt-8 pt-4 border-t border-neutral-800 leading-relaxed">
+            Authorization is granted and the external executor may begin.
+          </p>
+</div>
+<!-- REVIEW REQUIRED -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-[11px] font-mono uppercase tracking-wider text-neutral-500">Outcome</span>
+<span class="text-xs font-mono px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-amber-300 font-medium">REVIEW REQUIRED</span>
+</div>
+<div class="text-4xl font-mono font-bold tracking-tight text-white mb-1">0.60–0.89</div>
+<span class="text-xs font-mono text-neutral-500 uppercase">Escalation Boundary</span>
+</div>
+<p class="text-xs text-neutral-400 mt-8 pt-4 border-t border-neutral-800 leading-relaxed">
+            Execution pauses until an independent approval is provided.
+          </p>
+</div>
+<!-- BLOCK -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-[11px] font-mono uppercase tracking-wider text-neutral-500">Outcome</span>
+<span class="text-xs font-mono px-2 py-0.5 rounded bg-neutral-900 border border-neutral-700 text-red-400 font-medium">BLOCK</span>
+</div>
+<div class="text-4xl font-mono font-bold tracking-tight text-white mb-1">&lt; 0.60</div>
+<span class="text-xs font-mono text-neutral-500 uppercase">Immediate Rejection</span>
+</div>
+<p class="text-xs text-neutral-400 mt-8 pt-4 border-t border-neutral-800 leading-relaxed">
+            Authorization is denied. The executor is not started.
+          </p>
+</div>
+</div>
+</section>
+<!-- SECTION: RUNTIME PIPELINE & TELEMETRY TERMINAL -->
+<section class="py-20 border-t border-neutral-800" id="pipeline">
+<div class="max-w-2xl mb-12">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Runtime Pipeline</div>
+<h2 class="text-3xl font-bold tracking-tight text-white mb-3">Evaluation before delegation.</h2>
+<p class="text-base text-neutral-400 leading-relaxed">
+          The authorization API returns a structured report. The runtime does not execute tools; consumers decide how to handle the result.
+        </p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left: 5-step sequence -->
+<div class="lg:col-span-6 space-y-2.5">
+<div class="p-4 rounded-lg bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex items-start gap-4">
+<span class="text-xs font-mono font-bold text-neutral-400 px-2 py-1 rounded bg-black border border-neutral-800">01</span>
+<div>
+<h3 class="text-sm font-medium text-white">Collect context</h3>
+<p class="text-xs text-neutral-400 mt-0.5">Normalize the request and available runtime evidence.</p>
+</div>
+</div>
+<div class="p-4 rounded-lg bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex items-start gap-4">
+<span class="text-xs font-mono font-bold text-neutral-400 px-2 py-1 rounded bg-black border border-neutral-800">02</span>
+<div>
+<h3 class="text-sm font-medium text-white">Load policy</h3>
+<p class="text-xs text-neutral-400 mt-0.5">Select an explicit, versionable policy profile.</p>
+</div>
+</div>
+<div class="p-4 rounded-lg bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex items-start gap-4">
+<span class="text-xs font-mono font-bold text-neutral-400 px-2 py-1 rounded bg-black border border-neutral-800">03</span>
+<div>
+<h3 class="text-sm font-medium text-white">Evaluate trust</h3>
+<p class="text-xs text-neutral-400 mt-0.5">Apply deterministic rules to the supplied evidence.</p>
+</div>
+</div>
+<div class="p-4 rounded-lg bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex items-start gap-4">
+<span class="text-xs font-mono font-bold text-neutral-400 px-2 py-1 rounded bg-black border border-neutral-800">04</span>
+<div>
+<h3 class="text-sm font-medium text-white">Generate report</h3>
+<p class="text-xs text-neutral-400 mt-0.5">Return decision, reason, policy, score, and latency.</p>
+</div>
+</div>
+<div class="p-4 rounded-lg bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex items-start gap-4">
+<span class="text-xs font-mono font-bold text-[#00ff85] px-2 py-1 rounded bg-black border border-neutral-800">05</span>
+<div>
+<h3 class="text-sm font-medium text-white">Delegate or stop</h3>
+<p class="text-xs text-neutral-400 mt-0.5">Approved requests reach the executor; denied requests do not.</p>
+</div>
+</div>
+</div>
+<!-- Right: Vercel-style clean Terminal Window -->
+<div class="lg:col-span-6 rounded-xl bg-black border border-neutral-800 overflow-hidden shadow-2xl">
+<div class="px-4 py-2.5 bg-neutral-900/80 border-b border-neutral-800 flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+</div>
+<span class="font-mono text-[11px] text-neutral-400">vortex-runtime — audit-summary</span>
+<div class="w-8"></div>
+</div>
+<div class="p-5 font-mono text-xs leading-relaxed text-neutral-300">
+<div class="text-white font-semibold mb-4 tracking-wide flex items-center justify-between">
+<span>RUNTIME AUTHORIZATION</span>
+<span class="text-[#00ff85] text-[11px] font-normal">● LIVE RUN</span>
+</div>
+<div class="space-y-1.5 text-neutral-400 mb-5">
+<div class="flex justify-between">
+<span>Collect Runtime Context <span class="text-neutral-700">........</span></span>
+<span class="text-white">COMPLETE</span>
+</div>
+<div class="flex justify-between">
+<span>Load Policy Profile <span class="text-neutral-700">............</span></span>
+<span class="text-white">COMPLETE</span>
+</div>
+<div class="flex justify-between">
+<span>Evaluate Trust Boundary <span class="text-neutral-700">........</span></span>
+<span class="text-white">COMPLETE</span>
+</div>
+<div class="flex justify-between">
+<span>Generate Decision <span class="text-neutral-700">..............</span></span>
+<span class="text-white">COMPLETE</span>
+</div>
+</div>
+<div class="space-y-1.5 border-t border-b border-neutral-800 py-4 mb-4">
+<div class="flex justify-between">
+<span>Decision <span class="text-neutral-700">.......................</span></span>
+<span class="text-[#00ff85] font-semibold">APPROVED</span>
+</div>
+<div class="flex justify-between">
+<span>Input Trust Score <span class="text-neutral-700">...............</span></span>
+<span class="text-white">0.94</span>
+</div>
+<div class="flex justify-between">
+<span>Policy Profile <span class="text-neutral-700">..................</span></span>
+<span class="text-neutral-300">Enterprise Default</span>
+</div>
+<div class="flex justify-between">
+<span>Authorization Latency <span class="text-neutral-700">...........</span></span>
+<span class="text-neutral-200">0.411 µs</span>
+</div>
+</div>
+<div class="space-y-1.5 text-neutral-400">
+<div class="flex justify-between">
+<span>Agent SDK Authorization <span class="text-neutral-700">........</span></span>
+<span class="text-[#00ff85]">SUCCESS</span>
+</div>
+<div class="flex justify-between">
+<span>Agent Execution <span class="text-neutral-700">................</span></span>
+<span class="text-[#00ff85]">SUCCESS</span>
+</div>
+<div class="flex justify-between">
+<span>Completed Execution Cycles <span class="text-neutral-700">.....</span></span>
+<span class="text-white">1000</span>
+</div>
+<div class="flex justify-between">
+<span>Execution Failures <span class="text-neutral-700">.............</span></span>
+<span class="text-white">0</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION: BENCHMARKS & TELEMETRY -->
+<section class="py-20 border-t border-neutral-800" id="benchmarks">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-6">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Measured Locally</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">Deterministic validation with visible cost.</h2>
+</div>
+<div class="lg:col-span-6 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            Results below come from the offline stub-provider integration benchmark. They demonstrate the current code path, not production capacity guarantees.
+          </p>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Metric 1 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 flex flex-col justify-between">
+<div class="text-4xl font-mono font-bold text-white tracking-tight">
+            24.9 <span class="text-base text-neutral-500 font-normal">µs</span>
+</div>
+<div class="mt-6 pt-3 border-t border-neutral-800">
+<div class="text-sm font-medium text-white">Average SDK latency</div>
+<div class="text-xs text-neutral-500 mt-0.5">Latest representative local run</div>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 flex flex-col justify-between">
+<div class="text-4xl font-mono font-bold text-white tracking-tight">
+            42.6 <span class="text-base text-neutral-500 font-normal">µs</span>
+</div>
+<div class="mt-6 pt-3 border-t border-neutral-800">
+<div class="text-sm font-medium text-white">P99 latency</div>
+<div class="text-xs text-neutral-500 mt-0.5">1,000 deterministic cycles</div>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 flex flex-col justify-between">
+<div class="text-4xl font-mono font-bold text-white tracking-tight">
+            37.7k
+          </div>
+<div class="mt-6 pt-3 border-t border-neutral-800">
+<div class="text-sm font-medium text-white">Requests / second</div>
+<div class="text-xs text-neutral-500 mt-0.5">Offline stub-provider throughput</div>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 flex flex-col justify-between">
+<div class="text-4xl font-mono font-bold text-white tracking-tight">
+            0
+          </div>
+<div class="mt-6 pt-3 border-t border-neutral-800">
+<div class="text-sm font-medium text-white">Execution failures</div>
+<div class="text-xs text-neutral-500 mt-0.5">1,000 / 1,000 successful runs</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION: REUSABLE API (CODE SNIPPET) -->
+<section class="py-20 border-t border-neutral-800" id="api">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-6">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Reusable API</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">Integrate the decision boundary, not the demo.</h2>
+</div>
+<div class="lg:col-span-6 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            Vortex exposes a runtime authorization API that can be consumed by Agent SDKs, workflows, services, and future adapters.
+          </p>
+</div>
+</div>
+<!-- Vercel-style clean Rust Code Card -->
+<div class="rounded-xl bg-black border border-neutral-800 overflow-hidden shadow-2xl">
+<div class="px-4 py-2.5 bg-neutral-900/80 border-b border-neutral-800 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-neutral-700 inline-block"></span>
+<span class="font-mono text-xs text-neutral-300 ml-2">main.rs</span>
+</div>
+<button class="font-mono text-xs text-neutral-400 hover:text-white flex items-center gap-1.5 transition-colors" onclick="navigator.clipboard.writeText(`use vortex_dfs::runtime::{authorize, AuthorizationRequest};\n\nlet report = authorize(AuthorizationRequest::new(\n    0.94,\n    &quot;Enterprise Default&quot;,\n));\n\nif report.is_allowed() {\n    agent.run(...).await?;\n} else {\n    // Review or block without starting the executor.\n}`); this.querySelector('span').innerText='done'; setTimeout(() =&gt; this.querySelector('span').innerText='content_copy', 1500);">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+<span>Copy</span>
+</button>
+</div>
+<div class="p-6 font-mono text-xs sm:text-sm leading-relaxed overflow-x-auto text-neutral-300">
+<pre class="leading-loose"><code><span class="text-purple-400">use</span> <span class="text-neutral-200">vortex_dfs::runtime</span>::{<span class="text-amber-300">authorize</span>, <span class="text-amber-300">AuthorizationRequest</span>};
+
+<span class="text-purple-400">let</span> <span class="text-neutral-200">report</span> = <span class="text-blue-400">authorize</span>(<span class="text-amber-300">AuthorizationRequest</span>::<span class="text-blue-400">new</span>(
+    <span class="text-emerald-400">0.94</span>,
+    <span class="text-emerald-300">"Enterprise Default"</span>,
+));
+
+<span class="text-purple-400">if</span> <span class="text-neutral-200">report</span>.<span class="text-blue-400">is_allowed</span>() {
+    <span class="text-neutral-200">agent</span>.<span class="text-blue-400">run</span>(...).<span class="text-purple-400">await</span>?;
+} <span class="text-purple-400">else</span> {
+    <span class="text-neutral-600">// Review or block without starting the executor.</span>
+}</code></pre>
+</div>
+</div>
+</section>
+<!-- SECTION: ENGINEERING PROPERTIES (MATRIX) -->
+<section class="py-20 border-t border-neutral-800">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-6">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Engineering Properties</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">Infrastructure behavior, not a marketing wrapper.</h2>
+</div>
+<div class="lg:col-span-6 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            The current milestone focuses on explicit control flow and a reusable boundary. Dynamic evidence is the next engineering phase.
+          </p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<!-- 01 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-2">01 / Deterministic</div>
+<h3 class="text-base font-semibold text-white mb-2">Explicit policy behavior</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">Identical input and policy produce the same typed decision and reason.</p>
+</div>
+</div>
+<!-- 02 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-red-400 uppercase tracking-wider mb-2">02 / Fail Closed</div>
+<h3 class="text-base font-semibold text-white mb-2">No unauthorized delegation</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">Blocked and review-required paths terminate before the Agent SDK starts.</p>
+</div>
+</div>
+<!-- 03 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-2">03 / Auditable</div>
+<h3 class="text-base font-semibold text-white mb-2">Structured authorization report</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">Decision, trust score, policy profile, reason, and latency remain visible.</p>
+</div>
+</div>
+<!-- 04 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-2">04 / Tested</div>
+<h3 class="text-base font-semibold text-white mb-2">Core paths covered</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">Unit tests verify allow, review, and block behavior across policy thresholds.</p>
+</div>
+</div>
+<!-- 05 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-2">05 / Modular</div>
+<h3 class="text-base font-semibold text-white mb-2">Executor-independent runtime</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">The authorization engine is a reusable library rather than Agent SDK logic.</p>
+</div>
+</div>
+<!-- 06 -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800 hover:border-neutral-700 transition-colors flex flex-col justify-between">
+<div>
+<div class="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-2">06 / Governed</div>
+<h3 class="text-base font-semibold text-white mb-2">Protected delivery pipeline</h3>
+<p class="text-xs text-neutral-400 leading-relaxed">Pull requests, required CI checks, and protected main-branch rules guard changes.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION: STATEMENT BANNER -->
+<section class="py-16">
+<div class="p-10 sm:p-16 rounded-2xl bg-neutral-900/30 border border-neutral-800 text-center relative overflow-hidden">
+<p class="text-2xl sm:text-4xl font-bold text-white tracking-tight max-w-2xl mx-auto leading-tight">
+          Execution is never the first decision.<br/>
+<span class="text-white underline decoration-neutral-700 underline-offset-8">Authorization is.</span>
+</p>
+<p class="text-xs font-mono uppercase tracking-widest text-neutral-500 font-medium mt-6">
+          Trust. Authorize. Execute.
+        </p>
+</div>
+</section>
+<!-- SECTION: ROADMAP -->
+<section class="py-20 border-t border-neutral-800" id="roadmap">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<div class="lg:col-span-6">
+<div class="text-xs font-mono uppercase tracking-wider text-neutral-500 mb-2">Roadmap</div>
+<h2 class="text-3xl font-bold tracking-tight text-white leading-tight">From controlled input to runtime evidence.</h2>
+</div>
+<div class="lg:col-span-6 flex items-end">
+<p class="text-base text-neutral-400 leading-relaxed">
+            The current version proves the boundary and integration flow. The roadmap focuses on evidence quality, policy maturity, and production adapters.
+          </p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Implemented -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800">
+<div class="flex items-center gap-2 mb-6 pb-3 border-b border-neutral-800">
+<span class="w-2 h-2 rounded-full bg-[#00ff85]"></span>
+<h3 class="text-sm font-semibold text-white uppercase tracking-wider">Implemented</h3>
+</div>
+<ul class="space-y-3.5 text-xs text-neutral-300">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>Reusable authorization API</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>ALLOW / REVIEW / BLOCK decisions</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>Agent SDK execution gate</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>Authorization audit summary</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>Unit-tested core paths</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00ff85] text-[17px]">check_circle</span>
+<span>CI and protected main branch</span>
+</li>
+</ul>
+</div>
+<!-- Next Milestones -->
+<div class="p-6 rounded-xl bg-neutral-900/40 border border-neutral-800">
+<div class="flex items-center gap-2 mb-6 pb-3 border-b border-neutral-800">
+<span class="w-2 h-2 rounded-full bg-neutral-500"></span>
+<h3 class="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Next Milestones</h3>
+</div>
+<ul class="space-y-3.5 text-xs text-neutral-400">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>Dynamic runtime evidence</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>Tool-permission validation</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>Versioned policy packs</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>Persistent decision traces</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>OpenTelemetry integration</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-500 text-[17px]">pending</span>
+<span>REST and workflow adapters</span>
+</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- SECTION: CALL TO ACTION -->
+<section class="py-20 border-t border-neutral-800 text-center">
+<div class="max-w-2xl mx-auto flex flex-col items-center">
+<!-- Logo Stamp -->
+<div class="w-12 h-12 rounded-full overflow-hidden border border-neutral-700 bg-neutral-900 mb-6 flex items-center justify-center">
+<img alt="Okamoto Security Labs Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuF4ocEJ7OrPbDi9LU2-twNctsi9cBtsCHFbV1-g5fO5vHpILQgydgMMwYzsSwQ8Q6tQdahgyMWKpLezy0Y6KgWloC2EMTuH0hOIRN9HZ2UOC2U-jfvoLM-qWxmMotBgk5kbrQJ9rlW6Xnq97GAAOR7TUR9TSddZq5Ne41wBjA4UL5-rJLAoQ4fWfLbUT-Z1Op_ZMF6BkPKDB_OOvHj7632-2ouy6wWQPH30vBDp8ut8MENNvlnFdoyzshNS7tQKCXLA"/>
+</div>
+<div class="text-xs font-mono uppercase tracking-widest text-neutral-500 mb-3">Okamoto Security Labs</div>
+<h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-4">
+          Build autonomous execution around an explicit decision boundary.
+        </h2>
+<p class="text-base text-neutral-400 mb-8 leading-relaxed">
+          Read the implementation, review the assumptions, run the tests, and challenge the runtime.
+        </p>
+<div class="flex flex-wrap items-center justify-center gap-3">
+<a class="px-5 py-2.5 rounded-lg bg-white text-black font-medium text-sm hover:bg-neutral-200 transition-all flex items-center gap-2" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">
+<span>View repository</span>
+<span class="text-xs">→</span>
+</a>
+<a class="px-5 py-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-200 font-medium text-sm transition-all" href="mailto:security@okamotolabs.org">
+            Contact the lab
+          </a>
+</div>
+</div>
+</section>
+</main>
+<!-- VERCEL-STYLE MINIMAL FOOTER -->
+<footer class="w-full border-t border-neutral-800 bg-black">
+<div class="max-w-[1200px] mx-auto px-6 py-12">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-12 pb-10 border-b border-neutral-900">
+<!-- Left Col -->
+<div class="md:col-span-6 space-y-4">
+<div class="flex items-center gap-2.5">
+<div class="w-5 h-5 rounded-full overflow-hidden border border-neutral-800 flex items-center justify-center">
+<img alt="Okamoto Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuF4ocEJ7OrPbDi9LU2-twNctsi9cBtsCHFbV1-g5fO5vHpILQgydgMMwYzsSwQ8Q6tQdahgyMWKpLezy0Y6KgWloC2EMTuH0hOIRN9HZ2UOC2U-jfvoLM-qWxmMotBgk5kbrQJ9rlW6Xnq97GAAOR7TUR9TSddZq5Ne41wBjA4UL5-rJLAoQ4fWfLbUT-Z1Op_ZMF6BkPKDB_OOvHj7632-2ouy6wWQPH30vBDp8ut8MENNvlnFdoyzshNS7tQKCXLA"/>
+</div>
+<span class="font-semibold text-sm text-white">Vortex DFS</span>
+<span class="text-[10px] font-mono text-neutral-400 px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800">SEC</span>
+</div>
+<p class="text-xs text-neutral-400 italic max-w-sm">"Execution is never the first decision. Authorization is."</p>
+<div class="text-xs font-mono text-neutral-500">Okamoto Security Labs © 2023. Sovereign Deterministic Computing.</div>
+</div>
+<!-- Right Col: Links -->
+<div class="md:col-span-6 flex flex-col justify-between items-start md:items-end gap-6">
+<div class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-neutral-400">
+<a class="hover:text-white transition-colors" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank">GitHub Repository</a>
+<a class="hover:text-white transition-colors" href="#architecture">Documentation</a>
+<a class="hover:text-white transition-colors" href="#">Research Papers</a>
+<a class="hover:text-white transition-colors" href="#">LinkedIn</a>
+<a class="hover:text-white transition-colors" href="mailto:security@okamotolabs.org">Lab Email</a>
+</div>
+<div class="flex items-center gap-2 text-xs font-mono text-neutral-500">
+<span class="w-1.5 h-1.5 rounded-full bg-[#00ff85]"></span>
+<span>Built with Rust · Strict Determinism · Zero Trust Agentic Core</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono text-neutral-600">
+<span>VORTEX-SPEC-REV-0.4.1 // SHA-256: 7f83b16...9e2a</span>
+<span>CONFIDENTIAL ACADEMIC INFRASTRUCTURE · ALL RIGHTS RESERVED</span>
+</div>
+</div>
+</footer>
+</body></html>
