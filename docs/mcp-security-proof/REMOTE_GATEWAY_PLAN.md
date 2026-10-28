@@ -45,3 +45,18 @@ The gateway MUST be the only network path to upstream. A direct client-to-upstre
 ## Commercial acceptance demo
 
 A recorded, reproducible remote MCP session with a real independent upstream process, request/decision correlation IDs, independent upstream receipt counters, latency measurements, and a fail-closed negative test. Evidence links to a specific passing CI commit.
+
+
+## Implemented experimental HTTP slice (commit 07b23fa)
+
+`backend/src/bin/mcp_gateway.rs` adds a loopback-bound Actix endpoint `POST /mcp` that authenticates a static proof token, parses JSON-RPC `tools/call`, authorizes a fixed `crm_export` operation through the Rust runtime, and forwards allowed requests to a **loopback-only** HTTP upstream. The destination is configured at startup, redirects are disabled, and the HTTP body and request timeout are bounded. This is an incremental code milestone, **not** a functioning general-purpose MCP Streamable HTTP gateway: it does not support MCP initialize/session negotiation, SSE, remote TLS, JWT/OIDC, audit persistence, per-client scopes, or full protocol interoperability. Do not deploy to the public Internet or use customer data. The static credential maps to a single fixed scope and is unsuitable for production authorization. Compilation and integration test status must be checked in CI before citing success.
+
+Local example (requires a separately running HTTP JSON-RPC MCP fixture on loopback port 8790):
+
+```sh
+export VORTEX_MCP_UPSTREAM=http://127.0.0.1:8790/mcp
+export VORTEX_MCP_CLIENT_TOKEN="$(openssl rand -hex 32)"
+cargo run --manifest-path backend/Cargo.toml --bin mcp_gateway
+```
+
+The next milestone must implement proper MCP initialize and remote transport semantics, independent upstream receipt counting, real identity verification, and mandatory durable audit before external release.
