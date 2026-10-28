@@ -25,5 +25,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+      - name: Install official MCP Python SDK for interoperability test
+        run: python3 -m pip install --user "mcp>=1.10,<2"
       - name: Execute backend tests
         run: cargo test --manifest-path backend/Cargo.toml --locked
