@@ -60,3 +60,11 @@ cargo run --manifest-path backend/Cargo.toml --bin mcp_gateway
 ```
 
 The next milestone must implement proper MCP initialize and remote transport semantics, independent upstream receipt counting, real identity verification, and mandatory durable audit before external release.
+
+## Experimental pre-forward local audit (commit 1e0ee1d)
+
+The isolated gateway now requires `VORTEX_MCP_AUDIT_PATH` pointing to a writable local JSONL file. It writes and calls `sync_data()` on a minimal decision record before an authorized tool call can be forwarded. Write/sync failures return HTTP 503 and prevent forwarding. The integration test uses Linux `/dev/full` to inject a write failure and checks the independent upstream counter. Test results are **pending CI verification** as of this change.
+
+Example: `export VORTEX_MCP_AUDIT_PATH=/tmp/vortex-mcp-proof-audit.jsonl` (proof only; use a secure dedicated path, restricted permissions, and managed storage for real deployments).
+
+This is not tamper-evident, distributed, immutable, rotated or centrally monitored audit storage. A local JSONL file alone is insufficient for production compliance. Rejections before tool policy evaluation (such as invalid authentication, session errors, malformed JSON and disallowed tool names) are not currently written to this audit file. Do not claim complete request auditing.
