@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
+use openssl::{bn::BigNum, hash::MessageDigest, pkey::{PKey, Public}, rsa::Rsa, sign::Verifier};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, env, fs::{File, OpenOptions}, io::Write, sync::Mutex, time::{Duration, Instant}};
 use vortex_dfs::runtime::{
@@ -15,6 +16,7 @@ struct State {
     upstream: String,
     client_token: Option<String>,
     jwt: Option<JwtConfig>,
+    oidc: Option<OidcConfig>,
     client: reqwest::Client,
     readonly_token: Option<String>,
     sessions: Mutex<HashMap<String, Session>>,
@@ -27,6 +29,7 @@ struct Session {
     scope_export: bool,
 }
 struct JwtConfig { key: Vec<u8>, issuer: String, audience: String }
+struct OidcConfig { keys: HashMap<String, PKey<Public>>, issuer: String, audience: String }
 struct Principal { id: String, scope_export: bool }
 const SESSION_TTL: Duration = Duration::from_secs(3600);
 const PROTOCOL: &str = "2025-06-18";
@@ -36,7 +39,12 @@ fn error(id: Value, code: i64, message: &str) -> Value {
 async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> HttpResponse {
     let auth = req.headers().get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok()).unwrap_or("");
-    let identity = if let Some(jwt) = &state.jwt {
+    let identity = if let Some(oidc) = &state.oidc {
+        match auth.strip_prefix("Bearer ").and_then(|t| verify_rs256(t, oidc)) {
+            Some(p) => p,
+            None => return HttpResponse::Unauthorized().json(json!({"error":"unauthorized"})),
+        }
+    } else if let Some(jwt) = &state.jwt {
         match auth.strip_prefix("Bearer ").and_then(|t| verify_hs256(t, jwt)) {
             Some(p) => p,
             None => return HttpResponse::Unauthorized().json(json!({"error":"unauthorized"})),
@@ -124,7 +132,7 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         .with_audit_requirement(false)
         .with_fail_closed(true);
     let scope_export = identity.scope_export;
-    let mut identity = IdentityContext::new(principal,if state.jwt.is_some() {"jwt-hs256"} else {"gateway-static-credential"},true);
+    let mut identity = IdentityContext::new(principal,if state.oidc.is_some() {"oidc-rs256"} else if state.jwt.is_some() {"jwt-hs256"} else {"gateway-static-credential"},true);
     if scope_export { identity = identity.with_scope("crm:export"); }
     let mut context = RequestContext::new(uuid::Uuid::new_v4().to_string(),
         uuid::Uuid::new_v4().to_string(), Operation::AgentToolExecution,
@@ -174,6 +182,80 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         _ => HttpResponse::BadGateway().json(error(id,-32002,"Invalid upstream response")),
     }
 }
+/// Verify RS256 JWTs against a pinned startup JWKS snapshot. No alg fallback.
+fn verify_rs256(token: &str, cfg: &OidcConfig) -> Option<Principal> {
+    if token.len() > 8192 { return None; }
+    let mut parts = token.split('.');
+    let h = parts.next()?; let p = parts.next()?; let sig = parts.next()?;
+    if parts.next().is_some() { return None; }
+    let header: Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(h).ok()?).ok()?;
+    if header.get("alg")?.as_str()? != "RS256" || header.get("typ")?.as_str()? != "JWT" { return None; }
+    let kid = header.get("kid")?.as_str()?;
+    let key = cfg.keys.get(kid)?;
+    let mut verifier = Verifier::new(MessageDigest::sha256(), key).ok()?;
+    verifier.update(format!("{h}.{p}").as_bytes()).ok()?;
+    if !verifier.verify(&URL_SAFE_NO_PAD.decode(sig).ok()?).ok()? { return None; }
+    let claims: Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(p).ok()?).ok()?;
+    validate_claims(&claims, &cfg.issuer, &cfg.audience)
+}
+fn validate_claims(claims: &Value, issuer: &str, audience: &str) -> Option<Principal> {
+    if claims.get("iss")?.as_str()? != issuer { return None; }
+    let aud = claims.get("aud")?;
+    let audience_ok = aud.as_str() == Some(audience) ||
+        aud.as_array().is_some_and(|arr| arr.iter().any(|v| v.as_str()==Some(audience)));
+    if !audience_ok { return None; }
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs();
+    let exp = claims.get("exp")?.as_u64()?;
+    if exp <= now || exp > now.saturating_add(3600) { return None; }
+    if claims.get("nbf").is_some_and(|v| v.as_u64().is_none_or(|n| n > now)) { return None; }
+    if claims.get("iat").is_some_and(|v| v.as_u64().is_none_or(|n| n > now)) { return None; }
+    let sub = claims.get("sub")?.as_str()?;
+    if sub.is_empty() || sub.len() > 128 { return None; }
+    let scopes = claims.get("scope")?.as_str()?;
+    Some(Principal { id: sub.to_string(),
+        scope_export: scopes.split_whitespace().any(|s| s=="crm:export") })
+}
+fn parse_jwks(value: &Value, issuer: String, audience: String) -> Result<OidcConfig, String> {
+    let entries = value.get("keys").and_then(Value::as_array).ok_or("JWKS keys missing")?;
+    if entries.len() > 32 { return Err("JWKS exceeds 32 keys".into()); }
+    let mut keys = HashMap::new();
+    for entry in entries {
+        if entry.get("kty").and_then(Value::as_str) != Some("RSA")
+            || entry.get("alg").and_then(Value::as_str) != Some("RS256")
+            || entry.get("use").and_then(Value::as_str).is_some_and(|u| u != "sig") { continue; }
+        let kid = entry.get("kid").and_then(Value::as_str).ok_or("kid missing")?;
+        if kid.is_empty() || kid.len() > 128 || keys.contains_key(kid) { return Err("duplicate/invalid kid".into()); }
+        let n = URL_SAFE_NO_PAD.decode(entry.get("n").and_then(Value::as_str).ok_or("n missing")?)
+            .map_err(|_| "invalid modulus")?;
+        let e = URL_SAFE_NO_PAD.decode(entry.get("e").and_then(Value::as_str).ok_or("e missing")?)
+            .map_err(|_| "invalid exponent")?;
+        if n.len() < 256 || n.len() > 512 || e.is_empty() || e.len() > 8 { return Err("unsupported RSA key size".into()); }
+        let rsa = Rsa::from_public_components(
+            BigNum::from_slice(&n).map_err(|_| "invalid n")?,
+            BigNum::from_slice(&e).map_err(|_| "invalid e")?
+        ).map_err(|_| "invalid RSA key")?;
+        let key = PKey::from_rsa(rsa).map_err(|_| "invalid RSA public key")?;
+        keys.insert(kid.to_string(), key);
+    }
+    if keys.is_empty() { return Err("no usable RS256 keys".into()); }
+    Ok(OidcConfig { keys, issuer, audience })
+}
+async fn load_oidc_config(client: &reqwest::Client) -> Option<OidcConfig> {
+    let issuer = env::var("VORTEX_MCP_OIDC_ISSUER").ok()?;
+    let audience = env::var("VORTEX_MCP_OIDC_AUDIENCE").expect("OIDC audience required");
+    let jwks_url = env::var("VORTEX_MCP_OIDC_JWKS_URL").expect("OIDC JWKS URL required");
+    let url = reqwest::Url::parse(&jwks_url).expect("valid JWKS URL");
+    let loopback = url.scheme() == "http"
+        && matches!(url.host_str(),Some("127.0.0.1")|Some("localhost")|Some("::1"));
+    assert!(url.scheme()=="https" || loopback, "JWKS must use HTTPS or loopback test HTTP");
+    assert!(url.username().is_empty() && url.password().is_none() && url.fragment().is_none());
+    let response = client.get(url).send().await.expect("JWKS fetch failed");
+    assert!(response.status().is_success(), "JWKS fetch HTTP failure");
+    let body = response.bytes().await.expect("JWKS body unavailable");
+    assert!(body.len() <= 65536, "JWKS body too large");
+    let data: Value = serde_json::from_slice(&body).expect("invalid JWKS JSON");
+    Some(parse_jwks(&data, issuer, audience).expect("invalid JWKS"))
+}
 /// Strict single-algorithm JWT proof verifier. No OIDC discovery or JWKS support.
 fn verify_hs256(token: &str, cfg: &JwtConfig) -> Option<Principal> {
     if token.len() > 8192 { return None; }
@@ -219,6 +301,14 @@ async fn main() -> std::io::Result<()> {
     assert!(matches!(url.host_str(), Some("127.0.0.1")|Some("localhost")|Some("::1")),
         "upstream must be loopback for this proof");
     assert!(url.username().is_empty() && url.password().is_none() && url.fragment().is_none());
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::none()).build().unwrap();
+    let oidc = load_oidc_config(&client).await;
+    if oidc.is_some() {
+        assert!(env::var("VORTEX_MCP_JWT_HS256_SECRET").is_err()
+            && env::var("VORTEX_MCP_CLIENT_TOKEN").is_err(),
+            "OIDC mode must not be combined with other auth modes");
+    }
     let jwt = match env::var("VORTEX_MCP_JWT_HS256_SECRET") {
         Ok(secret) => {
             assert!(secret.len() >= 32, "JWT secret must be at least 32 bytes");
@@ -228,7 +318,7 @@ async fn main() -> std::io::Result<()> {
         }
         Err(_) => None,
     };
-    let (client_token, readonly_token) = if jwt.is_some() {
+    let (client_token, readonly_token) = if oidc.is_some() { (None, None) } else if jwt.is_some() {
         assert!(env::var("VORTEX_MCP_CLIENT_TOKEN").is_err(),
             "do not combine JWT mode with static credentials");
         (None, None)
@@ -239,14 +329,12 @@ async fn main() -> std::io::Result<()> {
         if let Some(ref t) = readonly { assert!(t.len() >= 32 && t != &token); }
         (Some(token), readonly)
     };
-    let client = reqwest::Client::builder().timeout(Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::none()).build().unwrap();
     // Required append-only local audit sink for the isolated proof. For real
     // production, use a durable managed store with tamper evidence and rotation.
     let audit_path = env::var("VORTEX_MCP_AUDIT_PATH").expect("VORTEX_MCP_AUDIT_PATH required");
     let audit = OpenOptions::new().create(true).append(true).open(&audit_path)
         .expect("open audit sink");
-    let state = web::Data::new(State {upstream, client_token, readonly_token, jwt, client,
+    let state = web::Data::new(State {upstream, client_token, readonly_token, jwt, oidc, client,
         sessions: Mutex::new(HashMap::new()), audit: Mutex::new(audit)});
     let listen_port: u16 = env::var("VORTEX_MCP_LISTEN_PORT").ok()
         .map(|p| p.parse().expect("valid listen port")).unwrap_or(8788);
