@@ -33,11 +33,13 @@ async fn http_gateway_forwards_only_authorized_calls() {
     wait_ready(&client, &count_url).await;
     let token = "test-gateway-token-with-more-than-32-characters";
     let readonly = "readonly-gateway-token-with-more-than-32-characters";
+    let audit_path = std::env::temp_dir().join(format!("vortex-mcp-audit-{}.jsonl", uuid::Uuid::new_v4()));
     let _gateway = Guard(Command::new(env!("CARGO_BIN_EXE_mcp_gateway"))
         .env("VORTEX_MCP_UPSTREAM", format!("http://127.0.0.1:{fixture_port}/mcp"))
         .env("VORTEX_MCP_LISTEN_PORT", gateway_port.to_string())
         .env("VORTEX_MCP_CLIENT_TOKEN", token)
         .env("VORTEX_MCP_READONLY_TOKEN", readonly)
+        .env("VORTEX_MCP_AUDIT_PATH", &audit_path)
         .stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
     let endpoint = format!("http://127.0.0.1:{gateway_port}/mcp");
     // A non-POST probe establishes that the gateway is listening.
@@ -98,5 +100,17 @@ async fn http_gateway_forwards_only_authorized_calls() {
     assert_eq!(reader_denied.pointer("/error/code"),Some(&json!(-32003)));
     assert_eq!(reader_denied.pointer("/error/data/reason_code"),Some(&json!("SCOPE_DENIED")));
     assert_eq!(counter(&client,&count_url).await,1, "read-only principal reached upstream");
+
+    let audit_raw = std::fs::read_to_string(&audit_path).expect("audit log exists");
+    let events: Vec<Value> = audit_raw.lines()
+        .map(|line| serde_json::from_str(line).expect("valid audit JSONL")).collect();
+    assert_eq!(events.len(), 2, "only authorized and scope-denied tool calls are audited");
+    assert_eq!(events[0]["principal"], json!("exporter"));
+    assert_eq!(events[0]["decision"], json!("ALLOW"));
+    assert_eq!(events[1]["principal"], json!("reader"));
+    assert_eq!(events[1]["decision"], json!("REJECT"));
+    assert_eq!(events[1]["reason_code"], json!("SCOPE_DENIED"));
+    assert!(!audit_raw.contains("test-gateway-token"), "credentials leaked to audit");
+    let _ = std::fs::remove_file(&audit_path);
 
 }
