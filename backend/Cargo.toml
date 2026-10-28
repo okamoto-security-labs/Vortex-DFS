@@ -21,6 +21,7 @@ log           = "0.4"
 env_logger    = "0.10"
 hmac          = "0.12"
 sha2          = "0.10"
+openssl       = "0.10"
 base64        = "0.21"
 aes-gcm       = "0.10"
 
