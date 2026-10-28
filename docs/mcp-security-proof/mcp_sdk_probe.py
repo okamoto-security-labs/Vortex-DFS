@@ -8,16 +8,15 @@ import asyncio
 import json
 import sys
 
-import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 
 async def probe(endpoint: str, token: str, expected: str) -> None:
-    async with httpx.AsyncClient(
+    from mcp.client.streamable_http import MCP_DEFAULT_TIMEOUT
+    from mcp.shared._httpx_utils import create_mcp_http_client
+    async with create_mcp_http_client(
         headers={"Authorization": f"Bearer {token}"},
-        timeout=httpx.Timeout(10.0),
-        follow_redirects=False,
     ) as http_client:
         async with streamablehttp_client(endpoint, http_client=http_client) as streams:
             read, write, _session_id = streams
