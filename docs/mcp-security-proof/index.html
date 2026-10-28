@@ -1,25 +1,144 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vortex DFS | MCP Runtime Security Proof</title>
-<style>body{font:16px/1.6 system-ui;background:#0b1220;color:#e7eef8;margin:0}main{max-width:850px;margin:auto;padding:28px 20px 70px}h1{font-size:clamp(30px,6vw,52px);line-height:1.12}h2{margin-top:36px}a{color:#70e3ce}small,.muted{color:#b2c0d1}.tag{color:#7ee3cd;font-weight:700;letter-spacing:.1em}.panel{background:#152239;border:1px solid #34455e;border-radius:16px;padding:20px;margin:16px 0}.flow{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.node{background:#263950;border-radius:9px;padding:9px 13px}.ok{color:#82e4ae}.bad{color:#ff9e9e}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #34455e;padding:11px 7px;vertical-align:top}code{overflow-wrap:anywhere}button{background:#4ee0c4;color:#07111d;border:0;border-radius:8px;padding:12px 16px;font-weight:700;cursor:pointer}.result{white-space:pre-wrap;font:13px/1.5 ui-monospace,monospace;background:#07101d;padding:15px;border-radius:10px;margin-top:12px}footer{margin-top:45px;border-top:1px solid #34455e;padding-top:20px}</style>
-<main><p class="tag">OKAMOTO SECURITY LABS · TECHNICAL BRIEF</p><h1>Approved tool ≠ authorized action.</h1>
-<p>Vortex DFS explores deterministic policy checks at the execution boundary of AI agent workflows. An MCP tool inventory answers <em>which tools exist</em>; a runtime gate asks <em>whether this particular request meets its policy</em>.</p>
-<div class="panel"><h2>Where the guard fits</h2><div class="flow"><span class="node">Agent request</span> → <span class="node">Evidence + policy</span> → <span class="node">Vortex decision</span> → <span class="node">Protected executor</span></div><p class="muted">A rejected request must never invoke the guarded executor. This is a code-level invariant, not a claim of complete MCP integration.</p></div>
-<h2>Explore the decision model</h2><p class="muted">Illustrative scenarios only. The interactive outputs below are static examples, not calls to a running Vortex DFS backend.</p>
-<div class="panel"><button type="button" onclick="show('allow')">Authorized request</button> <button type="button" onclick="show('missing')">Missing evidence</button> <button type="button" onclick="show('deny')">Insufficient scope</button><div id="result" class="result" aria-live="polite">Select a scenario.</div></div>
-<h2>What the source actually tests</h2><table><thead><tr><th>Invariant</th><th>Existing Rust test</th></tr></thead><tbody>
-<tr><td>Missing required evidence → REJECT</td><td><code>missing_required_evidence_rejects_before_execution</code></td></tr>
-<tr><td>REJECT does not invoke executor</td><td><code>rejected_request_never_invokes_the_executor</code></td></tr>
-<tr><td>Audit write failure prevents execution</td><td><code>audit_failure_prevents_executor_invocation</code></td></tr>
-<tr><td>Permitted redaction invokes executor</td><td><code>redaction_decision_invokes_the_executor</code></td></tr></tbody></table>
-<p><a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/main/backend/src/runtime/engine.rs">Inspect runtime engine and tests</a> · <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/main/backend/src/runtime/validator.rs">Inspect validator</a></p>
-<h2>What a customer pilot would validate</h2><div class="panel"><p>One agreed MCP workflow, explicit authorization criteria, legitimate and unauthorized tool calls, bypass attempts, reason codes, and observed false positives. Success requires actual adapter integration and measured results—not screenshots of a simulated decision.</p></div>
-<h2>Important limitations</h2><p>Vortex DFS is experimental pre-alpha. The repository does not claim a production MCP Tool Runner integration, production identity enforcement in the HTTP path, immutable audit retention, or independently established production efficacy. No current CI pass or performance measurement is asserted by this page.</p>
-<footer><strong>Next step:</strong> Discuss a paid, fixed-scope feasibility pilot after confirming the customer's architecture and acceptance criteria. <p><a href="https://github.com/okamoto-security-labs/Vortex-DFS">Source repository</a> · <a href="./README.md">Technical brief</a></p></footer>
-</main><script>
-const examples={
-allow:{scenario:"Illustrative: authorized request",identity:"verified",scope:"agent:execute",evidence:"complete",decision:"ALLOW",note:"Expected when all active policy requirements pass"},
-missing:{scenario:"Illustrative: missing structural evidence",evidence:"missing",decision:"REJECT",reason:"STRUCTURE_INVALID",note:"Grounded in existing missing-evidence test"},
-deny:{scenario:"Illustrative: insufficient required scope",scope:"missing agent:execute",decision:"REJECT",reason:"SCOPE_DENIED",note:"Grounded in validator scope check; not an executed MCP test"}
-};function show(k){document.getElementById('result').textContent=JSON.stringify(examples[k],null,2)}
-</script></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="A source-backed technical note on deterministic execution gating in Vortex DFS.">
+  <title>Execution boundaries | Vortex DFS</title>
+  <style>
+    :root {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #182638;
+      background: #f7f8fa;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: #175f70; text-underline-offset: 3px; }
+    a:hover { color: #103d48; }
+    .container { max-width: 920px; margin: 0 auto; padding: 0 28px; }
+    header { background: #fff; border-bottom: 1px solid #e1e6eb; }
+    header .container { display: flex; align-items: center; justify-content: space-between; min-height: 76px; gap: 20px; }
+    .brand { font-size: 14px; font-weight: 750; letter-spacing: .035em; }
+    .header-link { font-size: 13px; }
+    main { padding-top: 72px !important; padding-bottom: 84px !important; }
+    .eyebrow { color: #50717c; font-size: 12px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { max-width: 780px; font-size: clamp(38px, 6vw, 62px); line-height: 1.09; letter-spacing: -.045em; margin: 19px 0 22px; }
+    .lead { max-width: 720px; color: #435365; font-size: 19px; line-height: 1.7; }
+    .meta { margin: 28px 0 0; color: #66778a; font-size: 13px; }
+    section { margin-top: 66px; }
+    h2 { font-size: 25px; letter-spacing: -.025em; margin: 0 0 18px; }
+    p { line-height: 1.75; }
+    .intro { max-width: 760px; }
+    .boundary { margin-top: 24px; background: #fff; border: 1px solid #dce4e9; border-radius: 12px; padding: 26px; }
+    .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .step { padding: 18px 12px; background: #f0f4f6; border-radius: 7px; font-size: 13px; font-weight: 650; text-align: center; }
+    .boundary-note { color: #516171; font-size: 13px; margin-bottom: 0; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dce4e9; }
+    th, td { text-align: left; padding: 16px; border-bottom: 1px solid #e4e9ed; vertical-align: top; font-size: 14px; }
+    th { background: #edf2f4; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    tr:last-child td { border-bottom: 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+    .status { font-weight: 750; color: #216c5a; }
+    .note { background: #eaf0f2; border-left: 3px solid #477a83; padding: 18px 22px; color: #354b57; }
+    .note p { margin: 0; }
+    .scope { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+    .scope > div { background: #fff; border: 1px solid #dce4e9; border-radius: 10px; padding: 22px; }
+    .scope h3 { margin: 0 0 12px; font-size: 17px; }
+    .scope ul { margin: 0; padding-left: 19px; line-height: 1.9; color: #44576a; }
+    .closing { background: #183644; color: #fff; border-radius: 12px; padding: 32px; }
+    .closing h2 { margin-top: 0; }
+    .closing p { color: #d4e1e7; }
+    .closing a { color: #b0ece9; }
+    footer { padding: 28px 0 44px; border-top: 1px solid #e1e6eb; font-size: 12px; color: #6c7b8b; }
+    @media (max-width: 650px) {
+      main { padding-top: 45px !important; }
+      .container { padding-left: 18px; padding-right: 18px; }
+      .steps, .scope { grid-template-columns: 1fr; }
+      .step { text-align: left; }
+      th, td { padding: 12px 9px; }
+      header .container { min-height: 66px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="brand">OKAMOTO SECURITY LABS</div>
+      <a class="header-link" href="https://github.com/okamoto-security-labs/Vortex-DFS">Source repository</a>
+    </div>
+  </header>
+  <main class="container">
+    <div class="eyebrow">Engineering note / Runtime authorization</div>
+    <h1>An approved tool is not an approved action.</h1>
+    <p class="lead">Tool inventories establish what an agent can reach. They do not, by themselves, establish whether a specific request should execute. Vortex DFS explores that distinction through deterministic policy evaluation at a guarded execution boundary.</p>
+    <p class="meta">Vortex DFS · Experimental pre-alpha · Source-backed technical brief</p>
+
+    <section>
+      <h2>The boundary</h2>
+      <p class="intro">The Rust runtime evaluates a normalized request and its evidence against a policy. The resulting decision determines whether a protected executor is invoked. A rejected request must not cross that boundary.</p>
+      <div class="boundary">
+        <div class="steps" aria-label="Execution boundary stages">
+          <div class="step">Request context</div>
+          <div class="step">Evidence and policy</div>
+          <div class="step">Runtime decision</div>
+          <div class="step">Guarded execution</div>
+        </div>
+        <p class="boundary-note">This is the implemented runtime pattern. It is not a claim that an MCP Tool Runner adapter is already deployed.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Evidence in the codebase</h2>
+      <p>These cases reference existing Rust tests. Their names and assertions can be inspected in the repository; this page does not claim a fresh CI run.</p>
+      <table>
+        <thead><tr><th>Security invariant</th><th>Existing test</th></tr></thead>
+        <tbody>
+          <tr><td>Missing required structural evidence produces a rejection.</td><td><code>missing_required_evidence_rejects_before_execution</code></td></tr>
+          <tr><td>A rejected request does not invoke its protected executor.</td><td><code>rejected_request_never_invokes_the_executor</code></td></tr>
+          <tr><td>A required audit write failure prevents executor invocation.</td><td><code>audit_failure_prevents_executor_invocation</code></td></tr>
+          <tr><td>Permitted redaction can invoke the protected executor.</td><td><code>redaction_decision_invokes_the_executor</code></td></tr>
+        </tbody>
+      </table>
+      <p><a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/main/backend/src/runtime/engine.rs">Review execution gate and tests</a> · <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/main/backend/src/runtime/validator.rs">Review validation rules</a></p>
+    </section>
+
+    <section>
+      <h2>What a practical MCP pilot should prove</h2>
+      <div class="scope">
+        <div>
+          <h3>Test scope</h3>
+          <ul>
+            <li>One agreed agent-to-tool workflow</li>
+            <li>Authorized and unauthorized actions</li>
+            <li>Missing or invalid authorization evidence</li>
+            <li>Attempts to bypass the enforcement path</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Acceptance evidence</h3>
+          <ul>
+            <li>Reproducible outcomes and reason codes</li>
+            <li>Confirmation that denied actions do not execute</li>
+            <li>Observed false positives, not assumed zero</li>
+            <li>Integration overhead and residual risks</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Current limitations</h2>
+      <div class="note"><p>Vortex DFS remains experimental pre-alpha. Production MCP Tool Runner integration, production identity enforcement in the HTTP path, and immutable audit storage are not established capabilities in the repository README. Existing unit tests support the guarded-execution mechanism; they do not establish customer-environment efficacy or production readiness.</p></div>
+    </section>
+
+    <section class="closing">
+      <h2>From mechanism to measured outcome</h2>
+      <p>A paid, fixed-scope feasibility pilot would test this execution boundary against one real customer workflow. Scope, integration prerequisites, success criteria, and commercial terms would be agreed before any customer-specific development.</p>
+      <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/docs/mcp-security-proof-kamal/docs/mcp-security-proof/README.md">Read the supporting technical brief</a>
+    </section>
+  </main>
+  <footer><div class="container">Vortex DFS · Engineering evidence, not a production security certification.</div></footer>
+</body>
+</html>
