@@ -14,9 +14,9 @@ async fn ready(c:&reqwest::Client,u:&str) {
     }
     panic!("service not ready");
 }
-fn jwt(key:&PKey<openssl::pkey::Private>,sub:&str,scope:&str,exp:u64)->String {
-    let h=URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT","kid":"test-rsa-key"}"#);
-    let p=URL_SAFE_NO_PAD.encode(json!({"iss":"https://issuer.test","aud":"vortex-test",
+fn jwt(key:&PKey<openssl::pkey::Private>,issuer:&str,kid:&str,sub:&str,scope:&str,exp:u64)->String {
+    let h=URL_SAFE_NO_PAD.encode(json!({"alg":"RS256","typ":"JWT","kid":kid}).to_string());
+    let p=URL_SAFE_NO_PAD.encode(json!({"iss":issuer,"aud":"vortex-test",
         "sub":sub,"scope":scope,"exp":exp}).to_string());
     let signing_input=format!("{h}.{p}");
     let mut signer=Signer::new(MessageDigest::sha256(),key).unwrap();
@@ -44,10 +44,14 @@ async fn signed_oidc_jwks_tokens_enforce_principal_and_scope_end_to_end() {
     let jwks=json!({"keys":[{"kty":"RSA","alg":"RS256","use":"sig",
         "kid":"test-rsa-key","n":n,"e":e}]});
     let upstream_port=port(); let gateway_port=port();
+    let issuer=format!("http://127.0.0.1:{upstream_port}");
+    let jwks_file=std::env::temp_dir().join(format!("vortex-jwks-{}.json",uuid::Uuid::new_v4()));
+    std::fs::write(&jwks_file,jwks.to_string()).unwrap();
     let script=format!("{}/../docs/mcp-security-proof/http_mcp_fixture.py",env!("CARGO_MANIFEST_DIR"));
     let _upstream=Guard(Command::new("python3").arg("-u").arg(script)
         .env("VORTEX_MCP_FIXTURE_PORT",upstream_port.to_string())
-        .env("VORTEX_TEST_JWKS",jwks.to_string())
+        .env("VORTEX_TEST_JWKS_FILE",&jwks_file)
+        .env("VORTEX_TEST_ISSUER",&issuer)
         .stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
     let client=reqwest::Client::builder().timeout(Duration::from_secs(3)).build().unwrap();
     let count_url=format!("http://127.0.0.1:{upstream_port}/_count");
@@ -57,16 +61,16 @@ async fn signed_oidc_jwks_tokens_enforce_principal_and_scope_end_to_end() {
         .env("VORTEX_MCP_UPSTREAM",format!("http://127.0.0.1:{upstream_port}/mcp"))
         .env("VORTEX_MCP_LISTEN_PORT",gateway_port.to_string())
         .env("VORTEX_MCP_AUDIT_PATH",&audit)
-        .env("VORTEX_MCP_OIDC_ISSUER","https://issuer.test")
+        .env("VORTEX_MCP_OIDC_ISSUER",&issuer)
         .env("VORTEX_MCP_OIDC_AUDIENCE","vortex-test")
-        .env("VORTEX_MCP_OIDC_JWKS_URL",format!("http://127.0.0.1:{upstream_port}/.well-known/jwks.json"))
+        .env("VORTEX_MCP_OIDC_REFRESH_SECS","5")
         .stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
     let endpoint=format!("http://127.0.0.1:{gateway_port}/mcp");
     ready(&client,&endpoint).await;
     let now=SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-    let allowed=jwt(&key,"alice","crm:export",now+300);
-    let readonly=jwt(&key,"bob","crm:read",now+300);
-    let expired=jwt(&key,"eve","crm:export",now-1);
+    let allowed=jwt(&key,&issuer,"test-rsa-key","alice","crm:export",now+300);
+    let readonly=jwt(&key,&issuer,"test-rsa-key","bob","crm:read",now+300);
+    let expired=jwt(&key,&issuer,"test-rsa-key","eve","crm:export",now-1);
     let call=json!({"jsonrpc":"2.0","id":3,"method":"tools/call",
         "params":{"name":"crm_export","arguments":{"customer_group":"test"}}});
     let invalid=client.post(&endpoint).bearer_auth(&expired).json(&call).send().await.unwrap();
@@ -84,8 +88,45 @@ async fn signed_oidc_jwks_tokens_enforce_principal_and_scope_end_to_end() {
     assert_eq!(success.pointer("/result/content/0/text"),Some(&json!("Fixture accepted")));
     let count:Value=client.get(&count_url).send().await.unwrap().json().await.unwrap();
     assert_eq!(count["received_tool_calls"],json!(1));
+    // Rotate to a second signing key and confirm that old key stops authorizing.
+    let new_rsa=Rsa::generate(2048).unwrap();
+    let new_n=URL_SAFE_NO_PAD.encode(new_rsa.n().to_vec());
+    let new_e=URL_SAFE_NO_PAD.encode(new_rsa.e().to_vec());
+    let new_key=PKey::from_rsa(new_rsa).unwrap();
+    let rotated=json!({"keys":[{"kty":"RSA","alg":"RS256","use":"sig",
+        "kid":"rotated-key","n":new_n,"e":new_e}]});
+    std::fs::write(&jwks_file,rotated.to_string()).unwrap();
+    let rotated_token=jwt(&new_key,&issuer,"rotated-key","carol","crm:export",now+300);
+    let mut rotated_session=None;
+    for _ in 0..35 {
+        let init=json!({"jsonrpc":"2.0","id":22,"method":"initialize",
+            "params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"rotation","version":"1"}}});
+        let response=client.post(&endpoint).bearer_auth(&rotated_token)
+            .json(&init).send().await.unwrap();
+        if response.status()==reqwest::StatusCode::OK {
+            rotated_session=Some(response.headers().get("mcp-session-id").unwrap()
+                .to_str().unwrap().to_string());
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let carol_session=rotated_session.expect("rotated JWKS key was not loaded");
+    let old=client.post(&endpoint).bearer_auth(&allowed)
+        .json(&call).send().await.unwrap();
+    assert_eq!(old.status(),reqwest::StatusCode::UNAUTHORIZED,"revoked old key accepted");
+    let notification=json!({"jsonrpc":"2.0","method":"notifications/initialized"});
+    assert_eq!(client.post(&endpoint).bearer_auth(&rotated_token)
+        .header("mcp-session-id",&carol_session).json(&notification)
+        .send().await.unwrap().status(),reqwest::StatusCode::ACCEPTED);
+    let after_rotation:Value=client.post(&endpoint).bearer_auth(&rotated_token)
+        .header("mcp-session-id",&carol_session).json(&call)
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(after_rotation.pointer("/result/content/0/text"),Some(&json!("Fixture accepted")));
+    let count:Value=client.get(&count_url).send().await.unwrap().json().await.unwrap();
+    assert_eq!(count["received_tool_calls"],json!(2));
     let events=std::fs::read_to_string(&audit).unwrap();
     assert!(events.contains("alice") && events.contains("bob"));
     assert!(!events.contains(&allowed));
     let _=std::fs::remove_file(audit);
+    let _=std::fs::remove_file(jwks_file);
 }
