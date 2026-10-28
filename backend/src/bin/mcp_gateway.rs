@@ -2,7 +2,7 @@
 //! Run behind TLS; bind to loopback by default. Never expose publicly without review.
 use actix_web::{http::header, web, App, HttpRequest, HttpResponse, HttpServer};
 use serde_json::{json, Value};
-use std::{env, time::Duration};
+use std::{collections::HashMap, env, sync::Mutex, time::{Duration, Instant}};
 use vortex_dfs::runtime::{
     evaluate_request, IdentityContext, Operation, PayloadContext, RequestContext, RuntimePolicy,
 };
@@ -11,22 +11,32 @@ struct State {
     upstream: String,
     client_token: String,
     client: reqwest::Client,
+    readonly_token: Option<String>,
+    sessions: Mutex<HashMap<String, Session>>,
 }
+struct Session {
+    principal: &'static str,
+    created: Instant,
+    initialized: bool,
+}
+const SESSION_TTL: Duration = Duration::from_secs(3600);
+const PROTOCOL: &str = "2025-06-18";
 fn error(id: Value, code: i64, message: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }
 async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> HttpResponse {
     let auth = req.headers().get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok()).unwrap_or("");
-    let expected = format!("Bearer {}", state.client_token);
-    // Avoid exposing a public unauthenticated MCP proxy. Token is a temporary
-    // pre-shared proof credential, not a replacement for OIDC/JWT validation.
-    if !constant_time_equal(auth.as_bytes(), expected.as_bytes()) {
+    let full = format!("Bearer {}", state.client_token);
+    let readonly = state.readonly_token.as_ref().map(|t| format!("Bearer {t}"));
+    let principal = if constant_time_equal(auth.as_bytes(), full.as_bytes()) {
+        "exporter"
+    } else if readonly.as_ref().is_some_and(|t| constant_time_equal(auth.as_bytes(), t.as_bytes())) {
+        "reader"
+    } else {
         return HttpResponse::Unauthorized().json(json!({"error":"unauthorized"}));
-    }
-    if body.len() > 65536 {
-        return HttpResponse::PayloadTooLarge().finish();
-    }
+    };
+    if body.len() > 65536 { return HttpResponse::PayloadTooLarge().finish(); }
     let request: Value = match serde_json::from_slice::<Value>(&body) {
         Ok(v) if v.is_object() => v,
         _ => return HttpResponse::BadRequest().json(error(Value::Null,-32700,"Invalid JSON-RPC request")),
@@ -36,16 +46,58 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         return HttpResponse::BadRequest().json(error(id,-32600,"Invalid JSON-RPC version"));
     }
     let method = request.get("method").and_then(Value::as_str).unwrap_or("");
+    if method == "initialize" {
+        if request.pointer("/params/protocolVersion").and_then(Value::as_str) != Some(PROTOCOL) {
+            return HttpResponse::Ok().json(error(id,-32602,"Unsupported MCP protocol version"));
+        }
+        let session_id = uuid::Uuid::new_v4().to_string();
+        {
+            let mut sessions = state.sessions.lock().unwrap();
+            sessions.retain(|_,s| s.created.elapsed() < SESSION_TTL);
+            if sessions.len() >= 1024 { return HttpResponse::ServiceUnavailable().finish(); }
+            sessions.insert(session_id.clone(), Session { principal, created: Instant::now(), initialized: false });
+        }
+        return HttpResponse::Ok().insert_header(("Mcp-Session-Id", session_id))
+            .json(json!({"jsonrpc":"2.0","id":id,"result":{
+                "protocolVersion":PROTOCOL,"capabilities":{"tools":{}},
+                "serverInfo":{"name":"vortex-mcp-gateway-proof","version":"0.2.0"}
+            }}));
+    }
+    let session_id = req.headers().get("Mcp-Session-Id").and_then(|h| h.to_str().ok()).unwrap_or("");
+    let session_ok = {
+        let mut sessions = state.sessions.lock().unwrap();
+        match sessions.get_mut(session_id) {
+            Some(session) if session.principal == principal && session.created.elapsed() < SESSION_TTL => {
+                if method == "notifications/initialized" { session.initialized = true; true }
+                else { session.initialized }
+            }
+            _ => false
+        }
+    };
+    if !session_ok {
+        return HttpResponse::BadRequest().json(error(id,-32001,"Missing, expired, or uninitialized MCP session"));
+    }
+    if method == "notifications/initialized" {
+        if request.get("id").is_some() { return HttpResponse::BadRequest().finish(); }
+        return HttpResponse::Accepted().finish();
+    }
+    if request.get("id").is_none() { return HttpResponse::BadRequest().finish(); }
+    if method == "tools/list" {
+        return HttpResponse::Ok().json(json!({"jsonrpc":"2.0","id":id,"result":{"tools":[{
+            "name":"crm_export","description":"Isolated fixture export",
+            "inputSchema":{"type":"object","properties":{"customer_group":{"type":"string"}},
+            "required":["customer_group"]}
+        }]}}));
+    }
     if method != "tools/call" {
-        // Do not expose upstream methods without explicit security review.
-        return HttpResponse::Ok().json(error(id,-32601,"Only tools/call is supported by this experimental gateway"));
+        return HttpResponse::Ok().json(error(id,-32601,"Unsupported MCP method"));
     }
     if request.pointer("/params/name").and_then(Value::as_str) != Some("crm_export")
         || request.pointer("/params/arguments/customer_group").and_then(Value::as_str).is_none()
     {
         return HttpResponse::Ok().json(error(id,-32602,"Invalid or disallowed tool"));
     }
-    let policy = RuntimePolicy::new("mcp.remote-proof", "1")
+    let policy = RuntimePolicy::new("mcp.remote-proof", "2")
         .allow_operation(Operation::AgentToolExecution)
         .with_required_scope("crm:export")
         .with_payload_integrity_requirement(false)
@@ -54,10 +106,8 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         .with_replay_protection(false)
         .with_audit_requirement(false)
         .with_fail_closed(true);
-    // In this experimental proof, a configured gateway credential represents a
-    // single fixed principal with a fixed scope. Never accept client-supplied scopes.
-    let identity = IdentityContext::new("proof-client","gateway-static-credential",true)
-        .with_scope("crm:export");
+    let mut identity = IdentityContext::new(principal,"gateway-static-credential",true);
+    if principal == "exporter" { identity = identity.with_scope("crm:export"); }
     let mut context = RequestContext::new(uuid::Uuid::new_v4().to_string(),
         uuid::Uuid::new_v4().to_string(), Operation::AgentToolExecution,
         PayloadContext::new(body.len()).with_content_type("application/json"))
@@ -105,7 +155,11 @@ async fn main() -> std::io::Result<()> {
     assert!(client_token.len() >= 32, "use a random credential of at least 32 characters");
     let client = reqwest::Client::builder().timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none()).build().unwrap();
-    let state = web::Data::new(State {upstream, client_token, client});
+    let readonly_token = env::var("VORTEX_MCP_READONLY_TOKEN").ok();
+    if let Some(ref token) = readonly_token {
+        assert!(token.len() >= 32 && token != &client_token, "readonly credential must be distinct and at least 32 characters");
+    }
+    let state = web::Data::new(State {upstream, client_token, readonly_token, client, sessions: Mutex::new(HashMap::new())});
     let listen_port: u16 = env::var("VORTEX_MCP_LISTEN_PORT").ok()
         .map(|p| p.parse().expect("valid listen port")).unwrap_or(8788);
     HttpServer::new(move || App::new().app_data(state.clone())
