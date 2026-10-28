@@ -15,6 +15,13 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        if self.path == "/.well-known/jwks.json":
+            jwks = os.environ.get("VORTEX_TEST_JWKS")
+            if jwks is None:
+                self.send_error(404)
+            else:
+                self.reply(200, json.loads(jwks))
+            return
         if self.path != "/_count":
             self.send_error(404)
             return
