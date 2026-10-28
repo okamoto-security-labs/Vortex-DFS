@@ -7,7 +7,7 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use openssl::{bn::BigNum, hash::MessageDigest, pkey::{PKey, Public}, rsa::Rsa, sign::Verifier};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::{collections::HashMap, env, fs::{File, OpenOptions}, io::Write, sync::Mutex, time::{Duration, Instant}};
+use std::{collections::HashMap, env, fs::{File, OpenOptions}, io::Write, sync::{Mutex, RwLock}, time::{Duration, Instant}};
 use vortex_dfs::runtime::{
     evaluate_request, IdentityContext, Operation, PayloadContext, RequestContext, RuntimePolicy,
 };
@@ -16,7 +16,7 @@ struct State {
     upstream: String,
     client_token: Option<String>,
     jwt: Option<JwtConfig>,
-    oidc: Option<OidcConfig>,
+    oidc: Option<std::sync::Arc<RwLock<OidcConfig>>>,
     client: reqwest::Client,
     readonly_token: Option<String>,
     sessions: Mutex<HashMap<String, Session>>,
@@ -40,7 +40,8 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
     let auth = req.headers().get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok()).unwrap_or("");
     let identity = if let Some(oidc) = &state.oidc {
-        match auth.strip_prefix("Bearer ").and_then(|t| verify_rs256(t, oidc)) {
+        let verified = oidc.read().ok().and_then(|keys| auth.strip_prefix("Bearer ").and_then(|t| verify_rs256(t, &keys)));
+        match verified {
             Some(p) => p,
             None => return HttpResponse::Unauthorized().json(json!({"error":"unauthorized"})),
         }
@@ -240,21 +241,45 @@ fn parse_jwks(value: &Value, issuer: String, audience: String) -> Result<OidcCon
     if keys.is_empty() { return Err("no usable RS256 keys".into()); }
     Ok(OidcConfig { keys, issuer, audience })
 }
-async fn load_oidc_config(client: &reqwest::Client) -> Option<OidcConfig> {
-    let issuer = env::var("VORTEX_MCP_OIDC_ISSUER").ok()?;
-    let audience = env::var("VORTEX_MCP_OIDC_AUDIENCE").expect("OIDC audience required");
-    let jwks_url = env::var("VORTEX_MCP_OIDC_JWKS_URL").expect("OIDC JWKS URL required");
-    let url = reqwest::Url::parse(&jwks_url).expect("valid JWKS URL");
-    let loopback = url.scheme() == "http"
-        && matches!(url.host_str(),Some("127.0.0.1")|Some("localhost")|Some("::1"));
-    assert!(url.scheme()=="https" || loopback, "JWKS must use HTTPS or loopback test HTTP");
+fn validate_provider_url(url: &reqwest::Url) {
+    let loopback = url.scheme()=="http" &&
+        matches!(url.host_str(),Some("127.0.0.1")|Some("localhost")|Some("::1"));
+    assert!(url.scheme()=="https" || loopback, "OIDC provider must use HTTPS except loopback fixture");
     assert!(url.username().is_empty() && url.password().is_none() && url.fragment().is_none());
-    let response = client.get(url).send().await.expect("JWKS fetch failed");
-    assert!(response.status().is_success(), "JWKS fetch HTTP failure");
-    let body = response.bytes().await.expect("JWKS body unavailable");
-    assert!(body.len() <= 65536, "JWKS body too large");
-    let data: Value = serde_json::from_slice(&body).expect("invalid JWKS JSON");
-    Some(parse_jwks(&data, issuer, audience).expect("invalid JWKS"))
+}
+async fn get_bounded_json(client: &reqwest::Client, url: reqwest::Url) -> Result<Value,String> {
+    let response = client.get(url).send().await.map_err(|e|e.to_string())?;
+    if !response.status().is_success() { return Err("provider returned HTTP failure".into()); }
+    if response.content_length().is_some_and(|n| n>65536) { return Err("provider response too large".into()); }
+    let body=response.bytes().await.map_err(|e|e.to_string())?;
+    if body.len()>65536 { return Err("provider response too large".into()); }
+    serde_json::from_slice(&body).map_err(|_|"invalid provider JSON".into())
+}
+async fn discover_oidc(client: &reqwest::Client, issuer: &str) -> Result<reqwest::Url,String> {
+    let issuer_url=reqwest::Url::parse(issuer).map_err(|e|e.to_string())?;
+    validate_provider_url(&issuer_url);
+    if issuer_url.query().is_some() { return Err("issuer must not have a query".into()); }
+    let path=issuer_url.path().trim_end_matches('/');
+    let mut discovery=issuer_url.clone();
+    discovery.set_path(&format!("{path}/.well-known/openid-configuration"));
+    let doc=get_bounded_json(client,discovery).await?;
+    if doc.get("issuer").and_then(Value::as_str)!=Some(issuer) {
+        return Err("OIDC discovery issuer mismatch".into());
+    }
+    let jwks_url=reqwest::Url::parse(doc.get("jwks_uri").and_then(Value::as_str)
+        .ok_or("discovery jwks_uri missing")?).map_err(|e|e.to_string())?;
+    validate_provider_url(&jwks_url);
+    if jwks_url.scheme()!=issuer_url.scheme() || jwks_url.host_str()!=issuer_url.host_str()
+        || jwks_url.port_or_known_default()!=issuer_url.port_or_known_default() {
+        return Err("JWKS origin differs from configured issuer".into());
+    }
+    Ok(jwks_url)
+}
+async fn load_oidc_config(client: &reqwest::Client, issuer: &str, audience: &str)
+    -> Result<OidcConfig,String> {
+    let jwks_url=discover_oidc(client,issuer).await?;
+    let data=get_bounded_json(client,jwks_url).await?;
+    parse_jwks(&data,issuer.to_string(),audience.to_string())
 }
 /// Strict single-algorithm JWT proof verifier. No OIDC discovery or JWKS support.
 fn verify_hs256(token: &str, cfg: &JwtConfig) -> Option<Principal> {
@@ -303,10 +328,43 @@ async fn main() -> std::io::Result<()> {
     assert!(url.username().is_empty() && url.password().is_none() && url.fragment().is_none());
     let client = reqwest::Client::builder().timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none()).build().unwrap();
-    let oidc = load_oidc_config(&client).await;
+    let oidc_settings=env::var("VORTEX_MCP_OIDC_ISSUER").ok().map(|issuer| {
+        let audience=env::var("VORTEX_MCP_OIDC_AUDIENCE").expect("OIDC audience required");
+        (issuer,audience)
+    });
+    let oidc=if let Some((issuer,audience))=&oidc_settings {
+        let config=load_oidc_config(&client,issuer,audience).await
+            .expect("OIDC discovery/JWKS initial load failed");
+        Some(std::sync::Arc::new(RwLock::new(config)))
+    } else { None };
+    if let (Some(keys),Some((issuer,audience)))=(oidc.clone(),oidc_settings) {
+        let refresh_client=client.clone();
+        let interval=env::var("VORTEX_MCP_OIDC_REFRESH_SECS").ok()
+            .map(|s|s.parse::<u64>().expect("valid OIDC refresh interval")).unwrap_or(300);
+        assert!((5..=86400).contains(&interval),"OIDC refresh must be 5..86400 seconds");
+        tokio::spawn(async move {
+            let mut ticker=tokio::time::interval(Duration::from_secs(interval));
+            ticker.tick().await;
+            loop {
+                ticker.tick().await;
+                match load_oidc_config(&refresh_client,&issuer,&audience).await {
+                    Ok(updated) => {
+                        if let Ok(mut current)=keys.write() { *current=updated; }
+                    }
+                    Err(err) => {
+                        log::error!("OIDC refresh failed: {err}; denying tokens if key snapshot expires");
+                        // Fail closed on provider refresh failure. Never retain stale
+                        // trust anchors indefinitely after a failed rotation.
+                        if let Ok(mut current)=keys.write() { current.keys.clear(); }
+                    }
+                }
+            }
+        });
+    }
     if oidc.is_some() {
         assert!(env::var("VORTEX_MCP_JWT_HS256_SECRET").is_err()
-            && env::var("VORTEX_MCP_CLIENT_TOKEN").is_err(),
+            && env::var("VORTEX_MCP_CLIENT_TOKEN").is_err()
+            && env::var("VORTEX_MCP_OIDC_JWKS_URL").is_err(),
             "OIDC mode must not be combined with other auth modes");
     }
     let jwt = match env::var("VORTEX_MCP_JWT_HS256_SECRET") {
