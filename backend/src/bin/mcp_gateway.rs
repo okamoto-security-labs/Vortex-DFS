@@ -33,6 +33,7 @@ struct OidcConfig { keys: HashMap<String, PKey<Public>>, issuer: String, audienc
 struct Principal { id: String, scope_export: bool }
 const SESSION_TTL: Duration = Duration::from_secs(3600);
 const PROTOCOL: &str = "2025-06-18";
+const SUPPORTED_PROTOCOLS: &[&str] = &["2025-06-18", "2025-03-26", "2025-11-25"];
 fn error(id: Value, code: i64, message: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }
@@ -73,7 +74,8 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
     }
     let method = request.get("method").and_then(Value::as_str).unwrap_or("");
     if method == "initialize" {
-        if request.pointer("/params/protocolVersion").and_then(Value::as_str) != Some(PROTOCOL) {
+        let requested = request.pointer("/params/protocolVersion").and_then(Value::as_str).unwrap_or("");
+        if !SUPPORTED_PROTOCOLS.contains(&requested) {
             return HttpResponse::Ok().json(error(id,-32602,"Unsupported MCP protocol version"));
         }
         let session_id = uuid::Uuid::new_v4().to_string();
@@ -85,7 +87,7 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         }
         return HttpResponse::Ok().insert_header(("Mcp-Session-Id", session_id))
             .json(json!({"jsonrpc":"2.0","id":id,"result":{
-                "protocolVersion":PROTOCOL,"capabilities":{"tools":{}},
+                "protocolVersion":requested,"capabilities":{"tools":{}},
                 "serverInfo":{"name":"vortex-mcp-gateway-proof","version":"0.2.0"}
             }}));
     }
