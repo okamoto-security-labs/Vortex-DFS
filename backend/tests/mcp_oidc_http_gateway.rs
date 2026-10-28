@@ -99,6 +99,18 @@ async fn signed_oidc_jwks_tokens_enforce_principal_and_scope_end_to_end() {
     }
     let count:Value=client.get(&count_url).send().await.unwrap().json().await.unwrap();
     assert_eq!(count["received_tool_calls"],json!(2),"independent client forwarding mismatch");
+    // Real SDK interoperability: a separate Python process uses the official
+    // MCP Python ClientSession + Streamable HTTP transport.
+    let sdk_probe=format!("{}/../docs/mcp-security-proof/mcp_sdk_probe.py",env!("CARGO_MANIFEST_DIR"));
+    for (token,decision) in [(&allowed,"ALLOW"),(&readonly,"REJECT")] {
+        let output=Command::new("python3").arg(&sdk_probe).arg(&endpoint).arg(token).arg(decision)
+            .output().expect("launch official MCP Python SDK client");
+        assert!(output.status.success(),"official SDK interoperability failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),String::from_utf8_lossy(&output.stderr));
+        assert!(String::from_utf8_lossy(&output.stdout).contains("\"verified\": true"));
+    }
+    let count:Value=client.get(&count_url).send().await.unwrap().json().await.unwrap();
+    assert_eq!(count["received_tool_calls"],json!(3),"official SDK forwarding mismatch");
     // Rotate to a second signing key and confirm that old key stops authorizing.
     let new_rsa=Rsa::generate(2048).unwrap();
     let new_n=URL_SAFE_NO_PAD.encode(new_rsa.n().to_vec());
@@ -134,7 +146,7 @@ async fn signed_oidc_jwks_tokens_enforce_principal_and_scope_end_to_end() {
         .send().await.unwrap().json().await.unwrap();
     assert_eq!(after_rotation.pointer("/result/content/0/text"),Some(&json!("Fixture accepted")));
     let count:Value=client.get(&count_url).send().await.unwrap().json().await.unwrap();
-    assert_eq!(count["received_tool_calls"],json!(3));
+    assert_eq!(count["received_tool_calls"],json!(4));
     let events=std::fs::read_to_string(&audit).unwrap();
     assert!(events.contains("alice") && events.contains("bob"));
     assert!(!events.contains(&allowed));
