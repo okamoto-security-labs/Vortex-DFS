@@ -68,3 +68,9 @@ The isolated gateway now requires `VORTEX_MCP_AUDIT_PATH` pointing to a writable
 Example: `export VORTEX_MCP_AUDIT_PATH=/tmp/vortex-mcp-proof-audit.jsonl` (proof only; use a secure dedicated path, restricted permissions, and managed storage for real deployments).
 
 This is not tamper-evident, distributed, immutable, rotated or centrally monitored audit storage. A local JSONL file alone is insufficient for production compliance. Rejections before tool policy evaluation (such as invalid authentication, session errors, malformed JSON and disallowed tool names) are not currently written to this audit file. Do not claim complete request auditing.
+
+## RS256 JWKS authentication milestone (commit 19be08c8)
+
+Optional configuration: `VORTEX_MCP_OIDC_ISSUER`, `VORTEX_MCP_OIDC_AUDIENCE`, `VORTEX_MCP_OIDC_JWKS_URL`. The gateway fetches JWKS once at startup (HTTPS required outside loopback), pins supported RS256 RSA public keys by unique `kid`, and verifies JWT signature, issuer, audience, expiry, not-before, issued-at, subject and `scope`. Invalid credentials are rejected before MCP session initialization. The isolated HTTP integration test starts an independent loopback JWKS fixture and signs test JWTs with an RSA private key, then verifies both scope enforcement and upstream call counts.
+
+**Scope limitations:** this is direct JWKS verification, **not complete OIDC discovery or enterprise identity integration**. The gateway does not yet fetch `/.well-known/openid-configuration`, refresh JWKS during rotation, validate an IdP's discovery issuer/JWKS relationship, or enforce per-tenant issuer allowlists. The key snapshot is fixed until process restart. The loopback HTTP JWKS test endpoint is strictly a fixture; use HTTPS with a trusted IdP outside local tests. Full OIDC/JWKS production-readiness and CI results remain pending.
