@@ -90,6 +90,30 @@
     </section>
 
     <section>
+      <h2>Concrete MCP scenario: customer records export</h2>
+      <p>An agent has access to an approved MCP CRM tool. A user asks it to export customer records. The tool is approved, but the action still needs authorization for the specific caller, operation, and data scope.</p>
+      <div class="scope">
+        <div>
+          <h3>Permitted path</h3>
+          <ul>
+            <li>Caller identity and required scope are present</li>
+            <li>Operation and evidence satisfy the active policy</li>
+            <li>Decision: ALLOW; guarded executor may run</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Denied path</h3>
+          <ul>
+            <li>Required scope or authorization evidence is absent</li>
+            <li>Policy evaluation returns REJECT</li>
+            <li>Protected executor must not be invoked</li>
+          </ul>
+        </div>
+      </div>
+      <p class="boundary-note">This is a proposed MCP integration scenario, not a claim that Vortex DFS is currently connected to a CRM or MCP server. The existing Rust tests validate the generic execution-gate behavior; a paid pilot would test this scenario end to end.</p>
+    </section>
+
+    <section>
       <h2>Evidence in the codebase</h2>
       <p>These cases reference existing Rust tests. Their names and assertions can be inspected in the repository. The backend suite was independently executed by GitHub Actions on 28 October 2026: <strong>197 passed, 0 failed</strong> at commit <code>0ff151d</code>. <a href="https://github.com/okamoto-security-labs/Vortex-DFS/actions/runs/40735863523">Inspect the complete CI run and logs</a>.</p>
       <table>
@@ -136,7 +160,7 @@
     <section class="closing">
       <h2>From mechanism to measured outcome</h2>
       <p>A paid, fixed-scope feasibility pilot would test this execution boundary against one real customer workflow. Scope, integration prerequisites, success criteria, and commercial terms would be agreed before any customer-specific development.</p>
-      <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/docs/mcp-security-proof-kamal/docs/mcp-security-proof/README.md">Read the supporting technical brief</a>
+      <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/docs/mcp-security-proof-kamal/docs/mcp-security-proof/README.md">Read the supporting technical brief</a> · <a href="https://github.com/okamoto-security-labs/Vortex-DFS/blob/docs/mcp-security-proof-kamal/docs/mcp-security-proof/PILOT.md">Review pilot scope and acceptance criteria</a>
     </section>
   </main>
   <footer><div class="container">Vortex DFS · Engineering evidence, not a production security certification.</div></footer>
