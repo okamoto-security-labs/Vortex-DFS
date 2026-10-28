@@ -2,7 +2,7 @@
 //! Run behind TLS; bind to loopback by default. Never expose publicly without review.
 use actix_web::{http::header, web, App, HttpRequest, HttpResponse, HttpServer};
 use serde_json::{json, Value};
-use std::{collections::HashMap, env, sync::Mutex, time::{Duration, Instant}};
+use std::{collections::HashMap, env, fs::{File, OpenOptions}, io::Write, sync::Mutex, time::{Duration, Instant}};
 use vortex_dfs::runtime::{
     evaluate_request, IdentityContext, Operation, PayloadContext, RequestContext, RuntimePolicy,
 };
@@ -13,6 +13,7 @@ struct State {
     client: reqwest::Client,
     readonly_token: Option<String>,
     sessions: Mutex<HashMap<String, Session>>,
+    audit: Mutex<File>,
 }
 struct Session {
     principal: &'static str,
@@ -114,6 +115,26 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
         .with_identity(identity);
     context.evidence.set_structural_validity(true);
     let evaluation = evaluate_request(context, &policy);
+    // Persist a minimal decision record before forwarding any external effect.
+    // Failure to write OR sync the record is fail-closed.
+    let event = json!({
+        "event_id": uuid::Uuid::new_v4().to_string(),
+        "request_id": evaluation.context.request_id,
+        "principal": principal,
+        "tool": "crm_export",
+        "decision": evaluation.decision.outcome.as_str(),
+        "reason_code": evaluation.decision.reason_code.as_str(),
+        "session_id": session_id,
+    });
+    let audited = (|| -> std::io::Result<()> {
+        let mut audit = state.audit.lock().map_err(|_| std::io::Error::other("audit lock poisoned"))?;
+        writeln!(audit, "{event}")?;
+        audit.sync_data()
+    })();
+    if audited.is_err() {
+        log::error!("MCP audit persistence failed; blocking execution");
+        return HttpResponse::ServiceUnavailable().json(error(id,-32004,"Audit unavailable"));
+    }
     if !evaluation.permits_execution() {
         return HttpResponse::Ok().json(json!({"jsonrpc":"2.0","id":id,"error":{
             "code":-32003,"message":"Vortex policy rejected execution",
@@ -159,7 +180,13 @@ async fn main() -> std::io::Result<()> {
     if let Some(ref token) = readonly_token {
         assert!(token.len() >= 32 && token != &client_token, "readonly credential must be distinct and at least 32 characters");
     }
-    let state = web::Data::new(State {upstream, client_token, readonly_token, client, sessions: Mutex::new(HashMap::new())});
+    // Required append-only local audit sink for the isolated proof. For real
+    // production, use a durable managed store with tamper evidence and rotation.
+    let audit_path = env::var("VORTEX_MCP_AUDIT_PATH").expect("VORTEX_MCP_AUDIT_PATH required");
+    let audit = OpenOptions::new().create(true).append(true).open(&audit_path)
+        .expect("open audit sink");
+    let state = web::Data::new(State {upstream, client_token, readonly_token, client,
+        sessions: Mutex::new(HashMap::new()), audit: Mutex::new(audit)});
     let listen_port: u16 = env::var("VORTEX_MCP_LISTEN_PORT").ok()
         .map(|p| p.parse().expect("valid listen port")).unwrap_or(8788);
     HttpServer::new(move || App::new().app_data(state.clone())
