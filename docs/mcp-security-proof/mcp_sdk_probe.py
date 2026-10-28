@@ -13,28 +13,25 @@ from mcp.client.streamable_http import streamablehttp_client
 
 
 async def probe(endpoint: str, token: str, expected: str) -> None:
-    from mcp.client.streamable_http import MCP_DEFAULT_TIMEOUT
-    from mcp.shared._httpx_utils import create_mcp_http_client
-    async with create_mcp_http_client(
-        headers={"Authorization": f"Bearer {token}"},
-    ) as http_client:
-        async with streamablehttp_client(endpoint, http_client=http_client) as streams:
-            read, write, _session_id = streams
-            async with ClientSession(read, write) as session:
-                initialized = await session.initialize()
-                assert initialized.protocolVersion, "MCP initialize did not negotiate a version"
-                tools = await session.list_tools()
-                assert any(tool.name == "crm_export" for tool in tools.tools)
-                if expected == "ALLOW":
-                    result = await session.call_tool("crm_export", {"customer_group": "test"})
-                    assert any(getattr(item, "text", "") == "Fixture accepted" for item in result.content), result
+    async with streamablehttp_client(
+        endpoint, headers={"Authorization": f"Bearer {token}"}
+    ) as streams:
+        read, write, _session_id = streams
+        async with ClientSession(read, write) as session:
+            initialized = await session.initialize()
+            assert initialized.protocolVersion, "MCP initialize did not negotiate a version"
+            tools = await session.list_tools()
+            assert any(tool.name == "crm_export" for tool in tools.tools)
+            if expected == "ALLOW":
+                result = await session.call_tool("crm_export", {"customer_group": "test"})
+                assert any(getattr(item, "text", "") == "Fixture accepted" for item in result.content), result
+            else:
+                try:
+                    await session.call_tool("crm_export", {"customer_group": "test"})
+                except Exception as exc:
+                    assert "SCOPE_DENIED" in str(exc) or "Vortex policy rejected" in str(exc), str(exc)
                 else:
-                    try:
-                        await session.call_tool("crm_export", {"customer_group": "test"})
-                    except Exception as exc:
-                        assert "SCOPE_DENIED" in str(exc) or "Vortex policy rejected" in str(exc), str(exc)
-                    else:
-                        raise AssertionError("read-only token unexpectedly executed tool")
+                    raise AssertionError("read-only token unexpectedly executed tool")
     print(json.dumps({"client": "official-python-mcp-sdk", "expected": expected, "verified": True}))
 
 
