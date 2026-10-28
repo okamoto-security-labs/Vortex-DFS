@@ -255,3 +255,49 @@ async fn main() -> std::io::Result<()> {
         .route("/mcp",web::post().to(mcp)))
         .bind(("127.0.0.1",listen_port))?.run().await
 }
+
+#[cfg(test)]
+mod jwt_tests {
+    use super::*;
+    fn sign(claims: Value, key: &[u8]) -> String {
+        let h = URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let p = URL_SAFE_NO_PAD.encode(claims.to_string());
+        let input = format!("{h}.{p}");
+        let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
+        mac.update(input.as_bytes());
+        let signature = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
+        format!("{input}.{signature}")
+    }
+    #[test]
+    fn jwt_verifies_signature_claims_and_scopes() {
+        let cfg = JwtConfig { key: b"proof-key-32-bytes-or-longer-123456".to_vec(),
+            issuer: "https://issuer.example".into(), audience: "vortex-gateway".into() };
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let claims = json!({"iss":cfg.issuer,"aud":cfg.audience,"sub":"alice",
+            "exp":now+300,"nbf":now-1,"scope":"crm:export other"});
+        let token = sign(claims.clone(),&cfg.key);
+        let verified = verify_hs256(&token,&cfg).unwrap();
+        assert_eq!(verified.id,"alice");
+        assert!(verified.scope_export);
+        let mut tampered = claims.clone();
+        tampered["sub"] = json!("mallory");
+        let altered_payload = URL_SAFE_NO_PAD.encode(tampered.to_string());
+        let mut pieces = token.split('.');
+        let header = pieces.next().unwrap();
+        let _payload = pieces.next().unwrap();
+        let signature = pieces.next().unwrap();
+        assert!(verify_hs256(&format!("{header}.{altered_payload}.{signature}"),&cfg).is_none());
+        let mut expired = claims.clone(); expired["exp"] = json!(now-1);
+        assert!(verify_hs256(&sign(expired,&cfg.key),&cfg).is_none());
+        let mut future = claims.clone(); future["nbf"] = json!(now+500);
+        assert!(verify_hs256(&sign(future,&cfg.key),&cfg).is_none());
+        let mut wrong_aud = claims.clone(); wrong_aud["aud"] = json!("wrong");
+        assert!(verify_hs256(&sign(wrong_aud,&cfg.key),&cfg).is_none());
+        let mut readonly = claims.clone(); readonly["scope"] = json!("crm:read");
+        assert!(!verify_hs256(&sign(readonly,&cfg.key),&cfg).unwrap().scope_export);
+        let none_alg = claims; 
+        let h = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"JWT"}"#);
+        let p = URL_SAFE_NO_PAD.encode(none_alg.to_string());
+        assert!(verify_hs256(&format!("{h}.{p}."),&cfg).is_none());
+    }
+}
