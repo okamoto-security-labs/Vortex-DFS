@@ -15,8 +15,23 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        if self.path == "/.well-known/openid-configuration":
+            issuer = os.environ.get("VORTEX_TEST_ISSUER")
+            if not issuer:
+                self.send_error(404)
+            else:
+                self.reply(200, {"issuer": issuer, "jwks_uri": "http://127.0.0.1:%s/.well-known/jwks.json" % self.server.server_port})
+            return
         if self.path == "/.well-known/jwks.json":
-            jwks = os.environ.get("VORTEX_TEST_JWKS")
+            jwks_file = os.environ.get("VORTEX_TEST_JWKS_FILE")
+            if jwks_file:
+                try:
+                    with open(jwks_file, "r", encoding="utf-8") as f:
+                        jwks = f.read()
+                except OSError:
+                    jwks = None
+            else:
+                jwks = os.environ.get("VORTEX_TEST_JWKS")
             if jwks is None:
                 self.send_error(404)
             else:
