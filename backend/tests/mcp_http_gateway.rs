@@ -113,4 +113,27 @@ async fn http_gateway_forwards_only_authorized_calls() {
     assert!(!audit_raw.contains("test-gateway-token"), "credentials leaked to audit");
     let _ = std::fs::remove_file(&audit_path);
 
+    // Linux CI-only failure injection: /dev/full rejects writes even when opened.
+    #[cfg(target_os = "linux")]
+    {
+        let broken_port = free_port();
+        let _broken_gateway = Guard(Command::new(env!("CARGO_BIN_EXE_mcp_gateway"))
+            .env("VORTEX_MCP_UPSTREAM", format!("http://127.0.0.1:{fixture_port}/mcp"))
+            .env("VORTEX_MCP_LISTEN_PORT", broken_port.to_string())
+            .env("VORTEX_MCP_CLIENT_TOKEN", token)
+            .env("VORTEX_MCP_AUDIT_PATH", "/dev/full")
+            .stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap());
+        let broken_endpoint = format!("http://127.0.0.1:{broken_port}/mcp");
+        wait_ready(&client, &broken_endpoint).await;
+        let init = client.post(&broken_endpoint).bearer_auth(token)
+            .json(&initialize).send().await.unwrap();
+        let broken_session = init.headers().get("mcp-session-id").unwrap().to_str().unwrap().to_string();
+        let _ = client.post(&broken_endpoint).bearer_auth(token)
+            .header("mcp-session-id",&broken_session).json(&notification).send().await.unwrap();
+        let fail = client.post(&broken_endpoint).bearer_auth(token)
+            .header("mcp-session-id",&broken_session).json(&request).send().await.unwrap();
+        assert_eq!(fail.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(counter(&client,&count_url).await,1,"audit failure forwarded a tool call");
+    }
+
 }
