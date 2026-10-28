@@ -27,7 +27,7 @@ async fn mcp(req: HttpRequest, body: web::Bytes, state: web::Data<State>) -> Htt
     if body.len() > 65536 {
         return HttpResponse::PayloadTooLarge().finish();
     }
-    let request: Value = match serde_json::from_slice(&body) {
+    let request: Value = match serde_json::from_slice::<Value>(&body) {
         Ok(v) if v.is_object() => v,
         _ => return HttpResponse::BadRequest().json(error(Value::Null,-32700,"Invalid JSON-RPC request")),
     };
