@@ -106,8 +106,10 @@ async fn main() -> std::io::Result<()> {
     let client = reqwest::Client::builder().timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none()).build().unwrap();
     let state = web::Data::new(State {upstream, client_token, client});
+    let listen_port: u16 = env::var("VORTEX_MCP_LISTEN_PORT").ok()
+        .map(|p| p.parse().expect("valid listen port")).unwrap_or(8788);
     HttpServer::new(move || App::new().app_data(state.clone())
         .app_data(web::PayloadConfig::new(65536))
         .route("/mcp",web::post().to(mcp)))
-        .bind(("127.0.0.1",8788))?.run().await
+        .bind(("127.0.0.1",listen_port))?.run().await
 }
