@@ -114,6 +114,20 @@
     </section>
 
     <section>
+      <h2>Engineering objections, answered</h2>
+      <h3>Is this a claim to implement Zero Trust everywhere?</h3>
+      <p>No. The scope is deliberately narrow: enforce a policy decision at a guarded action-execution boundary. This does not establish universal Zero Trust across an agent, organization, or infrastructure.</p>
+      <h3>Don't agent frameworks already have checkpoints?</h3>
+      <p>Yes. A framework checkpoint can be useful for orchestration or review. The proposed distinction is an enforcement boundary immediately before a protected executor runs, with an explicit decision and a fail-closed path when required evidence is missing. The value of adding this boundary to a particular framework must be tested, not assumed.</p>
+      <h3>How do ALLOW and REJECT avoid false positives?</h3>
+      <p>They do not eliminate them automatically. The decision is derived from the request, evidence, and policy. In a pilot, permitted and prohibited requests would be labeled in advance, then tested for incorrect blocks, incorrect allows, and operational latency. A legitimate request blocked by policy is a measurable failure to investigate, not something to hide.</p>
+      <h3>What proves that it works?</h3>
+      <p>The linked Rust CI run demonstrates passing tests of the current implementation. It does not prove production efficacy, an MCP Tool Runner adapter, or end-to-end prevention in a real customer workflow. Those are explicit pilot acceptance questions.</p>
+      <h3>What would a real MCP use case validate?</h3>
+      <p>For a customer-record export tool, the pilot would compare requests with valid identity, scope, and authorization evidence against requests missing those requirements. It would verify that allowed calls reach the protected executor, rejected calls do not, and the results are reproducible and auditable in a nonproduction environment.</p>
+    </section>
+
+    <section>
       <h2>Evidence in the codebase</h2>
       <p>These cases reference existing Rust tests. Their names and assertions can be inspected in the repository. The backend suite was independently executed by GitHub Actions on 28 October 2026: <strong>197 passed, 0 failed</strong> at commit <code>0ff151d</code>. <a href="https://github.com/okamoto-security-labs/Vortex-DFS/actions/runs/40735863523">Inspect the complete CI run and logs</a>.</p>
       <table>
