@@ -134,7 +134,15 @@
     .demo-note{color:var(--muted);font-size:13px;margin-top:14px}
     @media(max-width:760px){.demo-layout{grid-template-columns:1fr}}
 
-  </style>
+  
+:root{--bg:#000;--bg-2:#050505;--panel:#090909;--panel-2:#101010;--text:#fff;--muted:#aaa;--line:rgba(255,255,255,.15);--line-hi:rgba(255,255,255,.38);--cyan:#fff;--blue:#fff;--green:#fff;--amber:#fff;--red:#fff}
+body::before{background:none} .gradient{background:none;color:#fff;-webkit-background-clip:initial;background-clip:initial}
+.brand-logo{width:38px;height:38px;object-fit:contain} .mark{border:0;background:none;box-shadow:none;width:40px;height:40px}
+.scan-form{display:grid;gap:12px;max-width:760px;margin:20px auto 0;border:1px solid var(--line-hi);border-radius:14px;padding:24px;background:#080808}
+.scan-form input{width:100%;padding:14px;color:#fff;background:#111;border:1px solid #555;border-radius:8px;font:inherit}
+.scan-result{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--mono);color:#ddd}
+.scan-note{color:var(--muted);font-size:13px}
+</style>
 </head>
 <body>
   <header class="nav">
@@ -277,7 +285,25 @@ Execution Failures .............. 0</pre>
       </div>
     </section>
 
-    <section id="benchmarks">
+    
+<section id="scanner">
+ <div class="wrap">
+ <div class="section-head"><div><div class="section-kicker">Authorized assets only</div><h2>Live HTTP security checks.</h2></div>
+ <p class="section-lead">Real security-header inspection for domains authorized by the operator. Not a CVE scanner or penetration test.</p></div>
+ <form class="scan-form" id="real-scan">
+   <label for="scan-target">Authorized HTTPS domain</label>
+   <input id="scan-target" type="text" required placeholder="https://your-domain.com" autocomplete="off">
+   <label for="scan-key">Subscriber API key (optional)</label>
+   <input id="scan-key" type="password" placeholder="Bearer token for subscribed accounts" autocomplete="off">
+   <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
+   <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
+   <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
+   <a href="mailto:gugaokamoto1@gmail.com?subject=Vortex%20Scanner%20subscription%20US%2470%20monthly" class="btn btn-secondary">Request subscription · $70/month</a>
+   <p class="scan-note">Payment checkout is not yet activated. The subscription button opens an email request, not a payment form.</p>
+ </form>
+ </div>
+</section>
+<section id="benchmarks">
       <div class="wrap">
         <div class="section-head reveal">
           <div><div class="section-kicker">Measured locally</div><h2>Deterministic validation with visible cost.</h2></div>
@@ -396,6 +422,25 @@ if report.is_allowed() {
     }
     scenarioSelect.addEventListener('change',updateScenario);
     updateScenario();
+
+
+const scanForm=document.getElementById('real-scan');
+scanForm.addEventListener('submit', async event=>{
+ event.preventDefault();
+ const target=document.getElementById('scan-target').value.trim();
+ const key=document.getElementById('scan-key').value.trim();
+ const output=document.getElementById('scan-response');
+ const button=document.getElementById('scan-submit');
+ button.disabled=true;output.textContent='Checking server...';
+ try{
+  const headers={'Content-Type':'application/json'};
+  if(key) headers.Authorization='Bearer '+key;
+  const response=await fetch('/v1/scans',{method:'POST',headers,body:JSON.stringify({target})});
+  const data=await response.json();
+  output.textContent=JSON.stringify({http_status:response.status,...data},null,2);
+ }catch(_){output.textContent='Scanner API unavailable at this domain. Contact the operator.';}
+ finally{button.disabled=false;}
+});
 
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
