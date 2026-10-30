@@ -33,7 +33,7 @@ jobs:
         const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
         if (!scripts.length) throw Error('No inline script in scanner UI');
         for (const match of scripts) new Function(match[1]);
-        if (!html.includes('id="real-scan"')) throw Error('Real scanner form missing');
+        if (!html.includes('id="scanner"') || !html.includes('Request early access')) throw Error('Scanner early-access section missing');
         if (!html.includes('data:image/png;base64,')) throw Error('Monochrome logo missing');
         console.log('Scanner UI and Pages Functions syntax OK');
         NODE
