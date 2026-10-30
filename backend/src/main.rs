@@ -19,6 +19,7 @@ use vortex_dfs::runtime::{
     PayloadContext, PostgresRuntimeAuditStore, RequestContext, RuntimeAuditStore, RuntimePolicy,
 };
 use vortex_dfs::signer_lwe::verify;
+mod scanner;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -599,7 +600,9 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(runtime_state.clone())
+            .app_data(web::Data::new(get_pool().expect("database initialized").clone()))
             .app_data(anonymize_json_config())
+            .route("/v1/scans", web::post().to(scanner::run))
             .route("/health", web::get().to(health_check))
             .route(
                 "/v1/evaluate",
