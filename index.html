@@ -161,6 +161,17 @@ a{ -webkit-tap-highlight-color:transparent }
 @keyframes water-drop{0%{opacity:.44;transform:translate(-50%,-50%) scale(0)}55%{opacity:.24}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
 @media(prefers-reduced-motion:reduce){.water-ripple{animation:none;display:none}body{transition:none}}
 
+
+/* Accessible contrast for every light-mode content surface */
+body.light-mode .metric,body.light-mode .roadmap,body.light-mode .quote,body.light-mode .terminal,
+body.light-mode .compare-card,body.light-mode .flow-card,body.light-mode .scanner-tier,
+body.light-mode .roadmap>div,body.light-mode .metric-card{
+ background:var(--panel)!important;color:var(--text)!important;border-color:var(--line)!important
+}
+body.light-mode .metric *,body.light-mode .roadmap *,body.light-mode .quote *,body.light-mode .terminal *{text-shadow:none}
+body.light-mode .scanner-tier p,body.light-mode .scanner-tier .scan-note{color:var(--muted)!important}
+body.light-mode .terminal code,body.light-mode .terminal pre{color:var(--text)!important}
+body.light-mode .pulse{box-shadow:none}
 </style>
 </head>
 <body>
