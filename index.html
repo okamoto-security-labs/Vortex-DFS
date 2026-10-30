@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Vortex DFS security: authorized HTTP configuration checks, 3 public scans per IP and 100 subscriber scans each month.">
+  <meta name="description" content="Vortex DFS security: authorized HTTP configuration checks, 3 free preview checks per browser and 100 subscriber scans each month.">
   <meta name="theme-color" content="#000000">
   <title>Okamoto Security Labs — Vortex Scanner Early Access</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -188,6 +188,16 @@ body:not(.light-mode) .scanner-tier,body:not(.light-mode) .flow-card{background:
 body.light-mode .nav{background:#fff!important}
 body.light-mode .hero,body.light-mode section{background-color:var(--bg)}
 @media(max-width:780px){.nav .links>a[href^="#"]{display:none}.nav .links{gap:7px}.theme-toggle{min-width:76px}.hero{padding-top:48px!important}}
+
+/* Clean top without horizontal separator */
+.nav{border-bottom:0!important;box-shadow:none!important}
+header.nav::after,header.nav::before{display:none!important}
+.hero{border-top:0!important}
+.email-access{padding:22px;border:1px solid var(--line-hi);background:var(--panel);border-radius:14px;margin:18px 0}
+.email-access label{display:block;font:600 13px var(--mono);margin-bottom:8px}
+.email-access input{width:100%;padding:13px;border:1px solid var(--line-hi);border-radius:8px;color:var(--text);background:var(--bg-2);font:inherit;margin-bottom:12px}
+.email-access[hidden],#scan-unlocked[hidden]{display:none!important}
+.email-access .scan-note{margin:10px 0;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -238,11 +248,20 @@ body.light-mode .hero,body.light-mode section{background-color:var(--bg)}
       <div><div class="section-kicker">Okamoto Security Labs</div><h2>Vortex Scanner — early access</h2></div>
       <p class="section-lead">A security scanning service for assets you own or are authorized to assess. Public scanning is not enabled yet; join the early-access list for availability.</p>
     </div>
-    <div class="scanner-pricing">
+    
+    <div id="scan-unlocked" class="email-access">
+      <div class="section-kicker">Try 3 free HTTP header checks</div>
+      <label for="check-domain">Domain you own or are authorized to check</label>
+      <input id="check-domain" type="text" placeholder="example.com" autocomplete="off">
+      <button id="check-domain-btn" class="btn btn-primary" type="button">Inspect HTTP security headers ↗</button>
+      <p id="checks-left" class="scan-note" aria-live="polite"></p>
+      <p class="scan-note">Opens SecurityHeaders.com in a new tab. This third-party service performs the actual HTTP header inspection. Preview limits are per browser, not per IP, and can be reset. We do not claim these are Vortex backend scans.</p>
+    </div>
+<div class="scanner-pricing">
       <article class="scanner-tier">
-        <div class="section-kicker">Planned public access</div>
+        <div class="section-kicker">Free browser preview</div>
         <h3>Free preview</h3>
-        <p>3 scans per IP once the authenticated scan API is available.</p>
+        <p>3 free preview checks in this browser.</p>
         
         <a class="btn btn-secondary" href="mailto:gugaokamoto1@gmail.com?subject=Vortex%20Scanner%20Early%20Access&body=Hi%2C%20I%27d%20like%20early%20access%20to%20Vortex%20Scanner.">Request early access →</a>
       </article>
@@ -453,6 +472,35 @@ if report.is_allowed() {
       ripple.addEventListener('animationend',()=>ripple.remove(),{once:true});
     });
   });
+
+
+
+  (() => {
+    const domain=document.getElementById('check-domain');
+    const counter=document.getElementById('checks-left');
+    const trigger=document.getElementById('check-domain-btn');
+    const storage='vortex-preview-count-v2';
+    function read(){try{return Math.max(0,Math.min(3,Number(localStorage.getItem(storage)||0)))}catch(_){return 0}}
+    function write(v){try{localStorage.setItem(storage,String(v))}catch(_){}}
+    function update(){
+      const remain=3-read();
+      counter.textContent=remain+' of 3 free preview checks remaining in this browser.';
+      trigger.disabled=remain===0;
+    }
+    trigger.addEventListener('click',()=>{
+      const used=read();if(used>=3)return;
+      const host=domain.value.trim().toLowerCase().replace(/^https:\/\//,'').replace(/\/$/,'');
+      if(!/^(?=.{4,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,63}$/.test(host)||host.includes('..')){
+        counter.textContent='Enter a public hostname without a path, port or credentials.';return;
+      }
+      const link=document.createElement('a');
+      link.href='https://securityheaders.com/?q='+encodeURIComponent(host)+'&followRedirects=on';
+      link.target='_blank';link.rel='noopener noreferrer';
+      document.body.append(link);link.click();link.remove();
+      write(used+1);update();
+    });
+    update();
+  })();
 
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
