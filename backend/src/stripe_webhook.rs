@@ -96,6 +96,29 @@ struct StripeEventData {
 // Business logic — all async now (Supabase calls)
 // ---------------------------------------------------------------------------
 
+
+async fn checkout_price_id(session: &serde_json::Value) -> Option<String> {
+    if let Some(value)=session["line_items"]["data"][0]["price"]["id"].as_str() {
+        return Some(value.to_owned());
+    }
+    if let Some(value)=session["metadata"]["price_id"].as_str() {
+        return Some(value.to_owned());
+    }
+    let id=session["id"].as_str()?;
+    if !id.starts_with("cs_") || !id.bytes().all(|b|b.is_ascii_alphanumeric() || b==b'_') {
+        return None;
+    }
+    let secret=std::env::var("STRIPE_SECRET_KEY").ok()?;
+    let response=reqwest::Client::new()
+        .get(format!("https://api.stripe.com/v1/checkout/sessions/{id}/line_items?limit=1"))
+        .bearer_auth(secret)
+        .timeout(std::time::Duration::from_secs(5))
+        .send().await.ok()?;
+    if !response.status().is_success() { return None; }
+    let line_items=response.json::<serde_json::Value>().await.ok()?;
+    line_items["data"][0]["price"]["id"].as_str().map(ToOwned::to_owned)
+}
+
 async fn on_checkout_completed(obj: &serde_json::Value) {
     let email = obj["customer_details"]["email"]
         .as_str()
@@ -104,12 +127,15 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
     let cust_id = obj["customer"].as_str().unwrap_or("").to_string();
     let sub_id = obj["subscription"].as_str().unwrap_or("").to_string();
 
-    let price_id = obj["line_items"]["data"][0]["price"]["id"]
-        .as_str()
-        .or_else(|| obj["metadata"]["price_id"].as_str())
-        .unwrap_or("");
-
-    let (plan, billing_period) = plan_from_price_id(price_id);
+    let Some(price_id)=checkout_price_id(obj).await else {
+        log::warn!("Checkout price unresolved; scanner access not provisioned");
+        return;
+    };
+    let (plan, billing_period) = plan_from_price_id(&price_id);
+    if plan == "scanner_100_monthly" && (email.is_empty() || sub_id.is_empty()) {
+        log::warn!("Scanner checkout missing customer email or subscription");
+        return;
+    }
 
     let customer = Customer {
         api_key: generate_api_key(),
