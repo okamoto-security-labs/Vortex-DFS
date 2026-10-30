@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Vortex DFS is a deterministic runtime trust and authorization layer that evaluates policy before autonomous execution.">
+  <meta name="description" content="Vortex DFS security: authorized HTTP configuration checks, 3 public scans per IP and 100 subscriber scans each month.">
   <meta name="theme-color" content="#07111f">
   <title>Vortex DFS — Runtime Trust & Authorization</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -142,6 +142,7 @@ body::before{background:none} .gradient{background:none;color:#fff;-webkit-backg
 .scan-form input{width:100%;padding:14px;color:#fff;background:#111;border:1px solid #555;border-radius:8px;font:inherit}
 .scan-result{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--mono);color:#ddd}
 .scan-note{color:var(--muted);font-size:13px}
+.scanner-pricing{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.scanner-tier{border:1px solid var(--line-hi);padding:23px;border-radius:13px;background:#090909}.scanner-tier h3{font-size:30px;margin:8px 0}.scanner-tier h3 small{font-size:14px;color:#aaa}.scanner-tier p{color:#bbb}@media(max-width:740px){.scanner-pricing{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -163,18 +164,18 @@ body::before{background:none} .gradient{background:none;color:#fff;-webkit-backg
   <main id="top">
     <section class="hero" style="border-top:0">
       <div class="wrap">
-        <div class="eyebrow"><span class="pulse"></span> deterministic runtime authorization</div>
-        <h1>Every autonomous action deserves an <span class="gradient">authorization decision.</span></h1>
-        <p class="hero-copy">Vortex DFS evaluates runtime trust and policy <strong>before execution begins</strong>. The runtime decides. The Agent SDK executes.</p>
+        <div class="eyebrow"><span class="pulse"></span> Okamoto Security Labs · Authorized security checks</div>
+        <h1>Inspect your authorized assets.<span class="gradient"> Stay ahead of misconfigurations.</span></h1>
+        <p class="hero-copy">Real HTTPS security-header checks for approved domains. <strong>3 free scans per IP.</strong> Upgrade to <strong>100 scans/month for US$70.</strong></p>
         <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">Explore the runtime <span>→</span></a>
-          <a class="btn btn-secondary" href="#quickstart">View integration</a>
+          <a class="btn btn-primary" href="#scanner">Run authorized scan <span>→</span></a>
+          <a class="btn btn-secondary" href="/v1/scanner/checkout">Subscribe · $70/month</a>
         </div>
         <div class="badges" aria-label="Project status badges">
           <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
-          <img src="https://img.shields.io/badge/Rust-2024-111827?logo=rust&logoColor=white" alt="Rust 2024">
-          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-5B8CFF" alt="Agent SDK 0.16.0">
-          <img src="https://img.shields.io/badge/License-BUSL--1.1-FFC766" alt="BUSL 1.1">
+          <img src="https://img.shields.io/badge/Backend-Rust-111111?logo=rust&logoColor=white" alt="Rust 2024">
+          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-111111" alt="Agent SDK 0.16.0">
+          <img src="https://img.shields.io/badge/License-BUSL--1.1-111111" alt="BUSL 1.1">
         </div>
         <div class="flow" aria-label="Execution pipeline">
           <div class="flow-card"><strong>Application</strong>requests action</div>
@@ -185,6 +186,29 @@ body::before{background:none} .gradient{background:none;color:#fff;-webkit-backg
         </div>
       </div>
     </section>
+<section id="scanner">
+ <div class="wrap">
+ <div class="section-head"><div><div class="section-kicker">Authorized assets only</div><h2>Live HTTP security checks.</h2></div>
+ <p class="section-lead">Real security-header inspection for domains authorized by the operator. Not a CVE scanner or penetration test.</p></div>
+ <form class="scan-form" id="real-scan">
+   <label for="scan-target">Authorized HTTPS domain</label>
+   <input id="scan-target" type="text" required placeholder="https://your-domain.com" autocomplete="off">
+   <label for="scan-key">Subscriber API key (optional)</label>
+   <input id="scan-key" type="password" placeholder="Bearer token for subscribed accounts" autocomplete="off">
+   <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
+   <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
+   <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
+   <a href="/v1/scanner/checkout" class="btn btn-secondary">Request subscription · $70/month</a>
+   <p class="scan-note">Checkout becomes available after the operator configures a Stripe Payment Link. The server refuses checkout if no link is configured.</p>
+ </form>
+
+<div class="scanner-pricing">
+ <article class="scanner-tier"><div class="section-kicker">Public</div><h3>Free</h3><p>3 checks per IP · lifetime</p><p class="scan-note">Authorized HTTPS hosts only. No signup required.</p></article>
+ <article class="scanner-tier"><div class="section-kicker">Subscriber</div><h3>$70 <small>/ month</small></h3><p>100 checks per UTC calendar month</p><a class="btn btn-primary" href="/v1/scanner/checkout">Subscribe via Stripe →</a></article>
+</div>
+ </div>
+</section>
+
 
     <section id="architecture">
       <div class="wrap">
@@ -256,53 +280,6 @@ Execution Failures .............. 0</pre>
     </section>
 
 
-    <section id="policy-demo">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <div><div class="section-kicker">Interactive policy walkthrough · Simulated</div><h2>See why an agent action is allowed or rejected.</h2></div>
-          <p class="section-lead">Explore illustrative decisions and stable reason codes. This browser demo does not call the Vortex backend, scan your device, intercept syscalls, or report measured performance.</p>
-        </div>
-        <div class="demo-layout reveal">
-          <div class="demo-panel">
-            <label for="policy-scenario">Choose a predefined tool-call scenario</label>
-            <select id="policy-scenario">
-              <option value="approved">Authorized read with valid scope</option>
-              <option value="scope">Tool call outside granted scope</option>
-              <option value="identity">Unverified agent identity</option>
-              <option value="integrity">Payload integrity verification failed</option>
-              <option value="replay">Previously used authorization token</option>
-            </select>
-            <p class="demo-note">This is a client-side model of policy outcomes, not proof of kernel enforcement or an actual vulnerability scan.</p>
-            <a class="btn btn-secondary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noopener noreferrer">Inspect the implementation →</a>
-          </div>
-          <div class="demo-panel" aria-live="polite">
-            <div class="section-kicker">Illustrative authorization response</div>
-            <div class="demo-result" id="demo-decision">ALLOW · OPERATION_ALLOWED</div>
-            <pre class="demo-log" id="demo-output"></pre>
-            <p class="demo-note">No customer payloads are submitted or stored. Displayed results are static examples, not runtime telemetry.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    
-<section id="scanner">
- <div class="wrap">
- <div class="section-head"><div><div class="section-kicker">Authorized assets only</div><h2>Live HTTP security checks.</h2></div>
- <p class="section-lead">Real security-header inspection for domains authorized by the operator. Not a CVE scanner or penetration test.</p></div>
- <form class="scan-form" id="real-scan">
-   <label for="scan-target">Authorized HTTPS domain</label>
-   <input id="scan-target" type="text" required placeholder="https://your-domain.com" autocomplete="off">
-   <label for="scan-key">Subscriber API key (optional)</label>
-   <input id="scan-key" type="password" placeholder="Bearer token for subscribed accounts" autocomplete="off">
-   <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
-   <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
-   <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
-   <a href="/v1/scanner/checkout" class="btn btn-secondary">Request subscription · $70/month</a>
-   <p class="scan-note">Checkout becomes available after the operator configures a Stripe Payment Link. The server refuses checkout if no link is configured.</p>
- </form>
- </div>
-</section>
 <section id="benchmarks">
       <div class="wrap">
         <div class="section-head reveal">
@@ -401,28 +378,6 @@ if report.is_allowed() {
   </footer>
 
   <script>
-
-    const scenarioCases = Object.freeze({
-      approved:{decision:"ALLOW",reason:"OPERATION_ALLOWED",identity:"verified",scope:"agent:execute",integrity:"valid",replay:"fresh"},
-      scope:{decision:"REJECT",reason:"SCOPE_DENIED",identity:"verified",scope:"missing agent:execute",integrity:"valid",replay:"fresh"},
-      identity:{decision:"REJECT",reason:"IDENTITY_INVALID",identity:"unverified",scope:"agent:execute",integrity:"valid",replay:"fresh"},
-      integrity:{decision:"REJECT",reason:"PAYLOAD_INTEGRITY_FAILED",identity:"verified",scope:"agent:execute",integrity:"invalid",replay:"fresh"},
-      replay:{decision:"REJECT",reason:"REPLAY_DETECTED",identity:"verified",scope:"agent:execute",integrity:"valid",replay:"reused"}
-    });
-    const scenarioSelect = document.getElementById('policy-scenario');
-    function updateScenario() {
-      const sample = scenarioCases[scenarioSelect.value] || scenarioCases.approved;
-      document.getElementById('demo-decision').textContent = sample.decision + ' · ' + sample.reason;
-      document.getElementById('demo-output').textContent = JSON.stringify({
-        mode:'SIMULATED_CLIENT_SIDE_EXAMPLE', operation:'agent:execute',
-        identity:sample.identity, scope:sample.scope, payload_integrity:sample.integrity,
-        replay_protection:sample.replay, decision:sample.decision, reason_code:sample.reason,
-        executor_dispatched:sample.decision === 'ALLOW'
-      }, null, 2);
-    }
-    scenarioSelect.addEventListener('change',updateScenario);
-    updateScenario();
-
 
 const scanForm=document.getElementById('real-scan');
 scanForm.addEventListener('submit', async event=>{
