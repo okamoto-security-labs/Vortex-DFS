@@ -119,53 +119,50 @@ async fn checkout_price_id(session: &serde_json::Value) -> Option<String> {
     line_items["data"][0]["price"]["id"].as_str().map(ToOwned::to_owned)
 }
 
-async fn on_checkout_completed(obj: &serde_json::Value) {
-    let email = obj["customer_details"]["email"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    let cust_id = obj["customer"].as_str().unwrap_or("").to_string();
-    let sub_id = obj["subscription"].as_str().unwrap_or("").to_string();
-
-    let Some(price_id)=checkout_price_id(obj).await else {
-        log::warn!("Checkout price unresolved; scanner access not provisioned");
-        return;
+async fn on_checkout_completed(obj: &serde_json::Value) -> Result<(), &'static str> {
+    if obj["payment_status"].as_str() != Some("paid") {
+        return Err("checkout payment has not settled");
+    }
+    let email = obj["customer_details"]["email"].as_str().unwrap_or("").to_owned();
+    let cust_id = obj["customer"].as_str().unwrap_or("").to_owned();
+    let sub_id = obj["subscription"].as_str().unwrap_or("").to_owned();
+    let Some(price_id) = checkout_price_id(obj).await else {
+        return Err("checkout price unresolved");
     };
     let (plan, billing_period) = plan_from_price_id(&price_id);
-    if !sub_id.is_empty() && find_by_subscription(&sub_id).await.is_some() {
-        log::info!("Checkout already provisioned; ignoring duplicate event");
-        return;
-    }
     if plan == "scanner_100_monthly" && (email.is_empty() || sub_id.is_empty()) {
-        log::warn!("Scanner checkout missing customer email or subscription");
-        return;
+        return Err("scanner checkout missing customer email or subscription");
     }
-
+    if !sub_id.is_empty() {
+        if let Some(existing) = find_by_subscription(&sub_id).await {
+            send_welcome_email(&existing).await.map_err(|error| {
+                log::error!("Subscription access email delivery failed: {error}");
+                "welcome email delivery failed"
+            })?;
+            return Ok(());
+        }
+    }
     let customer = Customer {
         api_key: generate_api_key(),
-        email: email.clone(),
-        plan: plan.to_string(),
-        billing_period: billing_period.to_string(),
+        email,
+        plan: plan.to_owned(),
+        billing_period: billing_period.to_owned(),
         stripe_customer: cust_id,
         stripe_sub: sub_id,
-        status: "active".to_string(),
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        status: "active".to_owned(),
+        created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
         expires_at: expiry_timestamp(billing_period),
     };
-
-    if let Err(e) = upsert_customer(customer.clone()).await {
-        log::error!("Failed to save customer {}: {}", email, e);
-        return;
-    }
-
-    if let Err(e) = send_welcome_email(&customer).await {
-        log::error!("Failed to send welcome email to {}: {}", email, e);
-    }
+    upsert_customer(customer.clone()).await.map_err(|error| {
+        log::error!("Subscription persistence failed: {error}");
+        "customer persistence failed"
+    })?;
+    send_welcome_email(&customer).await.map_err(|error| {
+        log::error!("Welcome delivery failed: {error}");
+        "welcome email delivery failed"
+    })?;
+    Ok(())
 }
-
 async fn on_payment_succeeded(obj: &serde_json::Value) {
     let sub_id = obj["subscription"].as_str().unwrap_or("");
     if let Some(mut customer) = find_by_subscription(sub_id).await {
@@ -238,7 +235,12 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
 
     let obj = &event.data.object;
     match event.event_type.as_str() {
-        "checkout.session.completed" => on_checkout_completed(obj).await,
+        "checkout.session.completed" => {
+            if let Err(reason) = on_checkout_completed(obj).await {
+                log::error!("Stripe checkout provisioning failed: {reason}");
+                return HttpResponse::ServiceUnavailable().finish();
+            }
+        },
         "invoice.payment_succeeded" => on_payment_succeeded(obj).await,
         "invoice.payment_failed" => on_payment_failed(obj).await,
         "customer.subscription.deleted" => on_subscription_deleted(obj).await,
