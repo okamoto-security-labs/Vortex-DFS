@@ -172,6 +172,22 @@ body.light-mode .metric *,body.light-mode .roadmap *,body.light-mode .quote *,bo
 body.light-mode .scanner-tier p,body.light-mode .scanner-tier .scan-note{color:var(--muted)!important}
 body.light-mode .terminal code,body.light-mode .terminal pre{color:var(--text)!important}
 body.light-mode .pulse{box-shadow:none}
+
+/* GitHub Pages final monochrome layout and prominent conversion */
+html{background:#000}
+body:not(.light-mode){background:#000!important;color:#fff}
+body:not(.light-mode) .nav{background:#000!important}
+body:not(.light-mode) .hero,body:not(.light-mode) section{background-color:#000}
+body:not(.light-mode) .scanner-tier,body:not(.light-mode) .flow-card{background:#090909!important}
+.nav-inner{gap:20px}
+.nav .links{display:flex;flex-wrap:wrap;align-items:center;gap:13px}
+.nav-stripe{font-weight:700!important;border-color:var(--line-hi)!important}
+.theme-toggle{display:inline-flex!important;align-items:center;justify-content:center;min-width:90px;position:relative;z-index:25}
+.hero{padding-top:72px!important}
+.hero .actions{margin-top:24px}
+body.light-mode .nav{background:#fff!important}
+body.light-mode .hero,body.light-mode section{background-color:var(--bg)}
+@media(max-width:780px){.nav .links>a[href^="#"]{display:none}.nav .links{gap:7px}.theme-toggle{min-width:76px}.hero{padding-top:48px!important}}
 </style>
 </head>
 <body>
@@ -185,7 +201,7 @@ body.light-mode .pulse{box-shadow:none}
         <a href="#architecture">Architecture</a>
         <a href="#benchmarks">Benchmarks</a>
         <a href="#roadmap">Roadmap</a>
-        <a href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer" class="nav-cta">GitHub ↗</a>
+        <a href="https://buy.stripe.com/4gM4gzcyPev72D03FS93y0b" target="_blank" rel="noopener noreferrer" class="nav-cta nav-stripe">Subscribe $70/mo ↗</a>
         <button id="theme-toggle" class="theme-toggle ripple-host" type="button" aria-label="Switch to light mode" aria-pressed="false">☀ Light</button>
       </nav>
     </div>
@@ -194,12 +210,12 @@ body.light-mode .pulse{box-shadow:none}
   <main id="top">
     <section class="hero" style="border-top:0">
       <div class="wrap">
-        <div class="eyebrow"><span class="pulse"></span> Okamoto Security Labs · Authorized security checks</div>
+        
         <h1>Protect your authorized assets.<span class="gradient"> Request early access.</span></h1>
         <p class="hero-copy">Introducing Vortex Scanner. Planned access includes <strong>3 public scans per IP</strong> and <strong>100 scans per month for US$70</strong>. Early access is open; scanning is not yet live.</p>
         <div class="actions">
-          <a class="btn btn-primary" href="#scanner">Request scanner access <span>→</span></a>
-          <a class="btn btn-secondary" href="#scanner">View plans</a>
+          <a class="btn btn-primary" href="https://buy.stripe.com/4gM4gzcyPev72D03FS93y0b" target="_blank" rel="noopener noreferrer">Subscribe — $70/month <span>→</span></a>
+          <a class="btn btn-secondary" href="#scanner">Explore plans</a>
         </div>
         <div class="badges" aria-label="Project status badges">
           <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
