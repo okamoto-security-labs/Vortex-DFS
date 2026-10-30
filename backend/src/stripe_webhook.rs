@@ -50,7 +50,7 @@ fn verify_stripe_signature(raw: &[u8], header: &str, secret: &str) -> Result<(),
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "clock")?
         .as_secs();
-    if now.saturating_sub(parsed.timestamp) > TIMESTAMP_TOLERANCE_SECS {
+    if now.abs_diff(parsed.timestamp) > TIMESTAMP_TOLERANCE_SECS {
         return Err("stale timestamp");
     }
     type H = Hmac<Sha256>;
@@ -132,6 +132,10 @@ async fn on_checkout_completed(obj: &serde_json::Value) {
         return;
     };
     let (plan, billing_period) = plan_from_price_id(&price_id);
+    if !sub_id.is_empty() && find_by_subscription(&sub_id).await.is_some() {
+        log::info!("Checkout already provisioned; ignoring duplicate event");
+        return;
+    }
     if plan == "scanner_100_monthly" && (email.is_empty() || sub_id.is_empty()) {
         log::warn!("Scanner checkout missing customer email or subscription");
         return;
