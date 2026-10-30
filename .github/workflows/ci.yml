@@ -37,6 +37,7 @@ jobs:
         if (!html.includes('data:image/png;base64,')) throw Error('Monochrome logo missing');
         console.log('Scanner UI and Pages Functions syntax OK');
         NODE
+        node tests/prompt-triage-regression.cjs
 
     - name: Run Cargo Check
       run: cargo check --manifest-path backend/Cargo.toml

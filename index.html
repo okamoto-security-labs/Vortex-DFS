@@ -537,7 +537,15 @@ if report.is_allowed() {
         ['Sensitive data extraction',/(reveal|print|send|expose|leak|dump).{0,65}(system prompt|api key|secret|password|token)/i],
         ['Tool misuse / exfiltration',/(upload|post|forward|send).{0,90}(private|credentials|secret|password|api key).{0,50}(url|endpoint|server|email)/i]
       ];
-      const flags=rules.filter(([,regex])=>regex.test(input)).map(([name])=>name);
+      // Use contextual combinations to avoid flagging normal documentation about policies.
+      const authorityClaim=/(?:approved|authorized|cleared|permitted|signed off|security team|compliance (?:verification|audit)|administrator (?:approved|authorized))/i.test(input);
+      const internalInstructionRequest=/(?:include|provide|show|display|share|list|output|copy|reproduce|quote|give me).{0,100}(?:hidden|internal|confidential|private|system|developer).{0,35}(?:instructions|prompt|directives|rules)|(?:hidden|internal|system|developer).{0,35}(?:instructions|prompt|directives|rules).{0,100}(?:in your (?:final )?response|to me|verbatim)/i.test(input);
+      const roleManipulation=/(?:act as|pretend to be|you are now|switch to|enter).{0,45}(?:system|developer|administrator|root|unrestricted|debug mode)/i.test(input);
+      const contextualFlags=[];
+      if(authorityClaim && internalInstructionRequest) contextualFlags.push('Authority spoofing / indirect instruction extraction');
+      else if(internalInstructionRequest) contextualFlags.push('Indirect instruction extraction');
+      if(roleManipulation) contextualFlags.push('Role manipulation');
+      const flags=[...new Set([...rules.filter(([,regex])=>regex.test(input)).map(([name])=>name),...contextualFlags])];
       result.textContent=flags.length
         ? 'POTENTIAL INJECTION INDICATORS: '+flags.join(', ')+'.\nRule-based triage only. Review context before acting.'
         : 'No common patterns matched. This does NOT mean the prompt is safe. Contextual and semantic attacks may be missed.';
