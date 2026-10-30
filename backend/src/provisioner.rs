@@ -241,6 +241,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scanner_monthly_price_maps_to_100_scan_plan() {
+        assert_eq!(plan_from_price_id("price_1UWJUyHkQnONoSg0sdCzBqBn"), ("scanner_100_monthly", "monthly"));
+    }
+
+    #[test]
     fn masks_api_key_in_email_content() {
         let key = "vortex_live_AAAAAAAAAAAAAAAAAAAAAAAA";
         let masked = mask_api_key(key);
