@@ -603,6 +603,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(get_pool().expect("database initialized").clone()))
             .app_data(anonymize_json_config())
             .route("/v1/scans", web::post().to(scanner::run))
+            .route("/v1/scanner/checkout", web::get().to(scanner::checkout))
+            .route("/stripe/webhook", web::post().to(vortex_dfs::stripe_webhook::handle_stripe_webhook))
             .route("/health", web::get().to(health_check))
             .route(
                 "/v1/evaluate",
