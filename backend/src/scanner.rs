@@ -84,6 +84,15 @@ pub async fn run(request: HttpRequest, payload: web::Json<ScanInput>, pool: web:
         "notice":"Defensive header checks only; no CVE or exploit scanning"}))
 }
 
+
+pub async fn checkout() -> HttpResponse {
+    let value=std::env::var("VORTEX_SCANNER_CHECKOUT_URL").unwrap_or_default();
+    if !value.starts_with("https://buy.stripe.com/") && !value.starts_with("https://checkout.stripe.com/") {
+        return HttpResponse::ServiceUnavailable().json(json!({"error":"Scanner checkout is not configured"}));
+    }
+    HttpResponse::Found().insert_header((header::LOCATION,value)).finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
