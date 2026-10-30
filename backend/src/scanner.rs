@@ -25,6 +25,24 @@ fn allowed(host: &str) -> bool {
         .split(',').any(|x| !x.trim().is_empty() && x.trim().eq_ignore_ascii_case(host))
 }
 
+
+fn public_source_ip(request: &HttpRequest) -> Result<IpAddr, HttpResponse> {
+    let ip=request.headers().get("X-Vortex-Client-IP");
+    let signature=request.headers().get("X-Vortex-Proxy-Secret");
+    if ip.is_some() || signature.is_some() {
+        let expected=std::env::var("VORTEX_PROXY_SHARED_SECRET").unwrap_or_default();
+        let supplied=signature.and_then(|v|v.to_str().ok()).unwrap_or("");
+        if expected.len()<24 || expected.len()!=supplied.len() ||
+            !expected.bytes().zip(supplied.bytes()).fold(0u8,|acc,(a,b)|acc|(a^b)).eq(&0) {
+            return Err(HttpResponse::Unauthorized().json(json!({"error":"Untrusted proxy identity"})));
+        }
+        return ip.and_then(|v|v.to_str().ok()).and_then(|x|x.parse().ok())
+            .ok_or_else(|| HttpResponse::BadRequest().json(json!({"error":"Invalid forwarded client IP"})));
+    }
+    request.peer_addr().map(|p|p.ip())
+        .ok_or_else(|| HttpResponse::ServiceUnavailable().json(json!({"error":"Network peer unavailable"})))
+}
+
 pub async fn run(request: HttpRequest, payload: web::Json<ScanInput>, pool: web::Data<PgPool>) -> HttpResponse {
     let Some(host)=target_host(&payload.target) else {
         return HttpResponse::BadRequest().json(json!({"error":"Only bare https://hostnames are accepted"}));
@@ -42,8 +60,8 @@ pub async fn run(request: HttpRequest, payload: web::Json<ScanInput>, pool: web:
             Err(_)=>return HttpResponse::ServiceUnavailable().json(json!({"error":"Subscription lookup unavailable"})),
         }
     } else {
-        let Some(addr)=request.peer_addr() else { return HttpResponse::ServiceUnavailable().json(json!({"error":"Client IP unavailable"})); };
-        (format!("public:{}",addr.ip()),3,false)
+        let addr=match public_source_ip(&request) {Ok(value)=>value,Err(response)=>return response};
+        (format!("public:{addr}"),3,false)
     };
     // Transactional atomic quota, period derived from PostgreSQL UTC clock.
     let period=if paid {
