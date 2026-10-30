@@ -201,8 +201,16 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
     let resend_key =
         std::env::var("RESEND_API_KEY").map_err(|_| "RESEND_API_KEY not set".to_string())?;
     let from_email = std::env::var("FROM_EMAIL")
-        .unwrap_or_else(|_| "gustavo@okamotosecurytlabs.com.br".to_string());
+        .unwrap_or_else(|_| "gustavo@okamotosecuritylabs.com.br".to_string());
 
+    let welcome_html = if customer.plan == "scanner_100_monthly" {
+        format!(
+            "<p>Your Vortex Scanner subscription is active. Your API key: <code>{}</code></p><p>Keep this key private. You may perform up to 100 authorized scans per UTC calendar month.</p><p>To use the scanner, enter this key in the subscriber field at your Vortex DFS site.</p>",
+            customer.api_key
+        )
+    } else {
+        format!("<p>Your Vortex access is ready. Key suffix: <code>{}</code></p>", mask_api_key(&customer.api_key))
+    };
     let client = reqwest::Client::new();
     let resp = client.post("https://api.resend.com/emails")
         .header("Authorization", format!("Bearer {}", resend_key))
@@ -210,8 +218,8 @@ pub async fn send_welcome_email(customer: &Customer) -> Result<(), String> {
         .json(&serde_json::json!({
             "from": from_email,
             "to": [customer.email],
-            "subject": "Vortex DFS — Acesso Liberado & Chaves PQC",
-            "html": format!("<p>Seu acesso ao Vortex DFS foi provisionado com sucesso. API Key: <code>{}</code></p>", mask_api_key(&customer.api_key))
+            "subject": "Vortex Scanner — Your subscription API key",
+            "html": welcome_html
         }))
         .send()
         .await
