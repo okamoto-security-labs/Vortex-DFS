@@ -515,8 +515,9 @@ if report.is_allowed() {
         counter.textContent='Enter a valid public hostname without a path, port or credentials.';return;
       }
       const url='https://securityheaders.com/?q='+encodeURIComponent(host)+'&followRedirects=on';
-      const tab=window.open(url,'_blank','noopener,noreferrer');
-      if(!tab){counter.textContent='Please allow pop-ups to open the external header checker.';return;}
+      const link=document.createElement('a');
+      link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+      document.body.appendChild(link);link.click();link.remove();
       data.used=Number(data.used||0)+1;write(data);show();
     });
     show();
