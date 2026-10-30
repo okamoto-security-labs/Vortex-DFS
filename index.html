@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Vortex DFS is a deterministic runtime trust and authorization layer that evaluates policy before autonomous execution.">
+  <meta name="description" content="Vortex DFS security: authorized HTTP configuration checks, 3 public scans per IP and 100 subscriber scans each month.">
   <meta name="theme-color" content="#07111f">
   <title>Vortex DFS — Runtime Trust & Authorization</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -123,13 +123,33 @@
     @media(max-width:900px){.links a:not(.nav-cta){display:none}.section-head,.pipeline-grid{grid-template-columns:1fr;gap:28px}.flow{grid-template-columns:1fr}.flow-card:not(:last-child)::after{content:"↓";right:auto;top:auto;left:50%;bottom:-21px;transform:translateX(-50%)}.decision-grid,.metrics,.features{grid-template-columns:1fr 1fr}.compare{grid-template-columns:1fr}.roadmap{grid-template-columns:1fr}}
     @media(max-width:620px){.wrap{width:min(100% - 26px,1160px)}.hero{padding-top:78px}.decision-grid,.metrics,.features{grid-template-columns:1fr}.quote{padding:30px 20px}.nav-inner{height:64px}.brand small{display:none}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}}
-  </style>
+  
+    /* Interactive policy walkthrough: browser-only, not a live backend scan. */
+    .demo-layout{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1.45fr);gap:18px}
+    .demo-panel{border:1px solid var(--line-hi);border-radius:14px;background:var(--panel);padding:22px}
+    .demo-panel label{display:block;color:var(--muted);font-size:13px;margin-bottom:9px}
+    .demo-panel select{width:100%;padding:12px;background:var(--bg-2);border:1px solid var(--line-hi);color:var(--text);border-radius:8px;font:inherit}
+    .demo-result{font:600 16px var(--mono);margin:12px 0;color:var(--cyan)}
+    .demo-log{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.8 var(--mono);color:var(--muted);background:var(--bg);padding:18px;border-radius:8px;min-height:145px}
+    .demo-note{color:var(--muted);font-size:13px;margin-top:14px}
+    @media(max-width:760px){.demo-layout{grid-template-columns:1fr}}
+
+  
+:root{--bg:#000;--bg-2:#050505;--panel:#090909;--panel-2:#101010;--text:#fff;--muted:#aaa;--line:rgba(255,255,255,.15);--line-hi:rgba(255,255,255,.38);--cyan:#fff;--blue:#fff;--green:#fff;--amber:#fff;--red:#fff}
+body::before{background:none} .gradient{background:none;color:#fff;-webkit-background-clip:initial;background-clip:initial}
+.brand-logo{width:38px;height:38px;object-fit:contain} .mark{border:0;background:none;box-shadow:none;width:40px;height:40px}
+.scan-form{display:grid;gap:12px;max-width:760px;margin:20px auto 0;border:1px solid var(--line-hi);border-radius:14px;padding:24px;background:#080808}
+.scan-form input{width:100%;padding:14px;color:#fff;background:#111;border:1px solid #555;border-radius:8px;font:inherit}
+.scan-result{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--mono);color:#ddd}
+.scan-note{color:var(--muted);font-size:13px}
+.scanner-pricing{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.scanner-tier{border:1px solid var(--line-hi);padding:23px;border-radius:13px;background:#090909}.scanner-tier h3{font-size:30px;margin:8px 0}.scanner-tier h3 small{font-size:14px;color:#aaa}.scanner-tier p{color:#bbb}@media(max-width:740px){.scanner-pricing{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
   <header class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="#top" aria-label="Vortex DFS home">
-        <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5l7 14 7-14M8 5h8" stroke="#55d7ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="mark"><img class="brand-logo" alt="Okamoto Security Labs logo monochrome" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFgAAABYCAYAAABxlTA0AAAEHklEQVR4nO1b246FMAism/3/X3afTBq2UO6g6SQn52K1OCIO0HPd932PgzD8VBvwdfyC71eJFd/EPcbx4HAcgoNxCA7GITgYh+BgQBXREVyd3lIBdSPYkvTAfVsQ3oHgqEyyBeGVBGen6M98qURXEFxd+0glOpPgamIhUojOkGn36EfujFDboj3YYrzGs7TzhXmzB8GeHmA9wXl/jV3YPmq7rAR7kBsVA61kz7iH0k4LwVajuQZ7ZHLPNmsiIyZZS3AkudY4Ss1hJVpMcnax5xq4gd5qgzqeJSyJbMwkuEVtYMKnEo3VyWRp49U8F3iX2JISIiSTVJLLRZg3R4cIzPDKcGGxSWx3JMHdYu6De+APwJ3N4jtPS/BuIo03UArDAuy4r33IcQynLtC12a4Fl9Dd/CItrCHYMz2O0KkecLvI3h7M9V4okzIwE2adl+3FUoK9mpIl7RtkPswWFy/2VBGaFDizGF8iGaN1MDfGViceGvJZNksI3j354VgY83ayjOvN1RdDBG8PXpG0uwV3F2c3vjU8CcY8luNxKw/v4qmmMMElWOJRFg+LyubKEF2ufKQOvEASmcZJy+HdcyPbpDBf7CgVwRX1u5OvDhOtdDAEVbV6EB0OdhUzzufVdzaiQsTqAUepBe0JZC5OUeGscLeDvGCVBK+SDGnqvBrrUat2QyXBXreq9Dip2WKHFe5j+CQZUYV6EzI9GIaBa+wTC+ppzk3Bsdozp41kboRGeTAm/OEYbe+Os23+ThX4PTPRf4ggeCXNLCRTWZm03nGD9wF+g/O0yuS43vR8xsjBTm5FrkR1UIpj1W3Z7csCl+AsaeNZo3gwX0woDb3mQOH9kJOewOzFu+7H/L4i7EJeK9uw/ajjq+BBMFVgl8ZMTFVghFL77IB1WVaf1YiSabtWEKdW0QWc1ZkoJARTB8WMWBH9JnLNyMjkoLx6E7Hmh1z2AuyqBSeegDqahDQGUwfXNjc/jS7FHg2soWa3v+nh9kCjIqxe3AWWXiEbUbWIjDDgMYfkGKr5LDo4i8hs7BZfixD1L6M3hYoZ3HSdDWsmR3nx20gOWaNhIZhTi30LyWELYKwx2HNcFaxdbBJRf+Oyjs9C+KqjyHowhHTNQzR25LrYGrEAu0JhSG/zFHLHiJFpXJIlMRwbO2/zaAG563oPFaHdPoa9QMRt73AuqHkNxArWELFbZ8Al2RqfKS0u6Q1ax/yDRy1it45AsnaB6u9xoF1ytfrNpXbtVezhekAneecR4rbIrgdLvDnahhRUFdwriC6p/FV3NDKILi2pVhM8L2Odf7OiTZ26mmBILKV5qR4ZNr6c6GqCZ3DCBWfFJTa2BJ0IfoCRuEtqWqIjwRDtSaRw/icXjENwMA7BwTgEB+MQHAyoIjr1zD6B48HB+AOgo/ch8zEyzwAAAABJRU5ErkJggg=="></span>
         <span>Vortex DFS<small>Okamoto Security Labs</small></span>
       </a>
       <nav class="links" aria-label="Main navigation">
@@ -144,18 +164,18 @@
   <main id="top">
     <section class="hero" style="border-top:0">
       <div class="wrap">
-        <div class="eyebrow"><span class="pulse"></span> deterministic runtime authorization</div>
-        <h1>Every autonomous action deserves an <span class="gradient">authorization decision.</span></h1>
-        <p class="hero-copy">Vortex DFS evaluates runtime trust and policy <strong>before execution begins</strong>. The runtime decides. The Agent SDK executes.</p>
+        <div class="eyebrow"><span class="pulse"></span> Okamoto Security Labs · Authorized security checks</div>
+        <h1>Inspect your authorized assets.<span class="gradient"> Stay ahead of misconfigurations.</span></h1>
+        <p class="hero-copy">Real HTTPS security-header checks for approved domains. <strong>3 free scans per IP.</strong> Upgrade to <strong>100 scans/month for US$70.</strong></p>
         <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/okamoto-security-labs/Vortex-DFS" target="_blank" rel="noreferrer">Explore the runtime <span>→</span></a>
-          <a class="btn btn-secondary" href="#quickstart">View integration</a>
+          <a class="btn btn-primary" href="#scanner">Run authorized scan <span>→</span></a>
+          <a class="btn btn-secondary" href="/v1/scanner/checkout">Subscribe · $70/month</a>
         </div>
         <div class="badges" aria-label="Project status badges">
           <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
-          <img src="https://img.shields.io/badge/Rust-2024-111827?logo=rust&logoColor=white" alt="Rust 2024">
-          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-5B8CFF" alt="Agent SDK 0.16.0">
-          <img src="https://img.shields.io/badge/License-BUSL--1.1-FFC766" alt="BUSL 1.1">
+          <img src="https://img.shields.io/badge/Backend-Rust-111111?logo=rust&logoColor=white" alt="Rust 2024">
+          <img src="https://img.shields.io/badge/Agent%20SDK-0.16.0-111111" alt="Agent SDK 0.16.0">
+          <img src="https://img.shields.io/badge/License-BUSL--1.1-111111" alt="BUSL 1.1">
         </div>
         <div class="flow" aria-label="Execution pipeline">
           <div class="flow-card"><strong>Application</strong>requests action</div>
@@ -166,6 +186,29 @@
         </div>
       </div>
     </section>
+<section id="scanner">
+ <div class="wrap">
+ <div class="section-head"><div><div class="section-kicker">Authorized assets only</div><h2>Live HTTP security checks.</h2></div>
+ <p class="section-lead">Real security-header inspection for domains authorized by the operator. Not a CVE scanner or penetration test.</p></div>
+ <form class="scan-form" id="real-scan">
+   <label for="scan-target">Authorized HTTPS domain</label>
+   <input id="scan-target" type="text" required placeholder="https://your-domain.com" autocomplete="off">
+   <label for="scan-key">Subscriber API key (optional)</label>
+   <input id="scan-key" type="password" placeholder="Bearer token for subscribed accounts" autocomplete="off">
+   <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
+   <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
+   <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
+   <a href="/v1/scanner/checkout" class="btn btn-secondary">Request subscription · $70/month</a>
+   <p class="scan-note">Checkout becomes available after the operator configures a Stripe Payment Link. The server refuses checkout if no link is configured.</p>
+ </form>
+
+<div class="scanner-pricing">
+ <article class="scanner-tier"><div class="section-kicker">Public</div><h3>Free</h3><p>3 checks per IP · lifetime</p><p class="scan-note">Authorized HTTPS hosts only. No signup required.</p></article>
+ <article class="scanner-tier"><div class="section-kicker">Subscriber</div><h3>$70 <small>/ month</small></h3><p>100 checks per UTC calendar month</p><a class="btn btn-primary" href="/v1/scanner/checkout">Subscribe via Stripe →</a></article>
+</div>
+ </div>
+</section>
+
 
     <section id="architecture">
       <div class="wrap">
@@ -236,7 +279,8 @@ Execution Failures .............. 0</pre>
       </div>
     </section>
 
-    <section id="benchmarks">
+
+<section id="benchmarks">
       <div class="wrap">
         <div class="section-head reveal">
           <div><div class="section-kicker">Measured locally</div><h2>Deterministic validation with visible cost.</h2></div>
@@ -334,6 +378,25 @@ if report.is_allowed() {
   </footer>
 
   <script>
+
+const scanForm=document.getElementById('real-scan');
+scanForm.addEventListener('submit', async event=>{
+ event.preventDefault();
+ const target=document.getElementById('scan-target').value.trim();
+ const key=document.getElementById('scan-key').value.trim();
+ const output=document.getElementById('scan-response');
+ const button=document.getElementById('scan-submit');
+ button.disabled=true;output.textContent='Checking server...';
+ try{
+  const headers={'Content-Type':'application/json'};
+  if(key) headers.Authorization='Bearer '+key;
+  const response=await fetch('/v1/scans',{method:'POST',headers,body:JSON.stringify({target})});
+  const data=await response.json();
+  output.textContent=JSON.stringify({http_status:response.status,...data},null,2);
+ }catch(_){output.textContent='Scanner API unavailable at this domain. Contact the operator.';}
+ finally{button.disabled=false;}
+});
+
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) {

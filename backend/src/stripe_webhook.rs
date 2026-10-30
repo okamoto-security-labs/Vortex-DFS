@@ -50,7 +50,7 @@ fn verify_stripe_signature(raw: &[u8], header: &str, secret: &str) -> Result<(),
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "clock")?
         .as_secs();
-    if now.saturating_sub(parsed.timestamp) > TIMESTAMP_TOLERANCE_SECS {
+    if now.abs_diff(parsed.timestamp) > TIMESTAMP_TOLERANCE_SECS {
         return Err("stale timestamp");
     }
     type H = Hmac<Sha256>;
@@ -96,46 +96,73 @@ struct StripeEventData {
 // Business logic — all async now (Supabase calls)
 // ---------------------------------------------------------------------------
 
-async fn on_checkout_completed(obj: &serde_json::Value) {
-    let email = obj["customer_details"]["email"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-    let cust_id = obj["customer"].as_str().unwrap_or("").to_string();
-    let sub_id = obj["subscription"].as_str().unwrap_or("").to_string();
 
-    let price_id = obj["line_items"]["data"][0]["price"]["id"]
-        .as_str()
-        .or_else(|| obj["metadata"]["price_id"].as_str())
-        .unwrap_or("");
-
-    let (plan, billing_period) = plan_from_price_id(price_id);
-
-    let customer = Customer {
-        api_key: generate_api_key(),
-        email: email.clone(),
-        plan: plan.to_string(),
-        billing_period: billing_period.to_string(),
-        stripe_customer: cust_id,
-        stripe_sub: sub_id,
-        status: "active".to_string(),
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-        expires_at: expiry_timestamp(billing_period),
-    };
-
-    if let Err(e) = upsert_customer(customer.clone()).await {
-        log::error!("Failed to save customer {}: {}", email, e);
-        return;
+async fn checkout_price_id(session: &serde_json::Value) -> Option<String> {
+    if let Some(value)=session["line_items"]["data"][0]["price"]["id"].as_str() {
+        return Some(value.to_owned());
     }
-
-    if let Err(e) = send_welcome_email(&customer).await {
-        log::error!("Failed to send welcome email to {}: {}", email, e);
+    if let Some(value)=session["metadata"]["price_id"].as_str() {
+        return Some(value.to_owned());
     }
+    let id=session["id"].as_str()?;
+    if !id.starts_with("cs_") || !id.bytes().all(|b|b.is_ascii_alphanumeric() || b==b'_') {
+        return None;
+    }
+    let secret=std::env::var("STRIPE_SECRET_KEY").ok()?;
+    let response=reqwest::Client::new()
+        .get(format!("https://api.stripe.com/v1/checkout/sessions/{id}/line_items?limit=1"))
+        .bearer_auth(secret)
+        .timeout(std::time::Duration::from_secs(5))
+        .send().await.ok()?;
+    if !response.status().is_success() { return None; }
+    let line_items=response.json::<serde_json::Value>().await.ok()?;
+    line_items["data"][0]["price"]["id"].as_str().map(ToOwned::to_owned)
 }
 
+async fn on_checkout_completed(obj: &serde_json::Value) -> Result<(), &'static str> {
+    if obj["payment_status"].as_str() != Some("paid") {
+        return Err("checkout payment has not settled");
+    }
+    let email = obj["customer_details"]["email"].as_str().unwrap_or("").to_owned();
+    let cust_id = obj["customer"].as_str().unwrap_or("").to_owned();
+    let sub_id = obj["subscription"].as_str().unwrap_or("").to_owned();
+    let Some(price_id) = checkout_price_id(obj).await else {
+        return Err("checkout price unresolved");
+    };
+    let (plan, billing_period) = plan_from_price_id(&price_id);
+    if plan == "scanner_100_monthly" && (email.is_empty() || sub_id.is_empty()) {
+        return Err("scanner checkout missing customer email or subscription");
+    }
+    if !sub_id.is_empty() {
+        if let Some(existing) = find_by_subscription(&sub_id).await {
+            send_welcome_email(&existing).await.map_err(|error| {
+                log::error!("Subscription access email delivery failed: {error}");
+                "welcome email delivery failed"
+            })?;
+            return Ok(());
+        }
+    }
+    let customer = Customer {
+        api_key: generate_api_key(),
+        email,
+        plan: plan.to_owned(),
+        billing_period: billing_period.to_owned(),
+        stripe_customer: cust_id,
+        stripe_sub: sub_id,
+        status: "active".to_owned(),
+        created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
+        expires_at: expiry_timestamp(billing_period),
+    };
+    upsert_customer(customer.clone()).await.map_err(|error| {
+        log::error!("Subscription persistence failed: {error}");
+        "customer persistence failed"
+    })?;
+    send_welcome_email(&customer).await.map_err(|error| {
+        log::error!("Welcome delivery failed: {error}");
+        "welcome email delivery failed"
+    })?;
+    Ok(())
+}
 async fn on_payment_succeeded(obj: &serde_json::Value) {
     let sub_id = obj["subscription"].as_str().unwrap_or("");
     if let Some(mut customer) = find_by_subscription(sub_id).await {
@@ -208,7 +235,12 @@ pub async fn handle_stripe_webhook(req: HttpRequest, raw_body: web::Bytes) -> Ht
 
     let obj = &event.data.object;
     match event.event_type.as_str() {
-        "checkout.session.completed" => on_checkout_completed(obj).await,
+        "checkout.session.completed" => {
+            if let Err(reason) = on_checkout_completed(obj).await {
+                log::error!("Stripe checkout provisioning failed: {reason}");
+                return HttpResponse::ServiceUnavailable().finish();
+            }
+        },
         "invoice.payment_succeeded" => on_payment_succeeded(obj).await,
         "invoice.payment_failed" => on_payment_failed(obj).await,
         "customer.subscription.deleted" => on_subscription_deleted(obj).await,

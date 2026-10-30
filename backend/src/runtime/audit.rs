@@ -119,6 +119,9 @@ fn decision_reason_from_storage(value: &str) -> Result<DecisionReason, AuditStor
 }
 
 /// Storage contract for safe runtime audit events.
+// async_trait expands async methods into must_use futures; suppress only the
+// redundant generated attribute warning, preserving -D warnings elsewhere.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait RuntimeAuditStore: Send + Sync {
     /// Appends an event. Stores must not mutate the runtime decision.
