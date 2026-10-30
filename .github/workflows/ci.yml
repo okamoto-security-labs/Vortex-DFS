@@ -22,6 +22,22 @@ jobs:
         rustup default stable
         rustup component add clippy rustfmt
 
+    - name: Validate scanner UI and Cloudflare Pages Functions
+      run: |
+        for f in functions/v1/scans.js functions/v1/scanner/checkout.js functions/stripe/webhook.js; do
+          node --input-type=module --check < "$f"
+        done
+        node - <<'NODE'
+        const fs = require('fs');
+        const html = fs.readFileSync('index.html','utf8');
+        const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+        if (!scripts.length) throw Error('No inline script in scanner UI');
+        for (const match of scripts) new Function(match[1]);
+        if (!html.includes('id="real-scan"')) throw Error('Real scanner form missing');
+        if (!html.includes('data:image/png;base64,')) throw Error('Monochrome logo missing');
+        console.log('Scanner UI and Pages Functions syntax OK');
+        NODE
+
     - name: Run Cargo Check
       run: cargo check --manifest-path backend/Cargo.toml
 
