@@ -170,6 +170,9 @@ pub fn expiry_timestamp(billing_period: &str) -> u64 {
 }
 
 pub fn plan_from_price_id(price_id: &str) -> (&'static str, &'static str) {
+    if !price_id.is_empty() && std::env::var("VORTEX_SCANNER_STRIPE_PRICE_ID").ok().as_deref() == Some(price_id) {
+        return ("scanner_100_monthly", "monthly");
+    }
     match price_id {
         "price_1TkWGLHkQnONoSg0rpy3ETei" => ("starter", "weekly"),
         "price_1TkWS3HkQnONoSg0ZhnLIioB" => ("starter", "monthly"),
