@@ -298,8 +298,8 @@ Execution Failures .............. 0</pre>
    <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
    <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
    <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
-   <a href="mailto:gugaokamoto1@gmail.com?subject=Vortex%20Scanner%20subscription%20US%2470%20monthly" class="btn btn-secondary">Request subscription · $70/month</a>
-   <p class="scan-note">Payment checkout is not yet activated. The subscription button opens an email request, not a payment form.</p>
+   <a href="/v1/scanner/checkout" class="btn btn-secondary">Request subscription · $70/month</a>
+   <p class="scan-note">Checkout becomes available after the operator configures a Stripe Payment Link. The server refuses checkout if no link is configured.</p>
  </form>
  </div>
 </section>
