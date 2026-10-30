@@ -3,6 +3,7 @@ use actix_web::{http::header, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
+use hmac::{Hmac, Mac};
 use sqlx::PgPool;
 use std::{net::IpAddr, time::Duration};
 
@@ -61,7 +62,16 @@ pub async fn run(request: HttpRequest, payload: web::Json<ScanInput>, pool: web:
         }
     } else {
         let addr=match public_source_ip(&request) {Ok(value)=>value,Err(response)=>return response};
-        (format!("public:{addr}"),3,false)
+        let salt = std::env::var("VORTEX_PROXY_SHARED_SECRET").unwrap_or_default();
+        if salt.len() < 24 {
+            return HttpResponse::ServiceUnavailable().json(json!({"error":"IP quota hashing is not configured"}));
+        }
+        let mut mac = match <Hmac<Sha256> as Mac>::new_from_slice(salt.as_bytes()) {
+            Ok(mac) => mac,
+            Err(_) => return HttpResponse::ServiceUnavailable().finish(),
+        };
+        mac.update(addr.to_string().as_bytes());
+        (format!("public:{}", hex::encode(mac.finalize().into_bytes())),3,false)
     };
     // Transactional atomic quota, period derived from PostgreSQL UTC clock.
     let period=if paid {
