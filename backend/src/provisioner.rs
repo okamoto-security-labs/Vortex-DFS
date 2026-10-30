@@ -174,6 +174,7 @@ pub fn plan_from_price_id(price_id: &str) -> (&'static str, &'static str) {
         return ("scanner_100_monthly", "monthly");
     }
     match price_id {
+        "price_1UWJUyHkQnONoSg0sdCzBqBn" => ("scanner_100_monthly", "monthly"),
         "price_1TkWGLHkQnONoSg0rpy3ETei" => ("starter", "weekly"),
         "price_1TkWS3HkQnONoSg0ZhnLIioB" => ("starter", "monthly"),
         "price_1TkWS3HkQnONoSg0zvXxrMep" => ("starter", "annual"),
