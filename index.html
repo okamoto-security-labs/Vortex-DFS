@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Vortex DFS security: authorized HTTP configuration checks, 3 public scans per IP and 100 subscriber scans each month.">
-  <meta name="theme-color" content="#07111f">
-  <title>Vortex DFS — Runtime Trust & Authorization</title>
+  <meta name="theme-color" content="#000000">
+  <title>Okamoto Security Labs — Vortex Scanner Early Access</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -165,11 +165,11 @@ body::before{background:none} .gradient{background:none;color:#fff;-webkit-backg
     <section class="hero" style="border-top:0">
       <div class="wrap">
         <div class="eyebrow"><span class="pulse"></span> Okamoto Security Labs · Authorized security checks</div>
-        <h1>Inspect your authorized assets.<span class="gradient"> Stay ahead of misconfigurations.</span></h1>
-        <p class="hero-copy">Real HTTPS security-header checks for approved domains. <strong>3 free scans per IP.</strong> Upgrade to <strong>100 scans/month for US$70.</strong></p>
+        <h1>Protect your authorized assets.<span class="gradient"> Request early access.</span></h1>
+        <p class="hero-copy">Introducing Vortex Scanner. Planned access includes <strong>3 public scans per IP</strong> and <strong>100 scans per month for US$70</strong>. Early access is open; scanning is not yet live.</p>
         <div class="actions">
-          <a class="btn btn-primary" href="#scanner">Run authorized scan <span>→</span></a>
-          <a class="btn btn-secondary" href="/v1/scanner/checkout">Subscribe · $70/month</a>
+          <a class="btn btn-primary" href="#scanner">Request scanner access <span>→</span></a>
+          <a class="btn btn-secondary" href="#scanner">View plans</a>
         </div>
         <div class="badges" aria-label="Project status badges">
           <img src="https://github.com/okamoto-security-labs/Vortex-DFS/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status">
@@ -187,28 +187,30 @@ body::before{background:none} .gradient{background:none;color:#fff;-webkit-backg
       </div>
     </section>
 <section id="scanner">
- <div class="wrap">
- <div class="section-head"><div><div class="section-kicker">Authorized assets only</div><h2>Live HTTP security checks.</h2></div>
- <p class="section-lead">Real security-header inspection for domains authorized by the operator. Not a CVE scanner or penetration test.</p></div>
- <form class="scan-form" id="real-scan">
-   <label for="scan-target">Authorized HTTPS domain</label>
-   <input id="scan-target" type="text" required placeholder="https://your-domain.com" autocomplete="off">
-   <label for="scan-key">Subscriber API key (optional)</label>
-   <input id="scan-key" type="password" placeholder="Bearer token for subscribed accounts" autocomplete="off">
-   <button class="btn btn-primary" type="submit" id="scan-submit">Run authorized scan</button>
-   <p class="scan-note">Free plan: 3 scans per source IP, lifetime. Paid plan: 100 scans per calendar month, US$70/month. The server enforces quotas. Domain approval is required before scanning.</p>
-   <div class="scan-result" id="scan-response" aria-live="polite">Ready. Backend connection and allowed domains must be configured.</div>
-   <a href="/v1/scanner/checkout" class="btn btn-secondary">Request subscription · $70/month</a>
-   <p class="scan-note">Checkout becomes available after the operator configures a Stripe Payment Link. The server refuses checkout if no link is configured.</p>
- </form>
-
-<div class="scanner-pricing">
- <article class="scanner-tier"><div class="section-kicker">Public</div><h3>Free</h3><p>3 checks per IP · lifetime</p><p class="scan-note">Authorized HTTPS hosts only. No signup required.</p></article>
- <article class="scanner-tier"><div class="section-kicker">Subscriber</div><h3>$70 <small>/ month</small></h3><p>100 checks per UTC calendar month</p><a class="btn btn-primary" href="/v1/scanner/checkout">Subscribe via Stripe →</a></article>
-</div>
- </div>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div><div class="section-kicker">Okamoto Security Labs · GitHub Pages</div><h2>Vortex Scanner — early access</h2></div>
+      <p class="section-lead">A security scanning service for assets you own or are authorized to assess. Public scanning is not enabled yet; join the early-access list for availability.</p>
+    </div>
+    <div class="scanner-pricing">
+      <article class="scanner-tier">
+        <div class="section-kicker">Planned public access</div>
+        <h3>Free preview</h3>
+        <p>3 scans per IP once the authenticated scan API is available.</p>
+        <p class="scan-note">No browser-side quota claims. We will enforce the limit on the server before enabling scans.</p>
+        <a class="btn btn-secondary" href="mailto:gugaokamoto1@gmail.com?subject=Vortex%20Scanner%20Early%20Access&body=Hi%2C%20I%27d%20like%20early%20access%20to%20Vortex%20Scanner.">Request early access →</a>
+      </article>
+      <article class="scanner-tier">
+        <div class="section-kicker">Planned subscription</div>
+        <h3>$70 <small>/ month</small></h3>
+        <p>100 authorized scans per month with an active subscription.</p>
+        <p class="scan-note">Payment activation and API key delivery are subject to end-to-end validation. No misleading checkout link.</p>
+        <a class="btn btn-primary" href="mailto:gugaokamoto1@gmail.com?subject=Vortex%20Scanner%20Pro%20%2470%2Fmonth&body=Hi%2C%20please%20contact%20me%20when%20the%20paid%20scanner%20opens.">Join Pro waitlist →</a>
+      </article>
+    </div>
+    <p class="scan-note">The site is hosted entirely on GitHub Pages at <strong>okamotosecurytlabs.com.br</strong>. Security scanning is not performed in the browser.</p>
+  </div>
 </section>
-
 
     <section id="architecture">
       <div class="wrap">
@@ -378,24 +380,6 @@ if report.is_allowed() {
   </footer>
 
   <script>
-
-const scanForm=document.getElementById('real-scan');
-scanForm.addEventListener('submit', async event=>{
- event.preventDefault();
- const target=document.getElementById('scan-target').value.trim();
- const key=document.getElementById('scan-key').value.trim();
- const output=document.getElementById('scan-response');
- const button=document.getElementById('scan-submit');
- button.disabled=true;output.textContent='Checking server...';
- try{
-  const headers={'Content-Type':'application/json'};
-  if(key) headers.Authorization='Bearer '+key;
-  const response=await fetch('/v1/scans',{method:'POST',headers,body:JSON.stringify({target})});
-  const data=await response.json();
-  output.textContent=JSON.stringify({http_status:response.status,...data},null,2);
- }catch(_){output.textContent='Scanner API unavailable at this domain. Contact the operator.';}
- finally{button.disabled=false;}
-});
 
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
