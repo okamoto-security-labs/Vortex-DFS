@@ -531,11 +531,14 @@ if report.is_allowed() {
       if(used()>=3)return;
       const input=promptInput.value.trim();
       if(!input){result.textContent='Enter text to inspect.';return;}
+      // Heuristic local-only screening; alerts are not a security verdict.
       const rules=[
-        ['Instruction override',/ignore (all |any |your )?(previous|prior|system|developer) (instructions|rules|prompts)|disregard (previous|prior) instructions/i],
-        ['Role spoofing',/\b(system|developer)\s*:\s*|\[inst\]|<\|im_start\|>\s*system/i],
-        ['Sensitive data extraction',/(reveal|print|send|expose|leak|dump).{0,65}(system prompt|api key|secret|password|token)/i],
-        ['Tool misuse / exfiltration',/(upload|post|forward|send).{0,90}(private|credentials|secret|password|api key).{0,50}(url|endpoint|server|email)/i]
+        ['Instruction override', /ignore\s+(?:all\s+|any\s+|your\s+)?(?:previous|prior|system|developer)\s+(?:instructions|rules|prompts)|disregard\s+(?:previous|prior)\s+instructions|override\s+(?:your\s+)?(?:instructions|rules|safety)/i],
+        ['Role spoofing', /\b(?:system|developer)\s*:\s*|\[inst\]|<\|im_start\|>\s*system|(?:act|pretend|behave)\s+as\s+(?:the\s+)?(?:system|developer|administrator)/i],
+        ['Sensitive data extraction', /(?:reveal|print|send|expose|leak|dump|include|provide|show|disclose|repeat|output)\b.{0,95}(?:hidden\s+system\s+instructions|system\s+(?:prompt|instructions|message)|internal\s+(?:instructions|prompt)|api\s*key|secret|password|token)/i],
+        ['Tool misuse / exfiltration', /(?:upload|post|forward|send|transmit)\b.{0,100}(?:private|credentials|secret|password|api\s*key).{0,70}(?:url|endpoint|server|email)/i],
+        ['Authority spoofing', /(?:approved|authorized|cleared|permitted)\s+(?:by\s+)?(?:the\s+)?(?:security\s+team|admin(?:istrator)?|compliance|developer|system)|(?:for|under)\s+(?:compliance|audit|security)\s+(?:verification|review|purposes)|(?:security\s+team|administrator)\s+(?:has|have)\s+(?:already\s+)?approved/i],
+        ['Instruction hierarchy manipulation', /(?:ignore|bypass|disable|suspend|replace|drop)\s+(?:the\s+|your\s+)?(?:safety\s+|security\s+)?(?:checks|filters|guardrails|policies|restrictions)|(?:new|updated)\s+(?:system|developer)\s+(?:instruction|policy)/i]
       ];
       const flags=rules.filter(([,regex])=>regex.test(input)).map(([name])=>name);
       result.textContent=flags.length
