@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-experimental%20pre--alpha-orange)
 ![Runtime](https://img.shields.io/badge/runtime-Rust-black?logo=rust)
 ![Tests](https://img.shields.io/badge/backend%20tests-200%20passing-success)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 </p>
 
@@ -117,8 +117,9 @@ The Actix Web backend includes protected paths for:
 - policy evaluation of agent tool execution;
 - anonymization with runtime authorization;
 - tenant-scoped audit retrieval;
-- policy, registry, provisioning, and key-management workflows;
 - bounded scanner operations.
+
+Policy installation, registry resolution, provisioning, and key-management foundations are currently exposed through Rust library modules and the `vortex` CLI, not as protected HTTP administration routes.
 
 For example, the anonymization path rejects an empty or invalid request before execution and only invokes transformation after the runtime returns an authorized `REDACT` decision.
 
@@ -201,4 +202,4 @@ Learn more at [vortexdfs.com](https://vortexdfs.com/).
 
 ## License and citation
 
-Vortex DFS is available under the [MIT License](LICENSE). Academic and technical references can use the metadata in [CITATION.cff](CITATION.cff).
+Vortex DFS is available under the [Apache License 2.0](LICENSE). Academic and technical references can use the metadata in [CITATION.cff](CITATION.cff).
