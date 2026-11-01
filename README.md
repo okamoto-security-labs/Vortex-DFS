@@ -2,273 +2,204 @@
 
 <p align="center">
 
-![Status](https://img.shields.io/badge/Status-Experimental%20Pre--alpha-orange)
-![Runtime](https://img.shields.io/badge/Runtime-Execution%20Gate-important)
-![Tests](https://img.shields.io/badge/Backend%20Tests-86%20passing-success)
-![Decision](https://img.shields.io/badge/Decision-Explicit-important)
+![Status](https://img.shields.io/badge/status-experimental%20pre--alpha-orange)
+![Runtime](https://img.shields.io/badge/runtime-Rust-black?logo=rust)
+![Tests](https://img.shields.io/badge/backend%20tests-200%20passing-success)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 </p>
 
 > Verify before execution.
 
-**Vortex DFS** is an open-source deterministic runtime for evaluating policy and evidence before protected execution.
+**Vortex DFS** is an open-source runtime authorization layer for AI agents and other automated systems. It evaluates identity, evidence, authority, policy, and consequences before a protected action reaches its executor.
 
-The runtime decides.  
-The adapter executes only when policy permits.
+The runtime decides. The adapter executes only when policy permits.
 
----
+## Why Vortex exists
+
+An agent proposing an action is not the same as that agent being authorized to perform it. A risk signal is not permission, and a successful plan is not proof that execution is safe.
+
+Vortex makes that boundary explicit:
+
+```text
+agent / application / workflow
+              │
+              ▼
+     normalized request context
+              │
+              ▼
+ identity + evidence + policy + consequence
+              │
+              ▼
+       Vortex RuntimeDecision
+       ├── ALLOW  ─────────────► execute
+       ├── REDACT ─────────────► transform, then execute
+       ├── AUDIT  ─────────────► record, then execute
+       └── REJECT ─────────────► block
+```
+
+Every decision is structured and machine-readable. A rejected request cannot invoke the guarded executor.
 
 ## Current status
 
-Vortex DFS is an **experimental pre-alpha** with a working protected execution path for anonymization:
+Vortex DFS is **experimental pre-alpha software**. The repository contains a working Rust runtime, protected HTTP paths, persistent audit support, policy bundle and registry foundations, executable conformance suites, and experimental research components.
 
-```text
-HTTP request
-  → RequestContext
-  → Evidence
-  → RuntimePolicy
-  → RuntimeDecision
-  → Execution Gate
-  → Anonymizer only when permitted
-```
+Latest local validation on the current `main` branch:
 
-The backend currently implements four outcomes:
+- 200 backend tests passed;
+- 0 failed, ignored, or filtered out;
+- unit, HTTP, AISVS C9, and runtime-failure conformance suites included.
 
-| Outcome | Meaning |
-|---|---|
-| `ALLOW` | The operation satisfies policy and may proceed. |
-| `REJECT` | A required condition failed; the executor is not invoked. |
-| `REDACT` | Sensitive data requires transformation before execution or disclosure. |
-| `AUDIT` | The operation may proceed with an explicit audit-required decision. |
+These results validate the checked-in behavior. They are not a production-security certification, an independent audit, or a latency/throughput guarantee.
 
-The execution gate is tested: a `REJECT` cannot invoke the protected executor, while a permitted `REDACT` can invoke it.
+## Implemented today
 
-Latest local validation:
+### Runtime decision engine
 
-- 83 backend library tests passed
-- 3 HTTP handler tests passed
-- 0 failures
+- deterministic policy evaluation;
+- explicit `ALLOW`, `REJECT`, `REDACT`, and `AUDIT` outcomes;
+- stable reason codes and policy references;
+- typed request, identity, payload, evidence, trust, and consequence contexts;
+- fail-closed handling for missing mandatory security state;
+- guarded execution that separates evaluation from side effects;
+- worst-case consequence composition for derived action chains.
 
-These tests validate runtime behavior. They are not a latency, throughput, or production-security certification.
+### Identity and authority
 
----
+- bearer authentication for protected HTTP routes;
+- tenant and principal context;
+- explicit scope checks;
+- API-key proof storage instead of serializing raw credentials into audit events;
+- approval, denied-intent, retry, and security-context constraints;
+- tenant-isolated audit reads.
 
-## What Vortex does
+### Audit path
 
-Vortex evaluates a request against explicit runtime policy before allowing an action to execute.
+- audit events written before permitted execution;
+- in-memory storage for tests and PostgreSQL storage for deployed paths;
+- paginated and trace-based audit retrieval;
+- migration support for runtime audit events and tenant isolation;
+- bounded evidence summaries without payload or raw identity disclosure.
 
-Instead of asking:
+Audit storage is persistent when the PostgreSQL-backed path is configured. The project does not yet claim immutable/WORM retention or compliance-ready governance exports.
 
-> Is this probably safe?
+### Policy distribution foundations
 
-Vortex asks:
+- versioned policy bundles with deterministic digests;
+- bundle integrity and metadata validation;
+- local policy installation and resolution;
+- registry index and version resolution;
+- publisher identity and trusted-key foundations;
+- a versioned tool-execution policy fixture.
 
-> Does this request satisfy the policy required for this operation?
+Bundle integrity is implemented. Production-grade publisher authenticity still depends on replacing the experimental signing path with reviewed cryptography and a complete key-management model.
 
-The goal is not to make AI systems more intelligent.
+## Executable conformance
 
-The goal is to make automated execution more trustworthy.
+Security properties are represented as tests, not only prose.
 
----
+The [Runtime Failure Conformance Harness](docs/runtime-failure-conformance-harness.md) currently exercises invariants such as:
 
-## Where Vortex fits
+- missing identity fails closed;
+- risk evidence cannot manufacture execution authority;
+- degraded approval evidence cannot grant authority;
+- denied intent remains constrained;
+- a blocked action affects retry state;
+- an irreversible derived action reaches the hard execution gate;
+- missing or failed security context cannot silently continue.
 
-| Technology | Primary responsibility |
-|---|---|
-| SIEM | Collect, normalize, and correlate security events |
-| EDR | Monitor and protect endpoints |
-| SOAR | Execute automated playbooks |
-| AI agents | Generate recommendations and proposed actions |
-| Policy engines | Define organizational rules |
-| **Vortex DFS** | **Evaluate whether a protected action satisfies runtime policy before execution** |
+The [AISVS C9 evaluation](conformance/aisvs-c9/README.md) tests action chains, reversibility, consequence composition, oversight requirements, and fail-closed handling of unclassified effects. External suites are treated as independent inputs; a green test alone is not presented as proof of semantic equivalence.
 
-Vortex sits between intelligence and execution.
+## Protected HTTP paths
 
-```text
-AI agent / application / workflow
-                │
-                ▼
-        Vortex DFS Runtime
-                │
-                ▼
-ALLOW / REDACT / AUDIT ──────► Protected execution
-                │
-                └────────────► REJECT: execution blocked
-```
+The Actix Web backend includes protected paths for:
 
----
+- policy evaluation of agent tool execution;
+- anonymization with runtime authorization;
+- tenant-scoped audit retrieval;
+- bounded scanner operations.
 
-## Implemented runtime flow
+Policy installation, registry resolution, provisioning, and key-management foundations are currently exposed through Rust library modules and the `vortex` CLI, not as protected HTTP administration routes.
 
-```text
-Input
-  │
-  ▼
-Request normalization
-  │
-  ▼
-Evidence collection
-  │
-  ▼
-Runtime policy evaluation
-  │
-  ▼
-Validation and reason-code generation
-  │
-  ▼
-RuntimeDecision
-  │
-  ├── ALLOW
-  ├── REJECT
-  ├── REDACT
-  └── AUDIT
-  │
-  ▼
-Guarded execution
-```
+For example, the anonymization path rejects an empty or invalid request before execution and only invokes transformation after the runtime returns an authorized `REDACT` decision.
 
-The runtime returns structured decision data, including:
+## Scanner scope
 
-- outcome;
-- stable reason code;
-- policy identifier and version;
-- evidence summary;
-- trust band when applicable;
-- decision latency;
-- request and trace identifiers.
+The repository also contains a gated HTTPS response-header inspector. It checks a small set of defensive headers for exact operator-allowlisted hosts.
 
----
-
-## Runtime guarantees implemented today
-
-- Deterministic runtime evaluation
-- Explicit policy enforcement
-- Stable machine-readable reason codes
-- Evidence-driven decisions
-- Fail-closed rejection behavior
-- Structured runtime decisions
-- Policy identifiers and versions included in decisions
-- Execution gate that prevents a rejected request from reaching its executor
-
----
-
-## Current HTTP example
-
-The anonymization handler builds a `RequestContext`, records evidence, evaluates policy, and only then calls the anonymizer.
-
-```text
-Empty content
-  → structural evidence fails
-  → REJECT
-  → anonymizer is not called
-
-Sensitive content
-  → sensitive-data evidence detected
-  → REDACT
-  → anonymizer executes after authorization
-```
-
----
-
-## What is not implemented yet
-
-The following are roadmap items, not current production guarantees:
-
-- Persistent or immutable audit storage
-- Production identity and authentication enforcement in the HTTP path
-- External policy bundles and policy administration
-- Production Tool Runner integration
-- Production Agent SDK adapter
-- End-to-end eBPF-to-runtime enforcement
-- Reproducible hardware-level latency benchmarks
-- Independently reviewed post-quantum cryptography
-
----
+It is **not** a vulnerability scanner, CVE detector, pentest engine, or unrestricted public-target scanner. Its deployment requirements, quotas, proxy trust boundary, billing integration, and operational gates are documented in [docs/scanner-deployment.md](docs/scanner-deployment.md).
 
 ## Experimental components
 
 ### LWE signer
 
-`signer_lwe.rs` is a toy-scale experimental LWE implementation used for research and testing.
+`backend/src/signer_lwe.rs` is a toy-scale research implementation with adversarial and stress tests. It is **not production post-quantum cryptography** and must not protect real keys or production trust decisions.
 
-It is **not production post-quantum cryptography**.
+A production path should use a reviewed implementation of an appropriate standard such as ML-DSA through a maintained cryptographic library.
 
-Do not rely on it for real cryptographic protection. Production use should migrate to a reviewed PQC implementation such as ML-DSA/Dilithium through an appropriate library.
+### eBPF/XDP prototype
 
-### eBPF/XDP
+`vortex-ebpf/` is an experimental low-level network-enforcement prototype. It is separate from the userspace runtime authorization path and is not an end-to-end kernel-to-runtime enforcement guarantee.
 
-The `vortex-ebpf` component is an experimental low-level network enforcement prototype.
+No claim of zero overhead, sub-microsecond enforcement, or production readiness is made without reproducible measurements on the target kernel, NIC, driver, workload, and policy.
 
-It is separate from the userspace runtime execution path.
+## What is not guaranteed yet
 
-It must not be described as:
+- production hardening or independent security review;
+- immutable audit retention and compliance exports;
+- a complete policy administration control plane;
+- production Agent SDK, MCP tool-runner, or SOAR adapters;
+- end-to-end eBPF-to-runtime enforcement;
+- reviewed production post-quantum cryptography;
+- reproducible cross-hardware performance guarantees;
+- unrestricted scanner deployment or automated proof of asset ownership.
 
-- zero-overhead security;
-- guaranteed sub-microsecond enforcement;
-- end-to-end agent authorization;
-- complete kernel-to-runtime integration.
+## Repository map
 
-Those claims require reproducible benchmarking on the target kernel, NIC, driver, packet profile, and policy.
-
----
-
-## Auditability
-
-The runtime produces an audit-ready structured decision.
-
-Adapters can record:
-
-- outcome;
-- reason code;
-- policy reference;
-- evidence summary;
-- trace identifier;
-- latency.
-
-A durable audit sink, immutable retention, compliance exports, and governance dashboards are not included yet.
-
----
-
-## Runtime Failure Assessment
-
-Deploying agents with tool or execution authority?
-
-Okamoto Security Labs runs a fixed-scope assessment that converts failure modes from an agent or runtime architecture into executable security invariants and tests whether the execution boundary actually enforces them.
-
-### 7-day pilot
-
-- 1 agent/runtime workflow
-- up to 15 runtime failure scenarios
-- executable conformance harness
-- Evidence → Authority → Action → Consequence mapping
-- PASS / FAIL results
-- execution-boundary findings
-- remediation priorities
-- technical handoff
-
-**Fixed-scope pilot: USD 1,000**
-
-For assessment requests: https://vortexdfs.com/
-
-
----
+| Path | Purpose |
+|---|---|
+| `backend/src/runtime/` | Decision engine, context, evidence, policy, audit, consequence, and execution gate |
+| `backend/src/main.rs` | Protected HTTP runtime paths |
+| `backend/tests/runtime_failure_conformance.rs` | Executable runtime-failure invariants |
+| `backend/tests/aisvs_c9_conformance.rs` | AISVS C9 action-class evaluation |
+| `registry/` | Versioned policy registry fixtures |
+| `docs/` | Architecture, quality gates, deployment, and operational guidance |
+| `publication/` | Runtime Decision Architecture publication |
+| `vortex-ebpf/` | Experimental eBPF/XDP prototype |
 
 ## Development
 
-Run backend tests:
+Prerequisites: a stable Rust toolchain and the native dependencies required by `sqlx`/PostgreSQL.
+
+```bash
+git clone https://github.com/okamoto-security-labs/Vortex-DFS.git
+cd Vortex-DFS
+```
+
+Run the backend test suite:
 
 ```bash
 cargo test --manifest-path backend/Cargo.toml
 ```
 
-Check formatting:
+Run the same core checks used by CI:
 
 ```bash
+cargo check --manifest-path backend/Cargo.toml
+cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
 cargo fmt --manifest-path backend/Cargo.toml --check
 ```
 
-Run static analysis:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for engineering principles and pull-request expectations. Security issues should be reported privately according to [SECURITY.md](SECURITY.md).
 
-```bash
-cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
-```
+## Runtime Failure Assessment
+
+Okamoto Security Labs offers a fixed-scope assessment for teams deploying agents with tool or execution authority. The engagement maps failure modes into executable security invariants and tests whether the real execution boundary enforces them.
+
+The pilot covers one agent/runtime workflow, up to 15 failure scenarios, a conformance harness, PASS/FAIL evidence, remediation priorities, and a technical handoff.
+
+Learn more at [vortexdfs.com](https://vortexdfs.com/).
+
+## License and citation
+
+Vortex DFS is available under the [Apache License 2.0](LICENSE). Academic and technical references can use the metadata in [CITATION.cff](CITATION.cff).
