@@ -39,6 +39,9 @@ jobs:
         NODE
         node tests/prompt-triage-regression.cjs
 
+    - name: Test local prompt-injection triage
+      run: node --test tests/prompt-triage.test.cjs
+
     - name: Run Cargo Check
       run: cargo check --manifest-path backend/Cargo.toml
 
