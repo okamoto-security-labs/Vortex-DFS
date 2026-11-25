@@ -5,7 +5,6 @@
     "fault": "ack_lost_after_commit",
     "contract": {
       "idempotency_key_supported": true,
-      "independent_receipt_available": true,
       "key_reused_across_attempts": true,
       "mcp_idempotent_hint": false
     },
@@ -18,7 +17,6 @@
     "fault": "ack_lost_after_commit",
     "contract": {
       "idempotency_key_supported": false,
-      "independent_receipt_available": false,
       "key_reused_across_attempts": false,
       "mcp_idempotent_hint": true
     },
@@ -31,7 +29,6 @@
     "fault": "duplicate_delivery",
     "contract": {
       "idempotency_key_supported": true,
-      "independent_receipt_available": true,
       "key_reused_across_attempts": true,
       "mcp_idempotent_hint": false
     },
@@ -44,7 +41,6 @@
     "fault": "duplicate_delivery",
     "contract": {
       "idempotency_key_supported": false,
-      "independent_receipt_available": true,
       "key_reused_across_attempts": false,
       "mcp_idempotent_hint": true
     },
@@ -57,7 +53,6 @@
     "fault": "timeout_outcome_unknown",
     "contract": {
       "idempotency_key_supported": false,
-      "independent_receipt_available": false,
       "key_reused_across_attempts": false,
       "mcp_idempotent_hint": false
     },
