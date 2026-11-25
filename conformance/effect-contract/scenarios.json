@@ -1,0 +1,62 @@
+[
+  {
+    "id": "lost_ack_after_commit_with_idempotency",
+    "description": "The service commits a write, then the acknowledgement is lost. A retry reuses the same operation key.",
+    "fault": "ack_lost_after_commit",
+    "contract": {
+      "idempotency_key_supported": true,
+      "key_reused_across_attempts": true,
+      "mcp_idempotent_hint": false
+    },
+    "expected_action": "RETRY_WITH_SAME_KEY",
+    "expected_effect_count": 1
+  },
+  {
+    "id": "lost_ack_after_commit_without_idempotency",
+    "description": "The service may have committed, but the tool has no idempotency guarantee.",
+    "fault": "ack_lost_after_commit",
+    "contract": {
+      "idempotency_key_supported": false,
+      "key_reused_across_attempts": false,
+      "mcp_idempotent_hint": true
+    },
+    "expected_action": "HOLD_FOR_RECONCILIATION",
+    "expected_effect_count": 1
+  },
+  {
+    "id": "duplicate_delivery_with_contract",
+    "description": "The same logical operation is delivered twice under a server-backed idempotency contract.",
+    "fault": "duplicate_delivery",
+    "contract": {
+      "idempotency_key_supported": true,
+      "key_reused_across_attempts": true,
+      "mcp_idempotent_hint": false
+    },
+    "expected_action": "ALLOW_DEDUPLICATED_REPLAY",
+    "expected_effect_count": 1
+  },
+  {
+    "id": "duplicate_delivery_without_contract",
+    "description": "The same write is delivered twice without a deduplication guarantee.",
+    "fault": "duplicate_delivery",
+    "contract": {
+      "idempotency_key_supported": false,
+      "key_reused_across_attempts": false,
+      "mcp_idempotent_hint": true
+    },
+    "expected_action": "BLOCK_DUPLICATE",
+    "expected_effect_count": 1
+  },
+  {
+    "id": "timeout_before_commit_unknown",
+    "description": "A timeout does not reveal whether the server committed the write.",
+    "fault": "timeout_outcome_unknown",
+    "contract": {
+      "idempotency_key_supported": false,
+      "key_reused_across_attempts": false,
+      "mcp_idempotent_hint": false
+    },
+    "expected_action": "HOLD_FOR_RECONCILIATION",
+    "expected_effect_count": 0
+  }
+]
