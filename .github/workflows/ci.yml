@@ -19,8 +19,9 @@ jobs:
 
     - name: Set up Rust Toolchain
       run: |
-        rustup default stable
-        rustup component add clippy rustfmt
+        rustup toolchain install 1.93.1 --profile minimal
+        rustup default 1.93.1
+        rustup component add clippy rustfmt --toolchain 1.93.1
 
     - name: Validate scanner UI and Cloudflare Pages Functions
       run: |
